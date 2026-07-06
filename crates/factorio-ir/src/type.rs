@@ -1,8 +1,7 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum IrType {
+pub enum Type {
     Int,
     Float,
     Str,
     Void,
-    FactorioHandle(String), // "LuaEntity", etc.
 }

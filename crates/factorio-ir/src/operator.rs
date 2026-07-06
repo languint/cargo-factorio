@@ -1,5 +1,5 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum IrOperator {
+pub enum Operator {
     Add,
     Sub,
     Mul,

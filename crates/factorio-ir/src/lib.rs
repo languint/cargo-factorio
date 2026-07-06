@@ -1,6 +1,8 @@
-pub mod ir_expression;
-pub mod ir_function;
-pub mod ir_literal;
-pub mod ir_operator;
-pub mod ir_statement;
-pub mod ir_type;
+pub mod block;
+pub mod expression;
+pub mod function;
+pub mod literal;
+pub mod module;
+pub mod operator;
+pub mod statement;
+pub mod r#type;

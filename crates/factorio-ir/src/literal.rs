@@ -1,6 +1,6 @@
 #[derive(Debug, Clone, PartialEq)]
-pub enum IrLiteral {
+pub enum Literal {
     Int(i64),
     Float(f64),
-    Str(String),
+    String(String),
 }
