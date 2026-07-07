@@ -4,6 +4,25 @@ use crate::{literal::Literal, operator::Operator};
 pub enum Expression {
     Literal(Literal),
     Identifier(String),
+    QualifiedPath {
+        segments: Vec<String>,
+    },
+    FieldAccess {
+        base: Box<Self>,
+        field: String,
+    },
+    Call {
+        func: Box<Self>,
+        args: Vec<Self>,
+    },
+    MethodCall {
+        receiver: Box<Self>,
+        method: String,
+        args: Vec<Self>,
+    },
+    StructLiteral {
+        fields: Vec<(String, Self)>,
+    },
     BinaryOp {
         lhs: Box<Self>,
         op: Operator,

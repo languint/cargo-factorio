@@ -1,6 +1,6 @@
 use factorio_ir::{
     block::Block, expression::Expression, function::Function, literal::Literal, module::Module,
-    operator::Operator, scope::Scope, statement::Statement,
+    operator::Operator, scope::Scope, statement::Statement, structure::Struct,
 };
 
 use crate::generator::error::{LuaGeneratorError, LuaGeneratorResult};
@@ -10,6 +10,8 @@ pub mod error;
 pub struct LuaGenerator {
     output: String,
     indent_level: usize,
+    /// Rewrites `StructName.associated` paths while generating struct methods.
+    struct_table_context: Option<(String, String)>,
 }
 
 impl Default for LuaGenerator {
@@ -23,6 +25,7 @@ impl LuaGenerator {
         Self {
             output: String::new(),
             indent_level: 0,
+            struct_table_context: None,
         }
     }
 
@@ -106,6 +109,9 @@ impl LuaGenerator {
             Statement::FunctionDecl(function) => {
                 self.generate_function(function, scope, module_name)?;
             }
+            Statement::StructDecl(struct_decl) => {
+                self.generate_struct(struct_decl, scope, module_name)?;
+            }
             Statement::VariableDecl { name, value, .. } => {
                 let value = self.generate_expression(value);
                 let line = match (scope, module_name) {
@@ -154,7 +160,94 @@ impl LuaGenerator {
                 };
                 self.write_line(&line);
             }
+            Statement::Expr(expression) => {
+                self.write_line(&self.generate_expression(expression));
+            }
         }
+
+        Ok(())
+    }
+
+    fn generate_struct(
+        &mut self,
+        struct_decl: &Struct,
+        scope: Scope,
+        module_name: Option<&str>,
+    ) -> LuaGeneratorResult<()> {
+        if scope == Scope::Private && module_name.is_some() {
+            return Err(LuaGeneratorError::StructLocalAndExported(
+                struct_decl.name.clone(),
+            ));
+        }
+
+        let table_path = match (scope, module_name) {
+            (Scope::Public, Some(module_name)) => {
+                format!("{module_name}.{}", struct_decl.name)
+            }
+            (Scope::Private, None) => struct_decl.name.clone(),
+            (Scope::Public, None) => struct_decl.name.clone(),
+            (Scope::Private, Some(_)) => unreachable!("handled above"),
+        };
+
+        let prefix = if scope == Scope::Private && module_name.is_none() {
+            "local "
+        } else {
+            ""
+        };
+
+        self.write_line(&format!("{prefix}{table_path} = {{}}"));
+
+        for (name, value) in &struct_decl.constants {
+            let value = self.generate_expression(value);
+            self.write_line(&format!("{table_path}.{name} = {value}"));
+        }
+
+        for method in &struct_decl.methods {
+            self.generate_table_method(method, &struct_decl.name, &table_path)?;
+        }
+
+        Ok(())
+    }
+
+    fn generate_table_method(
+        &mut self,
+        func: &Function,
+        struct_name: &str,
+        table_path: &str,
+    ) -> LuaGeneratorResult<()> {
+        let function_uses_self = func
+            .params
+            .first()
+            .is_some_and(|parameter| parameter.name == "self");
+
+        let params = if function_uses_self {
+            func.params
+                .iter()
+                .skip(1)
+                .map(|parameter| parameter.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        } else {
+            func.params
+                .iter()
+                .map(|parameter| parameter.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+
+        let separator = if function_uses_self { ":" } else { "." };
+        self.write_line(&format!(
+            "function {table_path}{separator}{}({params})",
+            func.name
+        ));
+
+        self.struct_table_context = Some((struct_name.to_string(), table_path.to_string()));
+        self.indent_level += 1;
+        self.generate_block(&func.body)?;
+        self.indent_level -= 1;
+        self.struct_table_context = None;
+
+        self.write_line("end");
 
         Ok(())
     }
@@ -220,6 +313,57 @@ impl LuaGenerator {
         match expression {
             Expression::Literal(literal) => self.generate_literal(literal),
             Expression::Identifier(name) => name.clone(),
+            Expression::FieldAccess { base, field } => {
+                let base = self.generate_expression(base);
+                format!("{base}.{field}")
+            }
+            Expression::QualifiedPath { segments } => {
+                if let Some((struct_name, table_path)) = &self.struct_table_context {
+                    if segments.first().is_some_and(|segment| segment == struct_name) {
+                        let suffix = segments
+                            .get(1..)
+                            .map_or_else(String::new, |rest| rest.join("."));
+                        if suffix.is_empty() {
+                            return table_path.clone();
+                        }
+                        return format!("{table_path}.{suffix}");
+                    }
+                }
+
+                segments.join(".")
+            }
+            Expression::Call { func, args } => {
+                let func = self.generate_expression(func);
+                let args = args
+                    .iter()
+                    .map(|arg| self.generate_expression(arg))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{func}({args})")
+            }
+            Expression::MethodCall {
+                receiver,
+                method,
+                args,
+            } => {
+                let receiver = self.generate_expression(receiver);
+                let args = args
+                    .iter()
+                    .map(|arg| self.generate_expression(arg))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{receiver}:{method}({args})")
+            }
+            Expression::StructLiteral { fields } => {
+                let fields = fields
+                    .iter()
+                    .map(|(name, value)| {
+                        format!("{name} = {}", self.generate_expression(value))
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{{ {fields} }}")
+            }
             Expression::BinaryOp { lhs, op, rhs } => {
                 let lhs = self.generate_expression(lhs);
                 let rhs = self.generate_expression(rhs);

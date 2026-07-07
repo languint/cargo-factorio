@@ -1,0 +1,3 @@
+# cargo-factorio project configuration
+source = "src"
+output_dir = "lua"

@@ -6,4 +6,5 @@ pub mod module;
 pub mod operator;
 pub mod scope;
 pub mod statement;
+pub mod structure;
 pub mod r#type;

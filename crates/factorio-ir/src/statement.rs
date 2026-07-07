@@ -1,8 +1,9 @@
-use crate::{expression::Expression, function::Function, r#type::Type};
+use crate::{expression::Expression, function::Function, structure::Struct, r#type::Type};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     FunctionDecl(Function),
+    StructDecl(Struct),
     VariableDecl {
         name: String,
         ty: Type,
@@ -18,4 +19,5 @@ pub enum Statement {
         else_block: Vec<Self>,
     },
     Return(Option<Expression>),
+    Expr(Expression),
 }

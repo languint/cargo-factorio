@@ -1,7 +1,9 @@
+use std::collections::BTreeMap;
+
 use syn::spanned::Spanned;
 use syn::{
-    BinOp, Block, Expr, ExprBinary, ExprLit, ExprPath, File, Item, ItemFn, Lit, PatType, Signature,
-    Stmt, Type, Visibility,
+    BinOp, Block, Expr, ExprBinary, ExprLit, ExprPath, Fields, File, ImplItem, Item, ItemFn, Lit,
+    Member, PatType, Signature, Stmt, Type, Visibility,
 };
 
 use crate::error::{FrontendError, FrontendResult};
@@ -21,6 +23,7 @@ pub fn parse_module(
 fn lower_module(file: &File, module_name: &str) -> FrontendResult<factorio_ir::module::Module> {
     let mut body = Vec::new();
     let mut symbols = Vec::new();
+    let mut structs = BTreeMap::<String, PendingStruct>::new();
 
     for item in &file.items {
         match item {
@@ -35,12 +38,73 @@ fn lower_module(file: &File, module_name: &str) -> FrontendResult<factorio_ir::m
                     _ => body.push(lowered),
                 }
             }
+            Item::Struct(item_struct) => {
+                let name = item_struct.ident.to_string();
+                let entry = structs
+                    .entry(name.clone())
+                    .or_insert_with(|| PendingStruct::new(item_struct.vis.clone()));
+                entry.visibility = item_struct.vis.clone();
+                entry.fields = lower_struct_fields(&item_struct.fields)?;
+            }
+            Item::Impl(item_impl) => {
+                if item_impl.trait_.is_some() {
+                    return Err(FrontendError::UnsupportedItem {
+                        item: "trait impl".to_string(),
+                        location: location(item_impl),
+                    });
+                }
+
+                let struct_name = impl_type_name(&item_impl.self_ty)?;
+                let entry = structs
+                    .entry(struct_name.clone())
+                    .or_insert_with(|| PendingStruct::new(Visibility::Inherited));
+
+                for impl_item in &item_impl.items {
+                    match impl_item {
+                        ImplItem::Fn(method) => {
+                            entry
+                                .methods
+                                .push(lower_impl_method(method, &struct_name)?);
+                        }
+                        ImplItem::Const(item) => {
+                            let value = lower_expression(&item.expr, Some(&struct_name))?;
+                            entry
+                                .constants
+                                .push((item.ident.to_string(), value));
+                        }
+                        item => {
+                            return Err(FrontendError::UnsupportedItem {
+                                item: item_name_impl(item),
+                                location: location(item),
+                            });
+                        }
+                    }
+                }
+            }
+            Item::Use(_) => {}
             item => {
                 return Err(FrontendError::UnsupportedItem {
                     item: item_name(item),
                     location: location(item),
                 });
             }
+        }
+    }
+
+    for (name, pending_struct) in structs {
+        let lowered = factorio_ir::statement::Statement::StructDecl(factorio_ir::structure::Struct {
+            name,
+            fields: pending_struct.fields,
+            constants: pending_struct.constants,
+            methods: pending_struct.methods,
+        });
+
+        match &pending_struct.visibility {
+            Visibility::Public(_) => symbols.push(factorio_ir::module::Symbol {
+                scope: factorio_ir::scope::Scope::Public,
+                statement: lowered,
+            }),
+            _ => body.push(lowered),
         }
     }
 
@@ -51,11 +115,83 @@ fn lower_module(file: &File, module_name: &str) -> FrontendResult<factorio_ir::m
     })
 }
 
+struct PendingStruct {
+    visibility: Visibility,
+    fields: Vec<factorio_ir::structure::StructField>,
+    constants: Vec<(String, factorio_ir::expression::Expression)>,
+    methods: Vec<factorio_ir::function::Function>,
+}
+
+impl PendingStruct {
+    fn new(visibility: Visibility) -> Self {
+        Self {
+            visibility,
+            fields: Vec::new(),
+            constants: Vec::new(),
+            methods: Vec::new(),
+        }
+    }
+}
+
+fn lower_struct_fields(
+    fields: &Fields,
+) -> FrontendResult<Vec<factorio_ir::structure::StructField>> {
+    match fields {
+        Fields::Named(fields) => fields
+            .named
+            .iter()
+            .map(|field| {
+                let name = field.ident.as_ref().ok_or_else(|| {
+                    FrontendError::ExpectedIdentifierPattern {
+                        location: location(field),
+                    }
+                })?;
+                Ok(factorio_ir::structure::StructField {
+                    name: name.to_string(),
+                    ty: lower_type(&field.ty)?,
+                })
+            })
+            .collect(),
+        Fields::Unit => Ok(Vec::new()),
+        Fields::Unnamed(_) => Err(FrontendError::UnsupportedItem {
+            item: "tuple struct".to_string(),
+            location: location(fields),
+        }),
+    }
+}
+
+fn impl_type_name(ty: &Type) -> FrontendResult<String> {
+    match ty {
+        Type::Path(path) if path.path.segments.len() == 1 => {
+            Ok(path.path.segments[0].ident.to_string())
+        }
+        _ => Err(FrontendError::UnsupportedType {
+            ty: "unsupported impl type".to_string(),
+            location: location(ty),
+        }),
+    }
+}
+
 fn lower_function(function: &ItemFn) -> FrontendResult<factorio_ir::function::Function> {
+    lower_function_parts(&function.sig, &function.block, None)
+}
+
+fn lower_impl_method(
+    method: &syn::ImplItemFn,
+    self_type: &str,
+) -> FrontendResult<factorio_ir::function::Function> {
+    lower_function_parts(&method.sig, &method.block, Some(self_type))
+}
+
+fn lower_function_parts(
+    signature: &Signature,
+    block: &Block,
+    self_type: Option<&str>,
+) -> FrontendResult<factorio_ir::function::Function> {
     Ok(factorio_ir::function::Function {
-        name: function.sig.ident.to_string(),
-        params: lower_parameters(&function.sig)?,
-        body: lower_block(&function.block)?,
+        name: signature.ident.to_string(),
+        params: lower_parameters(signature)?,
+        body: lower_block(block, self_type)?,
     })
 }
 
@@ -86,13 +222,16 @@ fn lower_parameter(input: &syn::FnArg) -> FrontendResult<factorio_ir::function::
 }
 
 /// Lower a block of Rust statements into IR statements.
-fn lower_block(block: &Block) -> FrontendResult<factorio_ir::block::Block> {
+fn lower_block(
+    block: &Block,
+    self_type: Option<&str>,
+) -> FrontendResult<factorio_ir::block::Block> {
     let mut statements = Vec::new();
     let last_index = block.stmts.len().saturating_sub(1);
 
     for (index, statement) in block.stmts.iter().enumerate() {
         let is_tail = index == last_index;
-        statements.extend(lower_statement(statement, is_tail)?);
+        statements.extend(lower_statement(statement, is_tail, self_type)?);
     }
 
     Ok(factorio_ir::block::Block { statements })
@@ -102,6 +241,7 @@ fn lower_block(block: &Block) -> FrontendResult<factorio_ir::block::Block> {
 fn lower_statement(
     statement: &Stmt,
     is_tail: bool,
+    self_type: Option<&str>,
 ) -> FrontendResult<Vec<factorio_ir::statement::Statement>> {
     match statement {
         Stmt::Local(local) => {
@@ -112,15 +252,10 @@ fn lower_statement(
                 .ok_or_else(|| FrontendError::MissingLetInitializer {
                     location: location(local),
                 })?;
-            let value = lower_expression(&init.expr)?;
+            let value = lower_expression(&init.expr, self_type)?;
             let ty = match annotated_type {
                 Some(ty) => ty,
-                None => infer_type_from_expression(&value).ok_or_else(|| {
-                    FrontendError::UnsupportedType {
-                        ty: "missing type annotation".to_string(),
-                        location: location(local),
-                    }
-                })?,
+                None => infer_type_from_expression(&value).unwrap_or(factorio_ir::r#type::Type::Void),
             };
 
             Ok(vec![factorio_ir::statement::Statement::VariableDecl {
@@ -139,7 +274,7 @@ fn lower_statement(
             location: location(item),
         }),
         Stmt::Expr(expression, semi) => {
-            lower_expression_statement(expression, semi.is_some(), is_tail)
+            lower_expression_statement(expression, semi.is_some(), is_tail, self_type)
         }
         _ => Err(FrontendError::UnsupportedStatement {
             location: location(statement),
@@ -151,13 +286,14 @@ fn lower_expression_statement(
     expression: &Expr,
     has_semi: bool,
     is_tail: bool,
+    self_type: Option<&str>,
 ) -> FrontendResult<Vec<factorio_ir::statement::Statement>> {
     if has_semi {
-        return Ok(vec![lower_semicolon_expression(expression)?]);
+        return Ok(vec![lower_semicolon_expression(expression, self_type)?]);
     }
 
     if is_tail {
-        return Ok(vec![lower_tail_expression(expression)?]);
+        return Ok(vec![lower_tail_expression(expression, self_type)?]);
     }
 
     Err(FrontendError::UnsupportedStatement {
@@ -169,36 +305,43 @@ fn lower_expression_statement(
 ///
 /// Control-flow expressions such as `if` remain statements. Other expressions
 /// become implicit `return` values.
-fn lower_tail_expression(expression: &Expr) -> FrontendResult<factorio_ir::statement::Statement> {
+fn lower_tail_expression(
+    expression: &Expr,
+    self_type: Option<&str>,
+) -> FrontendResult<factorio_ir::statement::Statement> {
     match expression {
-        Expr::If(if_expression) => lower_if_expression(if_expression),
+        Expr::If(if_expression) => lower_if_expression(if_expression, self_type),
         Expr::Return(return_expression) => Ok(factorio_ir::statement::Statement::Return(
             match return_expression.expr.as_deref() {
-                Some(value) => Some(lower_expression(value)?),
+                Some(value) => Some(lower_expression(value, self_type)?),
                 None => None,
             },
         )),
         _ => Ok(factorio_ir::statement::Statement::Return(Some(
-            lower_expression(expression)?,
+            lower_expression(expression, self_type)?,
         ))),
     }
 }
 
 fn lower_semicolon_expression(
     expression: &Expr,
+    self_type: Option<&str>,
 ) -> FrontendResult<factorio_ir::statement::Statement> {
     match expression {
         Expr::Return(return_expression) => Ok(factorio_ir::statement::Statement::Return(
             match return_expression.expr.as_deref() {
-                Some(value) => Some(lower_expression(value)?),
+                Some(value) => Some(lower_expression(value, self_type)?),
                 None => None,
             },
         )),
         Expr::Assign(assign) => Ok(factorio_ir::statement::Statement::Assignment {
-            target: lower_assignment_target(&assign.left)?,
-            value: lower_expression(&assign.right)?,
+            target: lower_assignment_target(&assign.left, self_type)?,
+            value: lower_expression(&assign.right, self_type)?,
         }),
-        Expr::If(if_expression) => lower_if_expression(if_expression),
+        Expr::If(if_expression) => lower_if_expression(if_expression, self_type),
+        Expr::Call(_) | Expr::MethodCall(_) => Ok(factorio_ir::statement::Statement::Expr(
+            lower_expression(expression, self_type)?,
+        )),
         _ => Err(FrontendError::UnsupportedStatement {
             location: location(expression),
         }),
@@ -207,11 +350,12 @@ fn lower_semicolon_expression(
 
 fn lower_if_expression(
     if_expression: &syn::ExprIf,
+    self_type: Option<&str>,
 ) -> FrontendResult<factorio_ir::statement::Statement> {
-    let condition = lower_expression(&if_expression.cond)?;
-    let then_block = lower_block_statements(&if_expression.then_branch.stmts)?;
+    let condition = lower_expression(&if_expression.cond, self_type)?;
+    let then_block = lower_block_statements(&if_expression.then_branch.stmts, self_type)?;
     let else_block = match &if_expression.else_branch {
-        Some((_, else_branch)) => lower_branch_statements(else_branch)?,
+        Some((_, else_branch)) => lower_branch_statements(else_branch, self_type)?,
         None => Vec::new(),
     };
 
@@ -224,9 +368,10 @@ fn lower_if_expression(
 
 fn lower_branch_statements(
     expression: &Expr,
+    self_type: Option<&str>,
 ) -> FrontendResult<Vec<factorio_ir::statement::Statement>> {
     match expression {
-        Expr::Block(block) => lower_block_statements(&block.block.stmts),
+        Expr::Block(block) => lower_block_statements(&block.block.stmts, self_type),
         _ => Err(FrontendError::UnsupportedStatement {
             location: location(expression),
         }),
@@ -235,36 +380,111 @@ fn lower_branch_statements(
 
 fn lower_block_statements(
     statements: &[Stmt],
+    self_type: Option<&str>,
 ) -> FrontendResult<Vec<factorio_ir::statement::Statement>> {
     let mut lowered = Vec::new();
     let last_index = statements.len().saturating_sub(1);
 
     for (index, statement) in statements.iter().enumerate() {
         let is_tail = index == last_index;
-        lowered.extend(lower_statement(statement, is_tail)?);
+        lowered.extend(lower_statement(statement, is_tail, self_type)?);
     }
 
     Ok(lowered)
 }
 
 /// Lower a Rust expression into IR.
-fn lower_expression(expression: &Expr) -> FrontendResult<factorio_ir::expression::Expression> {
+fn lower_expression(
+    expression: &Expr,
+    self_type: Option<&str>,
+) -> FrontendResult<factorio_ir::expression::Expression> {
     match expression {
-        Expr::Binary(binary) => lower_binary_expression(binary),
+        Expr::Binary(binary) => lower_binary_expression(binary, self_type),
         Expr::Lit(literal) => lower_literal_expression(literal),
-        Expr::Path(path) => lower_path_expression(path),
+        Expr::Path(path) => lower_path_expression(path, self_type),
+        Expr::Field(field) => lower_field_expression(field, self_type),
+        Expr::Call(call) => {
+            let func = lower_expression(&call.func, self_type)?;
+            let args = call
+                .args
+                .iter()
+                .map(|arg| lower_expression(arg, self_type))
+                .collect::<FrontendResult<Vec<_>>>()?;
+            Ok(factorio_ir::expression::Expression::Call {
+                func: Box::new(func),
+                args,
+            })
+        }
+        Expr::MethodCall(call) => {
+            let receiver = lower_expression(&call.receiver, self_type)?;
+            let args = call
+                .args
+                .iter()
+                .map(|arg| lower_expression(arg, self_type))
+                .collect::<FrontendResult<Vec<_>>>()?;
+            Ok(factorio_ir::expression::Expression::MethodCall {
+                receiver: Box::new(receiver),
+                method: call.method.to_string(),
+                args,
+            })
+        }
+        Expr::Struct(item) => lower_struct_expression(item, self_type),
         _ => Err(FrontendError::UnsupportedExpression {
             location: location(expression),
         }),
     }
 }
 
+fn lower_struct_expression(
+    item: &syn::ExprStruct,
+    self_type: Option<&str>,
+) -> FrontendResult<factorio_ir::expression::Expression> {
+    let fields = item
+        .fields
+        .iter()
+        .map(|field| {
+            let name = match &field.member {
+                Member::Named(ident) => ident.to_string(),
+                Member::Unnamed(index) => {
+                    return Err(FrontendError::UnsupportedExpression {
+                        location: location(index),
+                    });
+                }
+            };
+            Ok((name, lower_expression(&field.expr, self_type)?))
+        })
+        .collect::<FrontendResult<Vec<_>>>()?;
+
+    Ok(factorio_ir::expression::Expression::StructLiteral { fields })
+}
+
+fn lower_field_expression(
+    field: &syn::ExprField,
+    self_type: Option<&str>,
+) -> FrontendResult<factorio_ir::expression::Expression> {
+    let base = lower_expression(&field.base, self_type)?;
+    let field_name = match &field.member {
+        Member::Named(ident) => ident.to_string(),
+        Member::Unnamed(index) => {
+            return Err(FrontendError::UnsupportedExpression {
+                location: location(index),
+            });
+        }
+    };
+
+    Ok(factorio_ir::expression::Expression::FieldAccess {
+        base: Box::new(base),
+        field: field_name,
+    })
+}
+
 fn lower_binary_expression(
     binary: &ExprBinary,
+    self_type: Option<&str>,
 ) -> FrontendResult<factorio_ir::expression::Expression> {
-    let lhs = lower_expression(&binary.left)?;
+    let lhs = lower_expression(&binary.left, self_type)?;
     let op = lower_binary_operator(&binary.op)?;
-    let rhs = lower_expression(&binary.right)?;
+    let rhs = lower_expression(&binary.right, self_type)?;
 
     Ok(factorio_ir::expression::Expression::BinaryOp {
         lhs: Box::new(lhs),
@@ -317,28 +537,50 @@ fn lower_literal_expression(
     Ok(factorio_ir::expression::Expression::Literal(literal))
 }
 
-fn lower_path_expression(path: &ExprPath) -> FrontendResult<factorio_ir::expression::Expression> {
-    let ident = single_path_segment(path).ok_or_else(|| FrontendError::UnsupportedExpression {
-        location: location(path),
-    })?;
+fn lower_path_expression(
+    path: &ExprPath,
+    self_type: Option<&str>,
+) -> FrontendResult<factorio_ir::expression::Expression> {
+    let segments = lower_path_segments(path, self_type)?;
 
-    Ok(factorio_ir::expression::Expression::Identifier(
-        ident.to_string(),
-    ))
+    match segments.len() {
+        1 => Ok(factorio_ir::expression::Expression::Identifier(
+            segments[0].clone(),
+        )),
+        _ => Ok(factorio_ir::expression::Expression::QualifiedPath { segments }),
+    }
 }
 
-fn single_path_segment(path: &ExprPath) -> Option<&syn::Ident> {
-    match path.path.segments.len() {
-        1 => Some(&path.path.segments.first()?.ident),
-        _ => None,
+fn lower_path_segments(
+    path: &ExprPath,
+    self_type: Option<&str>,
+) -> FrontendResult<Vec<String>> {
+    path.path
+        .segments
+        .iter()
+        .map(|segment| resolve_path_segment(&segment.ident, self_type))
+        .collect()
+}
+
+fn resolve_path_segment(ident: &syn::Ident, self_type: Option<&str>) -> FrontendResult<String> {
+    if ident == "Self" {
+        return self_type.map(str::to_string).ok_or_else(|| {
+            FrontendError::UnsupportedExpression {
+                location: location(ident),
+            }
+        });
     }
+
+    Ok(ident.to_string())
 }
 
 fn lower_assignment_target(
     expression: &Expr,
+    self_type: Option<&str>,
 ) -> FrontendResult<factorio_ir::expression::Expression> {
     match expression {
-        Expr::Path(path) => lower_path_expression(path),
+        Expr::Path(path) => lower_path_expression(path, self_type),
+        Expr::Field(field) => lower_field_expression(field, self_type),
         _ => Err(FrontendError::ExpectedIdentifierAssignmentTarget {
             location: location(expression),
         }),
@@ -389,12 +631,7 @@ fn lower_path_type(path: &syn::TypePath) -> FrontendResult<factorio_ir::r#type::
         | "usize" => factorio_ir::r#type::Type::Int,
         "f32" | "f64" => factorio_ir::r#type::Type::Float,
         "str" | "String" => factorio_ir::r#type::Type::Str,
-        _ => {
-            return Err(FrontendError::UnsupportedType {
-                ty: segment.ident.to_string(),
-                location: location(path),
-            });
-        }
+        _ => factorio_ir::r#type::Type::Void,
     };
 
     Ok(ty)
@@ -424,6 +661,7 @@ fn lower_binding_pattern(pattern: &syn::Pat) -> FrontendResult<String> {
     match pattern {
         syn::Pat::Ident(ident) => Ok(ident.ident.to_string()),
         syn::Pat::Type(pat_type) => lower_binding_pattern(&pat_type.pat),
+        syn::Pat::Wild(_) => Ok("_".to_string()),
         _ => Err(FrontendError::ExpectedIdentifierPattern {
             location: location(pattern),
         }),
@@ -448,5 +686,15 @@ fn item_name(item: &syn::Item) -> String {
         syn::Item::Type(item) => format!("type {}", item.ident),
         syn::Item::Macro(_) => "macro".to_string(),
         _ => "item".to_string(),
+    }
+}
+
+fn item_name_impl(item: &ImplItem) -> String {
+    match item {
+        ImplItem::Fn(function) => format!("fn {}", function.sig.ident),
+        ImplItem::Const(item) => format!("const {}", item.ident),
+        ImplItem::Type(item) => format!("type {}", item.ident),
+        ImplItem::Macro(_) => "macro".to_string(),
+        _ => "impl item".to_string(),
     }
 }

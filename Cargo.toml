@@ -1,16 +1,27 @@
 [workspace]
 resolver = "3"
-members = ["crates/cargo-factorio", "crates/factorio-codegen", "crates/factorio-frontend", "crates/factorio-ir"]
+members = [
+    "crates/cargo-factorio",
+    "crates/factorio",
+    "crates/factorio-codegen",
+    "crates/factorio-frontend",
+    "crates/factorio-ir",
+    "examples/hello_world"
+]
 
 [workspace.package]
 edition = "2024"
 license = "MIT"
 
 [workspace.dependencies]
+factorio = { path = "./crates/factorio" }
+factorio-codegen = { path = "./crates/factorio-codegen" }
+factorio-frontend = { path = "./crates/factorio-frontend" }
 factorio-ir = { path = "./crates/factorio-ir" }
 
 serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "2.0.18"
+toml = "0.9.11"
 
 [workspace.lints.clippy]
 pedantic = { level = "deny", priority = -1 }
