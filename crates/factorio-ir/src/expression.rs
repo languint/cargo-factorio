@@ -5,8 +5,8 @@ pub enum Expression {
     Literal(Literal),
     Identifier(String),
     BinaryOp {
-        lhs: Box<Expression>,
+        lhs: Box<Self>,
         op: Operator,
-        rhs: Box<Expression>,
+        rhs: Box<Self>,
     },
 }

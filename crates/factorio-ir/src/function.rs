@@ -1,6 +1,6 @@
 use crate::{block::Block, r#type::Type};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Parameter {
     pub name: String,
     pub r#type: Type,

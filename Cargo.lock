@@ -125,6 +125,12 @@ dependencies = [
 [[package]]
 name = "factorio-frontend"
 version = "0.1.0"
+dependencies = [
+ "factorio-codegen",
+ "factorio-ir",
+ "syn",
+ "thiserror",
+]
 
 [[package]]
 name = "factorio-ir"

@@ -14,8 +14,8 @@ pub enum Statement {
     },
     Conditional {
         condition: Expression,
-        then_block: Vec<Statement>,
-        else_block: Vec<Statement>,
+        then_block: Vec<Self>,
+        else_block: Vec<Self>,
     },
     Return(Option<Expression>),
 }

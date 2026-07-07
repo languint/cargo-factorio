@@ -19,9 +19,9 @@ fn generates_module_with_private_helper_and_exported_handler() {
                 name: "helper".to_string(),
                 params: vec![],
                 body: Block {
-                    statements: vec![Statement::Return(Some(Expression::Literal(
-                        Literal::Int(1),
-                    )))],
+                    statements: vec![Statement::Return(Some(Expression::Literal(Literal::Int(
+                        1,
+                    ))))],
                 },
             })],
         },
