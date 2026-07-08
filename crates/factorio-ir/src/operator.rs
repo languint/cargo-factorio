@@ -5,4 +5,9 @@ pub enum Operator {
     Mul,
     Div,
     Eq,
+    Ne,
+    Lt,
+    Le,
+    Gt,
+    Ge,
 }

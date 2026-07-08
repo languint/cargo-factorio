@@ -38,4 +38,8 @@ pub struct BuildArgs {
     /// Path to the project directory or `Factorio.toml` file.
     #[arg(long, value_name = "PATH")]
     pub manifest_path: Option<PathBuf>,
+
+    /// Emit Rust source comments in generated Lua for debugging.
+    #[arg(long, value_name = "LEVEL")]
+    pub debug_level: Option<u8>,
 }

@@ -26,6 +26,17 @@ pub enum FrontendError {
 
     #[error("let binding requires an initializer at {location}")]
     MissingLetInitializer { location: String },
+
+    #[error("unsupported macro `{name}` at {location}")]
+    UnsupportedMacro { name: String, location: String },
+
+    #[error("format string `{template}` expects {expected} argument(s), got {found} at {location}")]
+    FormatArgumentMismatch {
+        template: String,
+        expected: usize,
+        found: usize,
+        location: String,
+    },
 }
 
 pub type FrontendResult<T> = Result<T, FrontendError>;

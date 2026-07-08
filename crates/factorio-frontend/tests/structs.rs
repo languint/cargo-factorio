@@ -1,14 +1,8 @@
+mod common;
+
+use common::must_ok_parse;
 use factorio_frontend::parse_module;
-use factorio_ir::{
-    block::Block,
-    expression::Expression,
-    function::{Function, Parameter},
-    module::{Module, Symbol},
-    scope::Scope,
-    statement::Statement,
-    structure::{Struct, StructField},
-    r#type::Type,
-};
+use factorio_ir::statement::Statement;
 
 const PLAYER_SOURCE: &str = r"
 pub struct MyPlayer {
@@ -28,65 +22,39 @@ impl MyPlayer {
 
 #[test]
 fn parses_struct_with_methods() {
-    let module = parse_module(PLAYER_SOURCE, "player").unwrap();
+    let module = must_ok_parse(parse_module(PLAYER_SOURCE, "player"));
 
+    let Statement::StructDecl(struct_decl) = &module.symbols[0].statement else {
+        assert_eq!(1, 0, "expected struct declaration");
+        return;
+    };
+
+    assert_eq!(struct_decl.name, "MyPlayer");
+    assert_eq!(struct_decl.fields.len(), 1);
+    assert_eq!(struct_decl.fields[0].name, "health");
+    assert_eq!(struct_decl.fields[0].source_type.as_deref(), Some("i64"));
     assert_eq!(
-        module,
-        Module {
-            name: "player".to_string(),
-            body: Block { statements: vec![] },
-            imports: vec![],
-            submodules: vec![],
-            symbols: vec![Symbol {
-                scope: Scope::Public,
-                statement: Statement::StructDecl(Struct {
-                    name: "MyPlayer".to_string(),
-                    fields: vec![StructField {
-                        name: "health".to_string(),
-                        ty: Type::Int,
-                    }],
-                    constants: vec![],
-                    methods: vec![
-                        Function {
-                            name: "get_health".to_string(),
-                            params: vec![Parameter {
-                                name: "self".to_string(),
-                                r#type: Type::Void,
-                            }],
-                            body: Block {
-                                statements: vec![Statement::Return(Some(
-                                    Expression::FieldAccess {
-                                        base: Box::new(Expression::Identifier("self".to_string())),
-                                        field: "health".to_string(),
-                                    },
-                                ))],
-                            },
-                        },
-                        Function {
-                            name: "set_health".to_string(),
-                            params: vec![
-                                Parameter {
-                                    name: "self".to_string(),
-                                    r#type: Type::Void,
-                                },
-                                Parameter {
-                                    name: "health".to_string(),
-                                    r#type: Type::Int,
-                                },
-                            ],
-                            body: Block {
-                                statements: vec![Statement::Assignment {
-                                    target: Expression::FieldAccess {
-                                        base: Box::new(Expression::Identifier("self".to_string())),
-                                        field: "health".to_string(),
-                                    },
-                                    value: Expression::Identifier("health".to_string()),
-                                }],
-                            },
-                        },
-                    ],
-                }),
-            }],
-        }
+        struct_decl.debug.as_ref().map(|debug| debug.header_comment.as_str()),
+        Some("pub struct MyPlayer { health: i64 }")
+    );
+
+    assert_eq!(struct_decl.methods.len(), 2);
+    assert_eq!(struct_decl.methods[0].name, "get_health");
+    assert_eq!(
+        struct_decl.methods[0].params[0].source_type.as_deref(),
+        Some("&self")
+    );
+    assert_eq!(
+        struct_decl.methods[0]
+            .debug
+            .as_ref()
+            .and_then(|debug| debug.return_type.as_deref()),
+        Some("i64")
+    );
+
+    assert_eq!(struct_decl.methods[1].name, "set_health");
+    assert_eq!(
+        struct_decl.methods[1].params[1].source_type.as_deref(),
+        Some("i64")
     );
 }

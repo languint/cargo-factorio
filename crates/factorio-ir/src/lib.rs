@@ -1,4 +1,5 @@
 pub mod block;
+pub mod debug;
 pub mod expression;
 pub mod function;
 pub mod literal;

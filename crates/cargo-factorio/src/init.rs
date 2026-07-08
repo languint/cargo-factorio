@@ -48,9 +48,7 @@ pub fn init(project_root: &Path, package_name: Option<&str>) -> CliResult<()> {
         return Err(CliError::AlreadyExists { path: config_path });
     }
 
-    let package_name = package_name
-        .map(str::to_string)
-        .unwrap_or_else(|| default_package_name(project_root));
+    let package_name = package_name.map_or_else(|| default_package_name(project_root), str::to_string);
 
     let source_dir = project_root.join("src");
     let lib_rs = source_dir.join("lib.rs");
@@ -98,10 +96,11 @@ fn default_package_name(project_root: &Path) -> String {
     for character in raw_name.chars() {
         if character.is_ascii_alphanumeric() || character == '-' || character == '_' {
             sanitized.push(character);
-        } else if character == '.' && sanitized.is_empty() {
-            continue;
-        } else if sanitized.is_empty() || sanitized.ends_with('-') {
-            continue;
+        } else if (character == '.' && sanitized.is_empty())
+            || sanitized.is_empty()
+            || sanitized.ends_with('-')
+        {
+            // skip leading dots and repeated separators
         } else {
             sanitized.push('-');
         }

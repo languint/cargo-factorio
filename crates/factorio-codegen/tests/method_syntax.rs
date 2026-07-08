@@ -1,3 +1,6 @@
+mod common;
+
+use common::must_ok;
 use factorio_codegen::LuaGenerator;
 use factorio_ir::{
     block::Block,
@@ -23,20 +26,24 @@ fn generates_method_with_self_using_colon_syntax() {
                     Parameter {
                         name: "self".to_string(),
                         r#type: Type::Void,
+                        source_type: None,
                     },
                     Parameter {
                         name: "player".to_string(),
                         r#type: Type::Void,
+                        source_type: None,
                     },
                 ],
                 body: Block {
                     statements: vec![Statement::Return(None)],
                 },
+                doc: None,
+                debug: None,
             }),
         }],
     };
 
-    let output = LuaGenerator::new().generate_module(&module).unwrap();
+    let output = must_ok(LuaGenerator::new().generate_module(&module));
 
     assert_eq!(
         output,

@@ -1,5 +1,9 @@
 pub fn on_init() {
-    let mut player = crate::player::MyPlayer::new();
+    let mut my_player = crate::player::MyPlayer::new();
 
-    player.set_health(player.get_health() - 1);
+    my_player.set_health(my_player.get_health() - 1);
+
+    let health = my_player.get_health();
+
+    println!("my_player health: {health}");
 }

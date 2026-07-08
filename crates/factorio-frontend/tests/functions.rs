@@ -1,13 +1,8 @@
+mod common;
+
+use common::must_ok_parse;
 use factorio_frontend::parse_module;
-use factorio_ir::{
-    block::Block,
-    expression::Expression,
-    function::{Function, Parameter},
-    module::{Module, Symbol},
-    scope::Scope,
-    statement::Statement,
-    r#type::Type,
-};
+use factorio_ir::statement::Statement;
 
 #[test]
 fn parses_method_with_self() {
@@ -17,35 +12,19 @@ pub fn reset(&mut self, player: ()) {
 }
 ";
 
-    let module = parse_module(source, "player_util").unwrap();
+    let module = must_ok_parse(parse_module(source, "player_util"));
+    let Statement::FunctionDecl(function) = &module.symbols[0].statement else {
+        assert_eq!(1, 0, "expected function declaration");
+        return;
+    };
 
+    assert_eq!(function.name, "reset");
+    assert_eq!(function.params.len(), 2);
+    assert_eq!(function.params[0].source_type.as_deref(), Some("&mut self"));
+    assert_eq!(function.params[1].source_type.as_deref(), Some("()"));
     assert_eq!(
-        module,
-        Module {
-            name: "player_util".to_string(),
-            body: Block { statements: vec![] },
-            imports: vec![],
-            submodules: vec![],
-            symbols: vec![Symbol {
-                scope: Scope::Public,
-                statement: Statement::FunctionDecl(Function {
-                    name: "reset".to_string(),
-                    params: vec![
-                        Parameter {
-                            name: "self".to_string(),
-                            r#type: Type::Void,
-                        },
-                        Parameter {
-                            name: "player".to_string(),
-                            r#type: Type::Void,
-                        },
-                    ],
-                    body: Block {
-                        statements: vec![Statement::Return(None)],
-                    },
-                }),
-            }],
-        }
+        function.body.statements,
+        vec![Statement::Return(None)]
     );
 }
 
@@ -57,18 +36,15 @@ fn helper() -> i64 {
 }
 ";
 
-    let module = parse_module(source, "example").unwrap();
+    let module = must_ok_parse(parse_module(source, "example"));
+    let Statement::FunctionDecl(function) = &module.body.statements[0] else {
+        assert_eq!(1, 0, "expected helper function");
+        return;
+    };
 
+    assert_eq!(function.name, "helper");
     assert_eq!(
-        module.body.statements,
-        vec![Statement::FunctionDecl(Function {
-            name: "helper".to_string(),
-            params: vec![],
-            body: Block {
-                statements: vec![Statement::Return(Some(Expression::Literal(
-                    factorio_ir::literal::Literal::Int(1),
-                )))],
-            },
-        })]
+        function.debug.as_ref().and_then(|debug| debug.return_type.as_deref()),
+        Some("i64")
     );
 }

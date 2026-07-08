@@ -1,3 +1,6 @@
+mod common;
+
+use common::must_ok;
 use factorio_codegen::LuaGenerator;
 use factorio_ir::{
     block::Block,
@@ -26,10 +29,12 @@ fn generates_binary_ops_and_conditionals() {
                     Parameter {
                         name: "a".to_string(),
                         r#type: Type::Int,
+                        source_type: None,
                     },
                     Parameter {
                         name: "b".to_string(),
                         r#type: Type::Int,
+                        source_type: None,
                     },
                 ],
                 body: Block {
@@ -49,12 +54,14 @@ fn generates_binary_ops_and_conditionals() {
                         }))],
                     }],
                 },
+                doc: None,
+                debug: None,
             }),
         }],
     };
 
-    let output = LuaGenerator::new().generate_module(&module).unwrap();
+    let output = must_ok(LuaGenerator::new().generate_module(&module));
 
-    assert!(output.contains("if (a == 0) then"));
-    assert!(output.contains("return (a + b)"));
+    assert!(output.contains("if a == 0 then"));
+    assert!(output.contains("return a + b"));
 }

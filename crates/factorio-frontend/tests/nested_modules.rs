@@ -1,6 +1,10 @@
+mod common;
+
 use factorio_codegen::LuaGenerator;
 use factorio_frontend::parse_module;
 use factorio_ir::{expression::Expression, statement::Statement};
+
+use common::{must_ok, must_ok_parse};
 
 const PLAYER_RS: &str = r"
 mod health;
@@ -44,24 +48,29 @@ pub fn on_init() {
 
 #[test]
 fn nested_player_modules_generate_expected_lua() {
-    let player_module = parse_module(PLAYER_RS, "player").unwrap();
-    let health_module = parse_module(HEALTH_RS, "player.health").unwrap();
-    let on_init_module = parse_module(ON_INIT_RS, "on_init").unwrap();
+    let player_module = must_ok_parse(parse_module(PLAYER_RS, "player"));
+    let health_module = must_ok_parse(parse_module(HEALTH_RS, "player.health"));
+    let on_init_module = must_ok_parse(parse_module(ON_INIT_RS, "on_init"));
 
     assert_eq!(player_module.submodules, vec!["player.health".to_string()]);
 
     let Statement::StructDecl(player_struct) = &player_module.symbols[0].statement else {
-        panic!("expected struct");
+        assert_eq!(1, 0, "expected struct");
+        return;
     };
-    let new_method = player_struct
+    let Some(new_method) = player_struct
         .methods
         .iter()
         .find(|method| method.name == "new")
-        .expect("new method");
+    else {
+        assert_eq!(1, 0, "new method not found");
+        return;
+    };
     let Statement::Return(Some(Expression::StructLiteral { fields })) =
         &new_method.body.statements[0]
     else {
-        panic!("expected struct literal return");
+        assert_eq!(1, 0, "expected struct literal return");
+        return;
     };
     assert_eq!(
         fields[0].1,
@@ -70,14 +79,11 @@ fn nested_player_modules_generate_expected_lua() {
         }
     );
 
-    let player_lua = LuaGenerator::new()
-        .generate_module(&player_module)
-        .expect("generate player lua");
+    let player_lua = must_ok(LuaGenerator::new().generate_module(&player_module));
     assert!(player_lua.contains("require(\"player.health\")"));
+    assert!(player_lua.contains("setmetatable({ health = player.MyPlayer.DEFAULT_HEALTH }, { __index = player.MyPlayer })"));
 
-    let health_lua = LuaGenerator::new()
-        .generate_module(&health_module)
-        .expect("generate health lua");
+    let health_lua = must_ok(LuaGenerator::new().generate_module(&health_module));
     assert!(health_lua.contains("local player = require(\"player\")"));
     assert!(health_lua.contains("function MyPlayer:get_health()"));
     assert!(health_lua.contains("function MyPlayer:set_health(health)"));
@@ -85,9 +91,7 @@ fn nested_player_modules_generate_expected_lua() {
     assert_eq!(on_init_module.imports.len(), 1);
     assert_eq!(on_init_module.imports[0].module, "player");
 
-    let on_init_lua = LuaGenerator::new()
-        .generate_module(&on_init_module)
-        .expect("generate on_init lua");
+    let on_init_lua = must_ok(LuaGenerator::new().generate_module(&on_init_module));
     assert!(on_init_lua.contains("local player = require(\"player\")"));
     assert!(on_init_lua.contains("local player = player.MyPlayer.new()"));
 }

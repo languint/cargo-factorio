@@ -1,3 +1,6 @@
+mod common;
+
+use common::must_ok;
 use factorio_codegen::LuaGenerator;
 use factorio_ir::{
     block::Block,
@@ -25,6 +28,7 @@ fn rewrites_associated_paths_inside_struct_methods() {
                 fields: vec![StructField {
                     name: "health".to_string(),
                     ty: Type::Int,
+                    source_type: None,
                 }],
                 constants: vec![(
                     "DEFAULT_HEALTH".to_string(),
@@ -34,24 +38,32 @@ fn rewrites_associated_paths_inside_struct_methods() {
                     name: "new".to_string(),
                     params: vec![],
                     body: Block {
-                        statements: vec![Statement::Return(Some(Expression::StructLiteral {
-                            fields: vec![(
-                                "health".to_string(),
-                                Expression::QualifiedPath {
-                                    segments: vec![
-                                        "MyPlayer".to_string(),
-                                        "DEFAULT_HEALTH".to_string(),
-                                    ],
-                                },
-                            )],
-                        }))],
+                        statements: vec![Statement::Return(Some(
+                            Expression::StructLiteral {
+                                fields: vec![(
+                                    "health".to_string(),
+                                    Expression::QualifiedPath {
+                                        segments: vec![
+                                            "MyPlayer".to_string(),
+                                            "DEFAULT_HEALTH".to_string(),
+                                        ],
+                                    },
+                                )],
+                            },
+                        ))],
                     },
+                    doc: None,
+                    debug: None,
                 }],
+                doc: None,
+                debug: None,
             }),
         }],
     };
 
-    let output = LuaGenerator::new().generate_module(&module).unwrap();
+    let output = must_ok(LuaGenerator::new().generate_module(&module));
 
-    assert!(output.contains("return { health = player.MyPlayer.DEFAULT_HEALTH }"));
+    assert!(output.contains(
+        "return setmetatable({ health = player.MyPlayer.DEFAULT_HEALTH }, { __index = player.MyPlayer })"
+    ));
 }

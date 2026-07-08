@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use std::path::Path;
 
 const FACTORIO_TOML: &str = "source = \"src\"\noutput_dir = \"lua\"\n";

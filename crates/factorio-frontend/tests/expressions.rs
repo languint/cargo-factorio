@@ -1,14 +1,12 @@
+mod common;
+
+use common::must_ok_parse;
 use factorio_frontend::parse_module;
 use factorio_ir::{
-    block::Block,
     expression::Expression,
-    function::{Function, Parameter},
     literal::Literal,
-    module::{Module, Symbol},
     operator::Operator,
-    scope::Scope,
     statement::Statement,
-    r#type::Type,
 };
 
 #[test]
@@ -23,49 +21,36 @@ pub fn add(a: i32, b: i32) -> i32 {
 }
 ";
 
-    let module = parse_module(source, "math_util").unwrap();
+    let module = must_ok_parse(parse_module(source, "math_util"));
+    let Statement::FunctionDecl(function) = &module.symbols[0].statement else {
+        assert_eq!(1, 0, "expected function declaration");
+        return;
+    };
 
+    assert_eq!(function.name, "add");
+    assert_eq!(function.params.len(), 2);
+    assert_eq!(function.params[0].source_type.as_deref(), Some("i32"));
     assert_eq!(
-        module,
-        Module {
-            name: "math_util".to_string(),
-            body: Block { statements: vec![] },
-            imports: vec![],
-            submodules: vec![],
-            symbols: vec![Symbol {
-                scope: Scope::Public,
-                statement: Statement::FunctionDecl(Function {
-                    name: "add".to_string(),
-                    params: vec![
-                        Parameter {
-                            name: "a".to_string(),
-                            r#type: Type::Int,
-                        },
-                        Parameter {
-                            name: "b".to_string(),
-                            r#type: Type::Int,
-                        },
-                    ],
-                    body: Block {
-                        statements: vec![Statement::Conditional {
-                            condition: Expression::BinaryOp {
-                                lhs: Box::new(Expression::Identifier("a".to_string())),
-                                op: Operator::Eq,
-                                rhs: Box::new(Expression::Literal(Literal::Int(0))),
-                            },
-                            then_block: vec![Statement::Return(Some(Expression::Identifier(
-                                "b".to_string(),
-                            )))],
-                            else_block: vec![Statement::Return(Some(Expression::BinaryOp {
-                                lhs: Box::new(Expression::Identifier("a".to_string())),
-                                op: Operator::Add,
-                                rhs: Box::new(Expression::Identifier("b".to_string())),
-                            }))],
-                        }],
-                    },
-                }),
-            }],
-        }
+        function.debug.as_ref().and_then(|debug| debug.return_type.as_deref()),
+        Some("i32")
+    );
+    assert_eq!(
+        function.body.statements,
+        vec![Statement::Conditional {
+            condition: Expression::BinaryOp {
+                lhs: Box::new(Expression::Identifier("a".to_string())),
+                op: Operator::Eq,
+                rhs: Box::new(Expression::Literal(Literal::Int(0))),
+            },
+            then_block: vec![Statement::Return(Some(Expression::Identifier(
+                "b".to_string(),
+            )))],
+            else_block: vec![Statement::Return(Some(Expression::BinaryOp {
+                lhs: Box::new(Expression::Identifier("a".to_string())),
+                op: Operator::Add,
+                rhs: Box::new(Expression::Identifier("b".to_string())),
+            }))],
+        }]
     );
 }
 
@@ -77,9 +62,10 @@ pub fn bump(counter: i32) {
 }
 ";
 
-    let module = parse_module(source, "counter").unwrap();
+    let module = must_ok_parse(parse_module(source, "counter"));
     let Statement::FunctionDecl(function) = &module.symbols[0].statement else {
-        panic!("expected function declaration");
+        assert_eq!(1, 0, "expected function declaration");
+        return;
     };
 
     assert_eq!(
@@ -91,6 +77,67 @@ pub fn bump(counter: i32) {
                 op: Operator::Add,
                 rhs: Box::new(Expression::Literal(Literal::Int(1))),
             },
+        }]
+    );
+}
+
+#[test]
+fn parses_compound_assignment_and_comparisons() {
+    let source = r"
+pub fn damage(player: MyPlayer, amount: u64) {
+    if player.health - amount > 0 {
+        player.health -= amount;
+    } else {
+        player.health = 0;
+    }
+}
+";
+
+    let module = must_ok_parse(parse_module(source, "combat"));
+    let Statement::FunctionDecl(function) = &module.symbols[0].statement else {
+        assert_eq!(1, 0, "expected function declaration");
+        return;
+    };
+
+    assert_eq!(function.params[0].source_type.as_deref(), Some("MyPlayer"));
+    assert_eq!(function.params[1].source_type.as_deref(), Some("u64"));
+
+    assert_eq!(
+        function.body.statements,
+        vec![Statement::Conditional {
+            condition: Expression::BinaryOp {
+                lhs: Box::new(Expression::BinaryOp {
+                    lhs: Box::new(Expression::FieldAccess {
+                        base: Box::new(Expression::Identifier("player".to_string())),
+                        field: "health".to_string(),
+                    }),
+                    op: Operator::Sub,
+                    rhs: Box::new(Expression::Identifier("amount".to_string())),
+                }),
+                op: Operator::Gt,
+                rhs: Box::new(Expression::Literal(Literal::Int(0))),
+            },
+            then_block: vec![Statement::Assignment {
+                target: Expression::FieldAccess {
+                    base: Box::new(Expression::Identifier("player".to_string())),
+                    field: "health".to_string(),
+                },
+                value: Expression::BinaryOp {
+                    lhs: Box::new(Expression::FieldAccess {
+                        base: Box::new(Expression::Identifier("player".to_string())),
+                        field: "health".to_string(),
+                    }),
+                    op: Operator::Sub,
+                    rhs: Box::new(Expression::Identifier("amount".to_string())),
+                },
+            }],
+            else_block: vec![Statement::Assignment {
+                target: Expression::FieldAccess {
+                    base: Box::new(Expression::Identifier("player".to_string())),
+                    field: "health".to_string(),
+                },
+                value: Expression::Literal(Literal::Int(0)),
+            }],
         }]
     );
 }

@@ -1,3 +1,6 @@
+mod common;
+
+use common::{must_ok, must_ok_parse};
 use factorio_codegen::LuaGenerator;
 use factorio_frontend::parse_module;
 use factorio_ir::module::{ImportedItem, ModuleImport};
@@ -12,7 +15,7 @@ pub fn on_init() {
 }
 ";
 
-    let module = parse_module(source, "on_init").unwrap();
+    let module = must_ok_parse(parse_module(source, "on_init"));
 
     assert_eq!(
         module.imports,
@@ -35,7 +38,7 @@ use crate::player::{MyPlayer, OtherThing};
 pub fn on_init() {}
 ";
 
-    let module = parse_module(source, "on_init").unwrap();
+    let module = must_ok_parse(parse_module(source, "on_init"));
 
     assert_eq!(module.imports.len(), 1);
     assert_eq!(module.imports[0].module, "player");
@@ -51,7 +54,7 @@ use crate::player::MyPlayer;
 pub fn on_init() {}
 ";
 
-    let module = parse_module(source, "on_init").unwrap();
+    let module = must_ok_parse(parse_module(source, "on_init"));
 
     assert_eq!(module.imports.len(), 1);
     assert_eq!(module.imports[0].module, "player");
@@ -67,8 +70,8 @@ pub fn on_init() {
 }
 ";
 
-    let module = parse_module(source, "on_init").unwrap();
-    let lua = LuaGenerator::new().generate_module(&module).unwrap();
+    let module = must_ok_parse(parse_module(source, "on_init"));
+    let lua = must_ok(LuaGenerator::new().generate_module(&module));
 
     assert!(lua.contains("local player = require(\"player\")"));
     assert!(lua.contains("local MyPlayer = player.MyPlayer"));
@@ -83,8 +86,8 @@ pub fn on_init() {
 }
 ";
 
-    let module = parse_module(source, "on_init").unwrap();
-    let lua = LuaGenerator::new().generate_module(&module).unwrap();
+    let module = must_ok_parse(parse_module(source, "on_init"));
+    let lua = must_ok(LuaGenerator::new().generate_module(&module));
 
     assert_eq!(module.imports.len(), 1);
     assert_eq!(module.imports[0].module, "player");

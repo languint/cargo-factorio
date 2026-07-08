@@ -6,14 +6,14 @@ pub struct Symbol {
     pub statement: Statement,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleImport {
     pub module: String,
     pub local: String,
     pub items: Vec<ImportedItem>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportedItem {
     pub name: String,
     pub local: String,
@@ -29,6 +29,7 @@ pub struct Module {
 }
 
 impl Module {
+    #[must_use]
     pub fn imported_item_local(&self, type_name: &str) -> Option<&str> {
         self.imports
             .iter()
@@ -42,10 +43,9 @@ impl Module {
             })
     }
 
+    #[must_use]
     pub fn is_imported_type_extension(&self, struct_decl: &crate::structure::Struct) -> bool {
         struct_decl.fields.is_empty()
-            && struct_decl.constants.is_empty()
-            && !struct_decl.methods.is_empty()
             && self.imported_item_local(&struct_decl.name).is_some()
     }
 }

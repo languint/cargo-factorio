@@ -1,15 +1,9 @@
+mod common;
+
+use common::{must_ok, must_ok_parse};
 use factorio_codegen::LuaGenerator;
 use factorio_frontend::parse_module;
-use factorio_ir::{
-    block::Block,
-    expression::Expression,
-    function::{Function, Parameter},
-    literal::Literal,
-    module::{Module, Symbol},
-    scope::Scope,
-    statement::Statement,
-    r#type::Type,
-};
+use factorio_ir::{statement::Statement, r#type::Type};
 
 const BOUND_DETECTOR_SOURCE: &str = r"
 fn helper() -> i64 {
@@ -23,50 +17,45 @@ pub fn on_init(_event: ()) {
 
 #[test]
 fn parses_module_with_private_helper_and_exported_handler() {
-    let module = parse_module(BOUND_DETECTOR_SOURCE, "bound_detector").unwrap();
+    let module = must_ok_parse(parse_module(BOUND_DETECTOR_SOURCE, "bound_detector"));
 
+    assert_eq!(module.name, "bound_detector");
+    assert_eq!(module.symbols.len(), 1);
+
+    let Statement::FunctionDecl(helper) = &module.body.statements[0] else {
+        assert_eq!(1, 0, "expected helper function");
+        return;
+    };
+    assert_eq!(helper.name, "helper");
     assert_eq!(
-        module,
-        Module {
-            name: "bound_detector".to_string(),
-            body: Block {
-                statements: vec![Statement::FunctionDecl(Function {
-                    name: "helper".to_string(),
-                    params: vec![],
-                    body: Block {
-                        statements: vec![Statement::Return(Some(Expression::Literal(
-                            Literal::Int(1),
-                        )))],
-                    },
-                })],
-            },
-            symbols: vec![Symbol {
-                scope: Scope::Public,
-                statement: Statement::FunctionDecl(Function {
-                    name: "on_init".to_string(),
-                    params: vec![Parameter {
-                        name: "_event".to_string(),
-                        r#type: Type::Void,
-                    }],
-                    body: Block {
-                        statements: vec![Statement::VariableDecl {
-                            name: "count".to_string(),
-                            ty: Type::Int,
-                            value: Expression::Literal(Literal::Int(0)),
-                        }],
-                    },
-                }),
-            }],
-            imports: vec![],
-            submodules: vec![],
-        }
+        helper.debug.as_ref().map(|debug| debug.header_comment.as_str()),
+        Some("fn helper() -> i64")
     );
+
+    let Statement::FunctionDecl(on_init) = &module.symbols[0].statement else {
+        assert_eq!(1, 0, "expected on_init function");
+        return;
+    };
+    assert_eq!(on_init.name, "on_init");
+    assert_eq!(on_init.params.len(), 1);
+    assert_eq!(on_init.params[0].name, "_event");
+    assert_eq!(on_init.params[0].source_type.as_deref(), Some("()"));
+
+    let Statement::VariableDecl { name, ty, source_type, .. } =
+        &on_init.body.statements[0]
+    else {
+        assert_eq!(1, 0, "expected count variable");
+        return;
+    };
+    assert_eq!(name, "count");
+    assert_eq!(*ty, Type::Int);
+    assert_eq!(source_type.as_deref(), Some("i32"));
 }
 
 #[test]
 fn parsed_module_generates_expected_lua() {
-    let module = parse_module(BOUND_DETECTOR_SOURCE, "bound_detector").unwrap();
-    let output = LuaGenerator::new().generate_module(&module).unwrap();
+    let module = must_ok_parse(parse_module(BOUND_DETECTOR_SOURCE, "bound_detector"));
+    let output = must_ok(LuaGenerator::new().generate_module(&module));
 
     assert_eq!(
         output,
@@ -83,4 +72,22 @@ fn parsed_module_generates_expected_lua() {
             "return boundDetector\n",
         )
     );
+}
+
+#[test]
+fn debug_level_zero_emits_rust_header_comments() {
+    let module = must_ok_parse(parse_module(BOUND_DETECTOR_SOURCE, "bound_detector"));
+    let output = must_ok(LuaGenerator::with_debug_level(0).generate_module(&module));
+
+    assert!(output.contains("-- fn helper() -> i64"));
+    assert!(output.contains("-- pub fn on_init(_event: ())"));
+}
+
+#[test]
+fn debug_level_one_emits_type_annotations() {
+    let module = must_ok_parse(parse_module(BOUND_DETECTOR_SOURCE, "bound_detector"));
+    let output = must_ok(LuaGenerator::with_debug_level(1).generate_module(&module));
+
+    assert!(output.contains("function boundDetector.on_init(_event --[[ () ]])"));
+    assert!(output.contains("local count --[[ i32 ]] = 0"));
 }

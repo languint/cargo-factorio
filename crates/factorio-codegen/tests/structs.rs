@@ -1,3 +1,6 @@
+mod common;
+
+use common::must_ok;
 use factorio_codegen::LuaGenerator;
 use factorio_ir::{
     block::Block,
@@ -24,6 +27,7 @@ fn generates_struct_as_table_with_methods() {
                 fields: vec![StructField {
                     name: "health".to_string(),
                     ty: Type::Int,
+                    source_type: None,
                 }],
                 constants: vec![],
                 methods: vec![
@@ -32,6 +36,7 @@ fn generates_struct_as_table_with_methods() {
                         params: vec![Parameter {
                             name: "self".to_string(),
                             r#type: Type::Void,
+                            source_type: None,
                         }],
                         body: Block {
                             statements: vec![Statement::Return(Some(Expression::FieldAccess {
@@ -39,6 +44,8 @@ fn generates_struct_as_table_with_methods() {
                                 field: "health".to_string(),
                             }))],
                         },
+                        doc: None,
+                        debug: None,
                     },
                     Function {
                         name: "set_health".to_string(),
@@ -46,10 +53,12 @@ fn generates_struct_as_table_with_methods() {
                             Parameter {
                                 name: "self".to_string(),
                                 r#type: Type::Void,
+                                source_type: None,
                             },
                             Parameter {
                                 name: "health".to_string(),
                                 r#type: Type::Int,
+                                source_type: None,
                             },
                         ],
                         body: Block {
@@ -61,13 +70,17 @@ fn generates_struct_as_table_with_methods() {
                                 value: Expression::Identifier("health".to_string()),
                             }],
                         },
+                        doc: None,
+                        debug: None,
                     },
                 ],
+                doc: None,
+                debug: None,
             }),
         }],
     };
 
-    let output = LuaGenerator::new().generate_module(&module).unwrap();
+    let output = must_ok(LuaGenerator::new().generate_module(&module));
 
     assert_eq!(
         output,
@@ -100,7 +113,11 @@ fn generates_private_struct_as_local_table() {
                     name: "new".to_string(),
                     params: vec![],
                     body: Block { statements: vec![] },
+                    doc: None,
+                    debug: None,
                 }],
+                doc: None,
+                debug: None,
             })],
         },
         imports: vec![],
@@ -108,7 +125,7 @@ fn generates_private_struct_as_local_table() {
         symbols: vec![],
     };
 
-    let output = LuaGenerator::new().generate_module(&module).unwrap();
+    let output = must_ok(LuaGenerator::new().generate_module(&module));
 
     assert!(output.contains("local MyPlayer = {}"));
     assert!(output.contains("function MyPlayer.new()"));

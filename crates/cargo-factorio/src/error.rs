@@ -76,7 +76,7 @@ pub fn project_root(manifest_path: Option<&Path>) -> CliResult<PathBuf> {
         return path
             .parent()
             .map(Path::to_path_buf)
-            .ok_or_else(|| CliError::InvalidProjectPath { path });
+            .ok_or(CliError::InvalidProjectPath { path });
     }
 
     Err(CliError::NotFound { path })

@@ -1,3 +1,6 @@
+mod common;
+
+use common::must_err;
 use factorio_codegen::{LuaGenerator, LuaGeneratorError};
 use factorio_ir::{
     block::Block,
@@ -20,11 +23,13 @@ fn rejects_exported_local_functions() {
                 name: "secret".to_string(),
                 params: vec![],
                 body: Block { statements: vec![] },
+                doc: None,
+                debug: None,
             }),
         }],
     };
 
-    let error = LuaGenerator::new().generate_module(&module).unwrap_err();
+    let error = must_err(LuaGenerator::new().generate_module(&module));
     assert_eq!(
         error,
         LuaGeneratorError::FunctionLocalAndExported("secret".to_string())

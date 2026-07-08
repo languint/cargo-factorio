@@ -1,3 +1,6 @@
+mod common;
+
+use common::must_ok;
 use factorio_codegen::LuaGenerator;
 use factorio_ir::{
     block::Block,
@@ -23,6 +26,8 @@ fn generates_module_with_private_helper_and_exported_handler() {
                         1,
                     ))))],
                 },
+                doc: None,
+                debug: None,
             })],
         },
         imports: vec![],
@@ -34,19 +39,23 @@ fn generates_module_with_private_helper_and_exported_handler() {
                 params: vec![Parameter {
                     name: "event".to_string(),
                     r#type: Type::Void,
+                    source_type: None,
                 }],
                 body: Block {
                     statements: vec![Statement::VariableDecl {
                         name: "count".to_string(),
                         ty: Type::Int,
+                        source_type: None,
                         value: Expression::Literal(Literal::Int(0)),
                     }],
                 },
+                doc: None,
+                debug: None,
             }),
         }],
     };
 
-    let output = LuaGenerator::new().generate_module(&module).unwrap();
+    let output = must_ok(LuaGenerator::new().generate_module(&module));
 
     assert_eq!(
         output,

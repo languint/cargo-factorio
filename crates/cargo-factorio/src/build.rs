@@ -9,7 +9,7 @@ use crate::{
 };
 
 /// Transpile Rust sources in a project to Lua.
-pub fn build(project_root: &Path) -> CliResult<Vec<PathBuf>> {
+pub fn build(project_root: &Path, debug_level: Option<u8>) -> CliResult<Vec<PathBuf>> {
     let config = Config::load(project_root)?;
     let source_dir = project_root.join(&config.source);
     let output_dir = project_root.join(&config.output_dir);
@@ -31,7 +31,12 @@ pub fn build(project_root: &Path) -> CliResult<Vec<PathBuf>> {
 
     let mut outputs = Vec::new();
     for source_path in sources {
-        outputs.push(transpile_file(&source_path, &source_dir, &output_dir)?);
+        outputs.push(transpile_file(
+            &source_path,
+            &source_dir,
+            &output_dir,
+            debug_level,
+        )?);
     }
 
     Ok(outputs)
@@ -94,7 +99,12 @@ fn is_rust_source(path: &Path) -> bool {
             .is_some_and(|extension| extension.eq_ignore_ascii_case("rs"))
 }
 
-fn transpile_file(source_path: &Path, source_dir: &Path, output_dir: &Path) -> CliResult<PathBuf> {
+fn transpile_file(
+    source_path: &Path,
+    source_dir: &Path,
+    output_dir: &Path,
+    debug_level: Option<u8>,
+) -> CliResult<PathBuf> {
     let module_name = module_name_from_source(source_dir, source_path).ok_or_else(|| {
         CliError::InvalidProjectPath {
             path: source_path.to_path_buf(),
@@ -107,7 +117,9 @@ fn transpile_file(source_path: &Path, source_dir: &Path, output_dir: &Path) -> C
     })?;
 
     let module = parse_module(&source, &module_name)?;
-    let lua = LuaGenerator::new().generate_module(&module)?;
+    let mut generator =
+        debug_level.map_or_else(LuaGenerator::new, LuaGenerator::with_debug_level);
+    let lua = generator.generate_module(&module)?;
 
     let output_path = lua_output_path(output_dir, &module_name);
     if let Some(parent) = output_path.parent() {
@@ -127,6 +139,8 @@ fn transpile_file(source_path: &Path, source_dir: &Path, output_dir: &Path) -> C
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+
     use super::*;
 
     #[test]

@@ -6,6 +6,9 @@ pub enum LuaGeneratorError {
 
     #[error("struct {0} cannot be `local` and exported!")]
     StructLocalAndExported(String),
+
+    #[error("failed to get table path for struct: {0}")]
+    FailedToGetTablePathForStruct(String),
 }
 
 pub type LuaGeneratorResult<T> = Result<T, LuaGeneratorError>;

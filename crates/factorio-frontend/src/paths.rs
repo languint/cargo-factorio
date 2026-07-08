@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 /// Returns the dotted module name for a source file relative to a source root, e.g.
 /// - `src/player/extra_info.rs` -> `"player.extra_info"`
 /// - `src/player/mod.rs` -> `"player"`
+#[must_use]
 pub fn module_name_from_source(source_dir: &Path, source_path: &Path) -> Option<String> {
     let relative = source_path.strip_prefix(source_dir).ok()?;
 
@@ -29,6 +30,7 @@ fn path_to_module_name(path: &Path) -> String {
 }
 
 /// Returns the output Lua path for a dotted module name.
+#[must_use]
 pub fn lua_output_path(output_dir: &Path, module_name: &str) -> PathBuf {
     let mut path = output_dir.to_path_buf();
     for segment in module_name.split('.') {
@@ -39,11 +41,13 @@ pub fn lua_output_path(output_dir: &Path, module_name: &str) -> PathBuf {
 }
 
 /// Returns a valid Lua identifier for a required module path.
+#[must_use]
 pub fn require_local_name(module_path: &str) -> String {
     module_path.replace('.', "_")
 }
 
 /// Splits a crate-relative path into a dotted module path and remaining item segments.
+#[allow(clippy::indexing_slicing)]
 pub fn split_crate_path(segments: &[String]) -> (String, Vec<String>) {
     if segments.is_empty() {
         return (String::new(), Vec::new());
@@ -69,10 +73,7 @@ pub fn split_crate_path(segments: &[String]) -> (String, Vec<String>) {
 }
 
 fn starts_with_uppercase(value: &str) -> bool {
-    value
-        .chars()
-        .next()
-        .is_some_and(|character| character.is_uppercase())
+    value.chars().next().is_some_and(char::is_uppercase)
 }
 
 #[cfg(test)]

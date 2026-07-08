@@ -28,4 +28,8 @@ pub enum Expression {
         op: Operator,
         rhs: Box<Self>,
     },
+    /// String interpolation parts joined with `..` in Lua.
+    FormatConcat {
+        parts: Vec<Self>,
+    },
 }

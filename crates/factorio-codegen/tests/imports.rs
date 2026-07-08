@@ -1,3 +1,6 @@
+mod common;
+
+use common::must_ok;
 use factorio_codegen::LuaGenerator;
 use factorio_ir::{
     block::Block,
@@ -27,11 +30,13 @@ fn generates_require_statements() {
                 name: "on_init".to_string(),
                 params: vec![],
                 body: Block { statements: vec![] },
+                doc: None,
+                debug: None,
             }),
         }],
     };
 
-    let output = LuaGenerator::new().generate_module(&module).unwrap();
+    let output = must_ok(LuaGenerator::new().generate_module(&module));
 
     assert_eq!(
         output,

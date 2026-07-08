@@ -30,7 +30,7 @@ fn run_init(args: &InitArgs) -> anyhow::Result<()> {
 
 fn run_build(args: &BuildArgs) -> anyhow::Result<()> {
     let project_root = project_root(args.manifest_path.as_deref())?;
-    let outputs = build::build(&project_root)?;
+    let outputs = build::build(&project_root, args.debug_level)?;
 
     for output in outputs {
         println!("Generated `{}`", output.display());

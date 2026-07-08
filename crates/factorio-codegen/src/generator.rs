@@ -12,6 +12,7 @@ pub struct LuaGenerator {
     indent_level: usize,
     /// Rewrites `StructName.associated` paths while generating struct methods.
     struct_table_context: Option<(String, String)>,
+    debug_level: Option<u8>,
 }
 
 impl Default for LuaGenerator {
@@ -21,28 +22,58 @@ impl Default for LuaGenerator {
 }
 
 impl LuaGenerator {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             output: String::new(),
             indent_level: 0,
             struct_table_context: None,
+            debug_level: None,
         }
+    }
+
+    #[must_use]
+    pub const fn with_debug_level(debug_level: u8) -> Self {
+        Self {
+            output: String::new(),
+            indent_level: 0,
+            struct_table_context: None,
+            debug_level: Some(debug_level),
+        }
+    }
+
+    const fn debug_level_at_least(&self, level: u8) -> bool {
+        matches!(self.debug_level, Some(current) if current >= level)
     }
 
     pub const INDENT: &'static str = "\t";
 
-    /// Returns a string indented to [LuaGenerator::indent_level].
+    /// Returns a string indented to [`LuaGenerator::indent_level`].
     fn indent(&self) -> String {
         Self::INDENT.repeat(self.indent_level)
     }
 
-    /// Writes a line of text to [LuaGenerator::output] terminated by a newline `\n`.
+    /// Writes a line of text to [`LuaGenerator::output`] terminated by a newline `\n`.
     fn write_line(&mut self, line: &str) {
         if !line.is_empty() {
             self.output.push_str(&self.indent());
             self.output.push_str(line);
         }
         self.output.push('\n');
+    }
+
+    fn write_doc_comments(&mut self, doc: Option<&str>) {
+        let Some(doc) = doc else {
+            return;
+        };
+
+        for line in doc.lines() {
+            if line.is_empty() {
+                self.write_line("--");
+            } else {
+                self.write_line(&format!("-- {line}"));
+            }
+        }
     }
 
     pub const MODULE_META_START: &'static str =
@@ -59,6 +90,10 @@ impl LuaGenerator {
         heck::AsLowerCamelCase(module_name.replace('.', "_")).to_string()
     }
 
+    /// Generate lua code for a single `module`.
+    ///
+    /// # Errors
+    /// Returns `Err` if parsing the AST fails.
     pub fn generate_module(&mut self, module: &Module) -> LuaGeneratorResult<String> {
         self.output.clear();
         self.indent_level = 0;
@@ -68,7 +103,6 @@ impl LuaGenerator {
         self.output.push('\n');
 
         self.generate_imports(&module.imports);
-        self.generate_submodules(&module.submodules);
 
         for statement in &module.body.statements {
             self.generate_statement(statement, Some(module), None, Scope::Private)?;
@@ -78,6 +112,13 @@ impl LuaGenerator {
         let (exporter_start, exporter_end) = Self::generate_symbol_exporter(&module_name);
         self.write_line(&exporter_start);
 
+        if !module.submodules.is_empty() {
+            self.write_line(&format!(
+                "package.loaded[\"{}\"] = {module_name}",
+                module.name
+            ));
+        }
+
         for symbol in &module.symbols {
             self.generate_statement(
                 &symbol.statement,
@@ -86,6 +127,8 @@ impl LuaGenerator {
                 symbol.scope,
             )?;
         }
+
+        self.generate_submodules(&module.submodules);
 
         self.write_line(&exporter_end);
 
@@ -151,13 +194,19 @@ impl LuaGenerator {
             Statement::StructDecl(struct_decl) => {
                 self.generate_struct(struct_decl, module, scope, module_name)?;
             }
-            Statement::VariableDecl { name, value, .. } => {
+            Statement::VariableDecl {
+                name,
+                value,
+                source_type,
+                ..
+            } => {
                 let value = self.generate_expression(value);
+                let type_comment = self.variable_type_comment(source_type.as_deref());
                 let line = match (scope, module_name) {
                     (Scope::Public, Some(module_name)) => {
-                        format!("{module_name}.{name} = {value}")
+                        format!("{module_name}.{name}{type_comment} = {value}")
                     }
-                    _ => format!("local {name} = {value}"),
+                    _ => format!("local {name}{type_comment} = {value}"),
                 };
                 self.write_line(&line);
             }
@@ -180,23 +229,21 @@ impl LuaGenerator {
                 }
                 self.indent_level -= 1;
 
-                if else_block.is_empty() {
-                    self.write_line("end");
-                } else {
+                if !else_block.is_empty() {
                     self.write_line("else");
                     self.indent_level += 1;
                     for statement in else_block {
                         self.generate_statement(statement, module, module_name, Scope::Private)?;
                     }
                     self.indent_level -= 1;
-                    self.write_line("end");
                 }
+                self.write_line("end");
             }
             Statement::Return(value) => {
-                let line = match value {
-                    Some(value) => format!("return {}", self.generate_expression(value)),
-                    None => "return".to_string(),
-                };
+                let line = value.as_ref().map_or_else(
+                    || "return".to_string(),
+                    |value| format!("return {}", self.generate_expression(value)),
+                );
                 self.write_line(&line);
             }
             Statement::Expr(expression) => {
@@ -220,28 +267,34 @@ impl LuaGenerator {
             ));
         }
 
-        if let Some(module) = module {
-            if module.is_imported_type_extension(struct_decl) {
-                let table_path = module
-                    .imported_item_local(&struct_decl.name)
-                    .expect("imported type extension must resolve to a local binding")
-                    .to_string();
+        if let Some(module) = module
+            && module.is_imported_type_extension(struct_decl)
+        {
+            let table_path = module
+                .imported_item_local(&struct_decl.name)
+                .ok_or_else(|| {
+                    LuaGeneratorError::FailedToGetTablePathForStruct(struct_decl.name.clone())
+                })?
+                .to_string();
 
-                for method in &struct_decl.methods {
-                    self.generate_table_method(method, &struct_decl.name, &table_path)?;
-                }
-
-                return Ok(());
+            for (name, value) in &struct_decl.constants {
+                let value = self.generate_expression(value);
+                self.write_line(&format!("{table_path}.{name} = {value}"));
             }
+
+            for method in &struct_decl.methods {
+                self.generate_table_method(method, &struct_decl.name, &table_path)?;
+            }
+
+            return Ok(());
         }
 
         let table_path = match (scope, module_name) {
             (Scope::Public, Some(module_name)) => {
                 format!("{module_name}.{}", struct_decl.name)
             }
-            (Scope::Private, None) => struct_decl.name.clone(),
-            (Scope::Public, None) => struct_decl.name.clone(),
-            (Scope::Private, Some(_)) => unreachable!("handled above"),
+            (Scope::Private | Scope::Public, None) => struct_decl.name.clone(),
+            (Scope::Private, Some(_)) => unreachable!(),
         };
 
         let prefix = if scope == Scope::Private && module_name.is_none() {
@@ -249,6 +302,14 @@ impl LuaGenerator {
         } else {
             ""
         };
+
+        self.write_doc_comments(struct_decl.doc.as_deref());
+
+        if self.debug_level_at_least(0)
+            && let Some(debug) = &struct_decl.debug
+        {
+            self.write_line(&format!("-- {}", debug.header_comment));
+        }
 
         self.write_line(&format!("{prefix}{table_path} = {{}}"));
 
@@ -279,20 +340,34 @@ impl LuaGenerator {
             func.params
                 .iter()
                 .skip(1)
-                .map(|parameter| parameter.name.as_str())
+                .map(|parameter| self.format_parameter(parameter))
                 .collect::<Vec<_>>()
                 .join(", ")
         } else {
             func.params
                 .iter()
-                .map(|parameter| parameter.name.as_str())
+                .map(|parameter| self.format_parameter(parameter))
                 .collect::<Vec<_>>()
                 .join(", ")
         };
 
+        let return_comment = self.function_return_comment(
+            func.debug
+                .as_ref()
+                .and_then(|debug| debug.return_type.as_deref()),
+        );
         let separator = if function_uses_self { ":" } else { "." };
+
+        self.write_doc_comments(func.doc.as_deref());
+
+        if self.debug_level_at_least(0)
+            && let Some(debug) = &func.debug
+        {
+            self.write_line(&format!("-- {}", debug.header_comment));
+        }
+
         self.write_line(&format!(
-            "function {table_path}{separator}{}({params})",
+            "function {table_path}{separator}{}({params}){return_comment}",
             func.name
         ));
 
@@ -335,17 +410,22 @@ impl LuaGenerator {
             func.params
                 .iter()
                 .skip(1)
-                .map(|parameter| parameter.name.as_str())
+                .map(|parameter| self.format_parameter(parameter))
                 .collect::<Vec<_>>()
                 .join(", ")
         } else {
             func.params
                 .iter()
-                .map(|parameter| parameter.name.as_str())
+                .map(|parameter| self.format_parameter(parameter))
                 .collect::<Vec<_>>()
                 .join(", ")
         };
 
+        let return_comment = self.function_return_comment(
+            func.debug
+                .as_ref()
+                .and_then(|debug| debug.return_type.as_deref()),
+        );
         let function_name = match module_name {
             Some(module_name) if function_uses_self => {
                 format!("{module_name}:{}", func.name)
@@ -354,7 +434,17 @@ impl LuaGenerator {
             None => func.name.clone(),
         };
 
-        self.write_line(&format!("{prefix}function {function_name}({params})"));
+        self.write_doc_comments(func.doc.as_deref());
+
+        if self.debug_level_at_least(0)
+            && let Some(debug) = &func.debug
+        {
+            self.write_line(&format!("-- {}", debug.header_comment));
+        }
+
+        self.write_line(&format!(
+            "{prefix}function {function_name}({params}){return_comment}"
+        ));
 
         self.indent_level += 1;
         self.generate_block(&func.body, module)?;
@@ -366,27 +456,48 @@ impl LuaGenerator {
     }
 
     fn generate_expression(&self, expression: &Expression) -> String {
+        self.generate_expression_prec(expression, 0)
+    }
+
+    fn generate_expression_prec(&self, expression: &Expression, min_prec: u8) -> String {
         match expression {
-            Expression::Literal(literal) => self.generate_literal(literal),
+            Expression::BinaryOp { lhs, op, rhs } => {
+                let prec = Self::operator_precedence(*op);
+                let lhs_str = self.generate_expression_prec(lhs, prec);
+                let rhs_str = self.generate_expression_prec(rhs, prec.saturating_add(1));
+                let result = format!("{} {} {}", lhs_str, Self::generate_operator(*op), rhs_str);
+
+                if prec < min_prec {
+                    format!("({result})")
+                } else {
+                    result
+                }
+            }
+            _ => self.generate_atom(expression),
+        }
+    }
+
+    fn generate_atom(&self, expression: &Expression) -> String {
+        match expression {
+            Expression::Literal(literal) => Self::generate_literal(literal),
             Expression::Identifier(name) => name.clone(),
             Expression::FieldAccess { base, field } => {
                 let base = self.generate_expression(base);
                 format!("{base}.{field}")
             }
             Expression::QualifiedPath { segments } => {
-                if let Some((struct_name, table_path)) = &self.struct_table_context {
-                    if segments
+                if let Some((struct_name, table_path)) = &self.struct_table_context
+                    && segments
                         .first()
                         .is_some_and(|segment| segment == struct_name)
-                    {
-                        let suffix = segments
-                            .get(1..)
-                            .map_or_else(String::new, |rest| rest.join("."));
-                        if suffix.is_empty() {
-                            return table_path.clone();
-                        }
-                        return format!("{table_path}.{suffix}");
+                {
+                    let suffix = segments
+                        .get(1..)
+                        .map_or_else(String::new, |rest| rest.join("."));
+                    if suffix.is_empty() {
+                        return table_path.clone();
                     }
+                    return format!("{table_path}.{suffix}");
                 }
 
                 segments.join(".")
@@ -419,18 +530,26 @@ impl LuaGenerator {
                     .map(|(name, value)| format!("{name} = {}", self.generate_expression(value)))
                     .collect::<Vec<_>>()
                     .join(", ");
-                format!("{{ {fields} }}")
+                let literal = format!("{{ {fields} }}");
+
+                if let Some((_, table_path)) = &self.struct_table_context {
+                    format!("setmetatable({literal}, {{ __index = {table_path} }})")
+                } else {
+                    literal
+                }
             }
-            Expression::BinaryOp { lhs, op, rhs } => {
-                let lhs = self.generate_expression(lhs);
-                let rhs = self.generate_expression(rhs);
-                let op = self.generate_operator(*op);
-                format!("({lhs} {op} {rhs})")
+            Expression::FormatConcat { parts } => parts
+                .iter()
+                .map(|part| self.generate_expression(part))
+                .collect::<Vec<_>>()
+                .join(" .. "),
+            Expression::BinaryOp { .. } => {
+                unreachable!("binary operators are handled by generate_expression_prec")
             }
         }
     }
 
-    fn generate_literal(&self, literal: &Literal) -> String {
+    fn generate_literal(literal: &Literal) -> String {
         match literal {
             Literal::Int(value) => value.to_string(),
             Literal::Float(value) => value.to_string(),
@@ -438,13 +557,60 @@ impl LuaGenerator {
         }
     }
 
-    fn generate_operator(&self, operator: Operator) -> &'static str {
+    const fn generate_operator(operator: Operator) -> &'static str {
         match operator {
             Operator::Add => "+",
             Operator::Sub => "-",
             Operator::Mul => "*",
             Operator::Div => "/",
             Operator::Eq => "==",
+            Operator::Ne => "~=",
+            Operator::Lt => "<",
+            Operator::Le => "<=",
+            Operator::Gt => ">",
+            Operator::Ge => ">=",
+        }
+    }
+
+    const fn operator_precedence(operator: Operator) -> u8 {
+        match operator {
+            Operator::Mul | Operator::Div => 20,
+            Operator::Add | Operator::Sub => 19,
+            Operator::Eq
+            | Operator::Ne
+            | Operator::Lt
+            | Operator::Le
+            | Operator::Gt
+            | Operator::Ge => 10,
+        }
+    }
+
+    fn format_parameter(&self, parameter: &factorio_ir::function::Parameter) -> String {
+        let type_comment = self.parameter_type_comment(parameter.source_type.as_deref());
+        format!("{}{type_comment}", parameter.name)
+    }
+
+    fn parameter_type_comment(&self, source_type: Option<&str>) -> String {
+        if self.debug_level_at_least(1) {
+            source_type.map_or_else(String::new, |ty| format!(" --[[ {ty} ]]"))
+        } else {
+            String::new()
+        }
+    }
+
+    fn variable_type_comment(&self, source_type: Option<&str>) -> String {
+        if self.debug_level_at_least(1) {
+            source_type.map_or_else(String::new, |ty| format!(" --[[ {ty} ]]"))
+        } else {
+            String::new()
+        }
+    }
+
+    fn function_return_comment(&self, return_type: Option<&str>) -> String {
+        if self.debug_level_at_least(1) {
+            return_type.map_or_else(String::new, |ty| format!(" --[[ -> {ty} ]]"))
+        } else {
+            String::new()
         }
     }
 }

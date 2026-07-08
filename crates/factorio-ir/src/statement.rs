@@ -7,6 +7,7 @@ pub enum Statement {
     VariableDecl {
         name: String,
         ty: Type,
+        source_type: Option<String>,
         value: Expression,
     },
     Assignment {

@@ -1,3 +1,4 @@
+mod damage;
 mod health;
 
 pub struct MyPlayer {
