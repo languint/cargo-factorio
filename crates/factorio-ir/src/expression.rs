@@ -23,6 +23,7 @@ pub enum Expression {
     StructLiteral {
         fields: Vec<(String, Self)>,
     },
+    /// An operation between a `lhs` and a `rhs` with an [`Operator`]
     BinaryOp {
         lhs: Box<Self>,
         op: Operator,

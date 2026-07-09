@@ -93,16 +93,12 @@ fn purge_output_dir(output_dir: &Path) -> CliResult<()> {
 
 fn collect_rust_sources(source_dir: &Path) -> CliResult<Vec<PathBuf>> {
     let mut sources = Vec::new();
-    collect_rust_sources_recursive(source_dir, source_dir, &mut sources)?;
+    collect_rust_sources_recursive(source_dir, &mut sources)?;
     sources.sort();
     Ok(sources)
 }
 
-fn collect_rust_sources_recursive(
-    source_dir: &Path,
-    current_dir: &Path,
-    sources: &mut Vec<PathBuf>,
-) -> CliResult<()> {
+fn collect_rust_sources_recursive(current_dir: &Path, sources: &mut Vec<PathBuf>) -> CliResult<()> {
     for entry in std::fs::read_dir(current_dir).map_err(|source| CliError::ReadDir {
         path: current_dir.to_path_buf(),
         source,
@@ -114,7 +110,7 @@ fn collect_rust_sources_recursive(
         let path = entry.path();
 
         if path.is_dir() {
-            collect_rust_sources_recursive(source_dir, &path, sources)?;
+            collect_rust_sources_recursive(&path, sources)?;
             continue;
         }
 
