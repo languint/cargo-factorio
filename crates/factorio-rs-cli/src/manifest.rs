@@ -2,6 +2,7 @@ use std::path::Path;
 
 use std::fmt::Write;
 
+use factorio_codegen::LuaGenerator;
 use factorio_ir::{module::Module, stage::Stage, statement::Statement};
 use heck::AsLowerCamelCase;
 use serde::Serialize;
@@ -12,11 +13,12 @@ use crate::{
     error::{CliError, CliResult},
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct EventRegistration {
     pub module: String,
     pub handler: String,
     pub event: String,
+    pub filter: Option<factorio_ir::expression::Expression>,
 }
 
 #[derive(Debug, Serialize)]
@@ -48,6 +50,7 @@ pub fn collect_event_registrations(module: &Module) -> Vec<EventRegistration> {
                 module: module.name.clone(),
                 handler: function.name.clone(),
                 event: event_name.clone(),
+                filter: function.event_filter.clone(),
             })
         })
         .collect()
@@ -63,22 +66,33 @@ pub fn generate_control_lua(mod_name: &str, events: &[EventRegistration]) -> Str
         return output;
     }
 
+    // Emit one `require` per distinct module, then all its event registrations.
+    let generator = LuaGenerator::new();
+    let mut emitted_requires: Vec<String> = Vec::new();
+
     for event in events {
         let lua_module_path = event.module.replace('.', "/");
         let require_path = format!("__{mod_name}__/lua/{lua_module_path}");
         let table_name = module_lua_identifier(&event.module);
-        let _ = writeln!(output, "local {table_name} = require(\"{require_path}\")");
-        if event.event == "on_init" {
-            let _ = writeln!(output, "script.on_init(function(event)");
-        } else {
-            let _ = writeln!(
-                output,
-                "script.on_event(defines.events.{}, function(event)",
-                event.event
-            );
+
+        if !emitted_requires.contains(&event.module) {
+            let _ = writeln!(output, "local {table_name} = require(\"{require_path}\")");
+            emitted_requires.push(event.module.clone());
         }
-        let _ = writeln!(output, "\t{}.{}(event)", table_name, event.handler);
-        let _ = writeln!(output, "end)");
+
+        // script.on_event(event, handler, filters?) — filters is the last arg.
+        let _ = writeln!(
+            output,
+            "script.on_event(defines.events.{}, function(event)",
+            event.event
+        );
+        let _ = writeln!(output, "\t{table_name}.{}(event)", event.handler);
+        if let Some(filter) = &event.filter {
+            let filter_lua = generator.generate_expression(filter);
+            let _ = writeln!(output, "end, {filter_lua})");
+        } else {
+            let _ = writeln!(output, "end)");
+        }
         output.push('\n');
     }
 
@@ -135,7 +149,9 @@ fn module_lua_identifier(module_name: &str) -> String {
 mod tests {
     use factorio_ir::{
         block::Block,
+        expression::Expression,
         function::Function,
+        literal::Literal,
         module::{Module, Symbol},
         scope::Scope,
         stage::Stage,
@@ -145,9 +161,9 @@ mod tests {
     use super::{collect_event_registrations, generate_control_lua};
 
     #[test]
-    fn generates_control_lua_with_on_init_handler() {
+    fn generates_control_lua_with_event_handler() {
         let module = Module {
-            name: "control.on_init".to_string(),
+            name: "control.on_singleplayer_init".to_string(),
             stage: Stage::Control,
             body: Block { statements: vec![] },
             imports: vec![],
@@ -155,12 +171,13 @@ mod tests {
             symbols: vec![Symbol {
                 scope: Scope::Public,
                 statement: Statement::FunctionDecl(Function {
-                    name: "on_init".to_string(),
+                    name: "on_singleplayer_init".to_string(),
                     params: vec![],
                     body: Block { statements: vec![] },
                     doc: None,
                     debug: None,
-                    event: Some("on_init".to_string()),
+                    event: Some("on_singleplayer_init".to_string()),
+                    event_filter: None,
                 }),
             }],
         };
@@ -168,9 +185,55 @@ mod tests {
         let events = collect_event_registrations(&module);
         let lua = generate_control_lua("hello_world", &events);
 
-        assert!(lua.contains("require(\"__hello_world__/lua/control/on_init\")"));
-        assert!(lua.contains("script.on_init(function(event)"));
-        assert!(lua.contains("controlOnInit.on_init(event)"));
+        assert!(lua.contains("require(\"__hello_world__/lua/control/on_singleplayer_init\")"));
+        assert!(
+            lua.contains("script.on_event(defines.events.on_singleplayer_init, function(event)")
+        );
+        assert!(lua.contains("controlOnSingleplayerInit.on_singleplayer_init(event)"));
         assert!(lua.contains("end)"));
+    }
+
+    #[test]
+    fn generates_control_lua_with_event_filter() {
+        let module = Module {
+            name: "control.on_built_entity".to_string(),
+            stage: Stage::Control,
+            body: Block { statements: vec![] },
+            imports: vec![],
+            submodules: vec![],
+            symbols: vec![Symbol {
+                scope: Scope::Public,
+                statement: Statement::FunctionDecl(Function {
+                    name: "on_built_entity".to_string(),
+                    params: vec![],
+                    body: Block { statements: vec![] },
+                    doc: None,
+                    debug: None,
+                    event: Some("on_built_entity".to_string()),
+                    event_filter: Some(Expression::Array {
+                        elements: vec![Expression::StructLiteral {
+                            fields: vec![
+                                (
+                                    "filter".to_string(),
+                                    Expression::Literal(Literal::String("type".to_string())),
+                                ),
+                                (
+                                    "type".to_string(),
+                                    Expression::Literal(Literal::String("inserter".to_string())),
+                                ),
+                            ],
+                        }],
+                    }),
+                }),
+            }],
+        };
+
+        let events = collect_event_registrations(&module);
+        let lua = generate_control_lua("hello_world", &events);
+
+        assert!(lua.contains("require(\"__hello_world__/lua/control/on_built_entity\")"));
+        assert!(lua.contains("script.on_event(defines.events.on_built_entity, function(event)"));
+        assert!(lua.contains("end, { { filter = \"type\", type = \"inserter\" } })"));
+        assert!(lua.contains("controlOnBuiltEntity.on_built_entity(event)"));
     }
 }

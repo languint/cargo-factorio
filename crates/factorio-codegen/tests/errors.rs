@@ -3,11 +3,11 @@ mod common;
 use common::must_err;
 use factorio_codegen::{LuaGenerator, LuaGeneratorError};
 use factorio_ir::{
-    stage::Stage,
     block::Block,
     function::Function,
     module::{Module, Symbol},
     scope::Scope,
+    stage::Stage,
     statement::Statement,
 };
 
@@ -28,6 +28,7 @@ fn rejects_exported_local_functions() {
                 doc: None,
                 debug: None,
                 event: None,
+                event_filter: None,
             }),
         }],
     };

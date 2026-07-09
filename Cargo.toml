@@ -4,6 +4,8 @@ members = [
     "crates/factorio-rs-cli",
     "crates/factorio-rs",
     "crates/factorio-macros",
+    "crates/factorio-api",
+    "crates/factorio-api-gen",
     "crates/factorio-codegen",
     "crates/factorio-frontend",
     "crates/factorio-ir",
@@ -16,6 +18,7 @@ license = "MIT"
 
 [workspace.dependencies]
 factorio-rs = { path = "./crates/factorio-rs" }
+factorio-api = { path = "./crates/factorio-api" }
 factorio-codegen = { path = "./crates/factorio-codegen" }
 factorio-frontend = { path = "./crates/factorio-frontend" }
 factorio-ir = { path = "./crates/factorio-ir" }

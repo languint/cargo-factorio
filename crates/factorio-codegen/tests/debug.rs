@@ -3,13 +3,13 @@ mod common;
 use common::must_ok;
 use factorio_codegen::LuaGenerator;
 use factorio_ir::{
-    stage::Stage,
     block::Block,
     debug::FunctionDebug,
     expression::Expression,
     function::{Function, Parameter},
     module::{Module, Symbol},
     scope::Scope,
+    stage::Stage,
     statement::Statement,
     r#type::Type,
 };
@@ -51,6 +51,7 @@ fn debug_level_one_adds_type_comments_to_functions() {
                     return_type: Some("i64".to_string()),
                 }),
                 event: None,
+                event_filter: None,
             }),
         }],
     };
@@ -92,6 +93,7 @@ fn debug_level_zero_adds_header_without_inline_types() {
                     return_type: Some("i64".to_string()),
                 }),
                 event: None,
+                event_filter: None,
             }),
         }],
     };

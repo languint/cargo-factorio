@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+factorio-api.workspace = true
 factorio-ir.workspace = true
 
 syn = { version = "2.0.114", features = ["full"] }

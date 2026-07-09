@@ -2,11 +2,7 @@ use syn::{BinOp, Expr, ExprBinary, ExprLit, ExprPath, Lit, Member};
 
 use crate::error::{FrontendError, FrontendResult};
 
-use super::{
-    context::LowerContext,
-    print::lower_macro_expression,
-    util::location,
-};
+use super::{context::LowerContext, print::lower_macro_expression, util::location};
 
 pub fn lower_expression(
     expression: &Expr,
@@ -165,6 +161,7 @@ fn lower_literal_expression(
             factorio_ir::literal::Literal::Float(parsed)
         }
         Lit::Str(value) => factorio_ir::literal::Literal::String(value.value()),
+        Lit::Bool(value) => factorio_ir::literal::Literal::Bool(value.value),
         _ => {
             return Err(FrontendError::UnsupportedExpression {
                 location: location(literal),
@@ -182,6 +179,21 @@ fn lower_path_expression(
 ) -> FrontendResult<factorio_ir::expression::Expression> {
     let mut segments = lower_path_segments(path, self_type)?;
     ctx.normalize_crate_path(&mut segments)?;
+
+    // Map Rust Option/bool keywords to Lua literals.
+    if segments.len() == 1 {
+        match segments[0].as_str() {
+            "None" => {
+                return Ok(factorio_ir::expression::Expression::Literal(
+                    factorio_ir::literal::Literal::Nil,
+                ));
+            }
+            "true" | "false" => {
+                unreachable!("bool literals are handled by lower_literal_expression")
+            }
+            _ => {}
+        }
+    }
 
     match segments.len() {
         1 => Ok(factorio_ir::expression::Expression::Identifier(

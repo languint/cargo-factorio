@@ -54,7 +54,9 @@ pub struct MyPlayer {
         assert_eq!(1, 0, "module table not found");
         return;
     };
-    let Some(package_loaded) = lua.find("package.loaded[\"__mod__/lua/shared/player\"] = sharedPlayer") else {
+    let Some(package_loaded) =
+        lua.find("package.loaded[\"__mod__/lua/shared/player\"] = sharedPlayer")
+    else {
         assert_eq!(1, 0, "early package.loaded registration not found");
         return;
     };

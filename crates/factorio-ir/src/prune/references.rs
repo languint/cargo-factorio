@@ -8,7 +8,7 @@ use crate::{
     prune::{
         items::function_exists,
         module_graph::{ItemKey, ModuleGraph},
-        reachability::{enqueue_item, ModuleReachability},
+        reachability::{ModuleReachability, enqueue_item},
         struct_utils,
     },
     statement::Statement,
@@ -53,9 +53,7 @@ fn collect_references_from_block(
     pending: &mut VecDeque<(String, ItemKey)>,
 ) {
     for statement in &block.statements {
-        collect_references_from_statement(
-            graph, module, statement, locals, reachability, pending,
-        );
+        collect_references_from_statement(graph, module, statement, locals, reachability, pending);
     }
 }
 
@@ -86,17 +84,18 @@ fn collect_references_from_statement(
             } else if let Some(struct_name) = infer_struct_type_from_expression(value) {
                 locals.insert(name.clone(), struct_name);
             }
-            collect_references_from_expression(
-                graph, module, value, locals, reachability, pending,
-            );
+            collect_references_from_expression(graph, module, value, locals, reachability, pending);
         }
         Statement::Assignment { target, value } => {
             collect_references_from_expression(
-                graph, module, target, locals, reachability, pending,
+                graph,
+                module,
+                target,
+                locals,
+                reachability,
+                pending,
             );
-            collect_references_from_expression(
-                graph, module, value, locals, reachability, pending,
-            );
+            collect_references_from_expression(graph, module, value, locals, reachability, pending);
         }
         Statement::Conditional {
             condition,
@@ -104,29 +103,54 @@ fn collect_references_from_statement(
             else_block,
         } => {
             collect_references_from_expression(
-                graph, module, condition, locals, reachability, pending,
+                graph,
+                module,
+                condition,
+                locals,
+                reachability,
+                pending,
             );
             for statement in then_block {
                 collect_references_from_statement(
-                    graph, module, statement, locals, reachability, pending,
+                    graph,
+                    module,
+                    statement,
+                    locals,
+                    reachability,
+                    pending,
                 );
             }
             for statement in else_block {
                 collect_references_from_statement(
-                    graph, module, statement, locals, reachability, pending,
+                    graph,
+                    module,
+                    statement,
+                    locals,
+                    reachability,
+                    pending,
                 );
             }
         }
         Statement::Return(value) => {
             if let Some(value) = value {
                 collect_references_from_expression(
-                    graph, module, value, locals, reachability, pending,
+                    graph,
+                    module,
+                    value,
+                    locals,
+                    reachability,
+                    pending,
                 );
             }
         }
         Statement::Expr(expression) => {
             collect_references_from_expression(
-                graph, module, expression, locals, reachability, pending,
+                graph,
+                module,
+                expression,
+                locals,
+                reachability,
+                pending,
             );
         }
     }
@@ -162,15 +186,18 @@ pub fn collect_references_from_expression(
                         ItemKey::StructMethod(struct_name, field.clone()),
                     );
                 } else if let Some(struct_name) = locals.get(name) {
-                    queue_struct_member(
-                        graph, module, struct_name, field, reachability, pending,
-                    );
+                    queue_struct_member(graph, module, struct_name, field, reachability, pending);
                 } else {
                     queue_struct_member(graph, module, name, field, reachability, pending);
                 }
             } else {
                 collect_references_from_expression(
-                    graph, module, base, locals, reachability, pending,
+                    graph,
+                    module,
+                    base,
+                    locals,
+                    reachability,
+                    pending,
                 );
             }
         }
@@ -178,7 +205,12 @@ pub fn collect_references_from_expression(
             resolve_call_target(graph, module, func, locals, reachability, pending);
             for arg in args {
                 collect_references_from_expression(
-                    graph, module, arg, locals, reachability, pending,
+                    graph,
+                    module,
+                    arg,
+                    locals,
+                    reachability,
+                    pending,
                 );
             }
         }
@@ -206,34 +238,62 @@ pub fn collect_references_from_expression(
                 }
             } else {
                 collect_references_from_expression(
-                    graph, module, receiver, locals, reachability, pending,
+                    graph,
+                    module,
+                    receiver,
+                    locals,
+                    reachability,
+                    pending,
                 );
             }
             for arg in args {
                 collect_references_from_expression(
-                    graph, module, arg, locals, reachability, pending,
+                    graph,
+                    module,
+                    arg,
+                    locals,
+                    reachability,
+                    pending,
                 );
             }
         }
         Expression::StructLiteral { fields } => {
             for (_, value) in fields {
                 collect_references_from_expression(
-                    graph, module, value, locals, reachability, pending,
+                    graph,
+                    module,
+                    value,
+                    locals,
+                    reachability,
+                    pending,
                 );
             }
         }
         Expression::BinaryOp { lhs, rhs, .. } => {
-            collect_references_from_expression(
-                graph, module, lhs, locals, reachability, pending,
-            );
-            collect_references_from_expression(
-                graph, module, rhs, locals, reachability, pending,
-            );
+            collect_references_from_expression(graph, module, lhs, locals, reachability, pending);
+            collect_references_from_expression(graph, module, rhs, locals, reachability, pending);
         }
         Expression::FormatConcat { parts } => {
             for part in parts {
                 collect_references_from_expression(
-                    graph, module, part, locals, reachability, pending,
+                    graph,
+                    module,
+                    part,
+                    locals,
+                    reachability,
+                    pending,
+                );
+            }
+        }
+        Expression::Array { elements } => {
+            for element in elements {
+                collect_references_from_expression(
+                    graph,
+                    module,
+                    element,
+                    locals,
+                    reachability,
+                    pending,
                 );
             }
         }
@@ -286,7 +346,12 @@ fn resolve_call_target(
                 }
             } else {
                 collect_references_from_expression(
-                    graph, module, base, locals, reachability, pending,
+                    graph,
+                    module,
+                    base,
+                    locals,
+                    reachability,
+                    pending,
                 );
             }
         }
@@ -315,9 +380,7 @@ fn resolve_call_target(
                 }
             }
         }
-        _ => collect_references_from_expression(
-            graph, module, func, locals, reachability, pending,
-        ),
+        _ => collect_references_from_expression(graph, module, func, locals, reachability, pending),
     }
 }
 

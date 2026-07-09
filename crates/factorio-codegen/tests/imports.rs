@@ -35,6 +35,7 @@ fn generates_require_statements() {
                 doc: None,
                 debug: None,
                 event: None,
+                event_filter: None,
             }),
         }],
     };

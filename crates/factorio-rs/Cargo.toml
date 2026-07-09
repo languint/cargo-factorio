@@ -6,6 +6,7 @@ license.workspace = true
 description = "Rust SDK for Factorio modding"
 
 [dependencies]
+factorio-api = { workspace = true }
 factorio-macros = { path = "../factorio-macros" }
 
 [lints]

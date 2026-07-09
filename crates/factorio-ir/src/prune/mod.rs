@@ -14,11 +14,7 @@ mod struct_utils;
 
 use crate::module::Module;
 
-use self::{
-    apply::prune_module,
-    module_graph::ModuleGraph,
-    reachability::compute_reachability,
-};
+use self::{apply::prune_module, module_graph::ModuleGraph, reachability::compute_reachability};
 
 /// Remove unreachable functions and exports from transpiled modules.
 ///
@@ -65,6 +61,7 @@ mod tests {
                     doc: None,
                     debug: None,
                     event: None,
+                    event_filter: None,
                 })],
             },
             imports: vec![],
@@ -78,6 +75,7 @@ mod tests {
                     doc: None,
                     debug: None,
                     event: Some("on_init".to_string()),
+                    event_filter: None,
                 }),
             }],
         }];
@@ -113,6 +111,7 @@ mod tests {
                         doc: None,
                         debug: None,
                         event: None,
+                        event_filter: None,
                     }),
                 },
                 Symbol {
@@ -124,6 +123,7 @@ mod tests {
                         doc: None,
                         debug: None,
                         event: Some("on_init".to_string()),
+                        event_filter: None,
                     }),
                 },
             ],

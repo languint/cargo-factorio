@@ -1,0 +1,15 @@
+[package]
+name = "factorio-api"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Generated Factorio runtime API bindings for factorio-rs"
+publish = false
+
+[dependencies]
+
+[build-dependencies]
+factorio-api-gen = { path = "../factorio-api-gen" }
+
+[lints]
+workspace = true

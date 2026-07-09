@@ -38,11 +38,19 @@ pub enum FrontendError {
         location: String,
     },
 
-    #[error("module `{module}` must be marked with `factorio_rs::control_mod!`, `#[factorio_rs::control]`, or live under `src/control/`, `src/shared/`, or `src/data/`")]
+    #[error(
+        "module `{module}` must be marked with `factorio_rs::control_mod!`, `#[factorio_rs::control]`, or live under `src/control/`, `src/shared/`, or `src/data/`"
+    )]
     InvalidModuleStage { module: String },
 
     #[error("event handlers are only allowed in control-stage modules, found in `{module}`")]
     EventOutsideControlStage { module: String },
+
+    #[error("invalid event filter at {location}")]
+    InvalidEventFilter { location: String },
+
+    #[error("unsupported event filter method `{method}` at {location}")]
+    UnsupportedEventFilterMethod { method: String, location: String },
 }
 
 pub type FrontendResult<T> = Result<T, FrontendError>;

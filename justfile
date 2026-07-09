@@ -21,6 +21,16 @@ test: build
     fi
     cargo nextest run
 
+update-factorio-api:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ ! -f Cargo.toml ]; then
+      cd {{ invocation_directory() }}
+    fi
+    curl -sL "https://lua-api.factorio.com/latest/runtime-api.json" \
+      -o crates/factorio-api-gen/api/runtime-api.json
+    cargo build -p factorio-api -p factorio-macros
+
 format:
     #!/usr/bin/env bash
     set -euo pipefail

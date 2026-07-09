@@ -6,6 +6,8 @@ use crate::error::{FrontendError, FrontendResult};
 
 pub mod attrs;
 pub mod context;
+pub mod event_filter;
+pub mod event_handler;
 pub mod expressions;
 pub mod functions;
 pub mod imports;
@@ -131,6 +133,7 @@ fn lower_top_level_item(
                 module_state.symbols,
             );
         }
+        Item::Const(_) => {}
         Item::Struct(item_struct) => lower_struct_item(item_struct, module_state.structs)?,
         Item::Impl(item_impl) => lower_impl_item(item_impl, module_state.structs, ctx)?,
         Item::Use(use_item) => module_state.use_imports.extend(lower_use(use_item)?),

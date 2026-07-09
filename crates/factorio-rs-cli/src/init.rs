@@ -8,8 +8,8 @@ use crate::{
 const FACTORIO_SDK_VERSION: &str = "0.1.0";
 
 const LIB_RS: &str = r#"factorio_rs::control_mod! {
-    #[factorio_rs::event(OnInit)]
-    pub fn on_init() {
+    #[factorio_rs::event(OnSingleplayerInit)]
+    pub fn on_singleplayer_init() {
         println!("Initialized");
     }
 }

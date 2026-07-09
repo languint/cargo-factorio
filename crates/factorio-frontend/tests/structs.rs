@@ -34,7 +34,10 @@ fn parses_struct_with_methods() {
     assert_eq!(struct_decl.fields[0].name, "health");
     assert_eq!(struct_decl.fields[0].source_type.as_deref(), Some("i64"));
     assert_eq!(
-        struct_decl.debug.as_ref().map(|debug| debug.header_comment.as_str()),
+        struct_decl
+            .debug
+            .as_ref()
+            .map(|debug| debug.header_comment.as_str()),
         Some("pub struct MyPlayer { health: i64 }")
     );
 

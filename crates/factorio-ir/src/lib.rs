@@ -1,11 +1,11 @@
 pub mod block;
-pub mod prune;
 pub mod debug;
 pub mod expression;
 pub mod function;
 pub mod literal;
 pub mod module;
 pub mod operator;
+pub mod prune;
 pub mod scope;
 pub mod stage;
 pub mod statement;

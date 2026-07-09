@@ -65,7 +65,7 @@ fn build_generates_lua_from_sources() {
     assert!(project_root.join("dist/info.json").is_file());
 
     let lua = std::fs::read_to_string(lua_output).unwrap();
-    assert!(lua.contains("function control.on_init"));
+    assert!(lua.contains("on_singleplayer_init"));
 }
 
 #[test]

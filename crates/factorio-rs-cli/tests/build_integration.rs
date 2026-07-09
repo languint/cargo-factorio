@@ -48,9 +48,9 @@ impl MyPlayer {
 }
 ";
 
-const ON_INIT_RS: &str = r"
-#[factorio_rs::event(OnInit)]
-pub fn on_init() {
+const ON_SINGLEPLAYER_INIT_RS: &str = r"
+#[factorio_rs::event(OnSingleplayerInit)]
+pub fn on_singleplayer_init() {
     let mut player = crate::shared::player::MyPlayer::new();
 
     player.set_health(player.get_health() - 1);
@@ -62,13 +62,13 @@ fn write_nested_module_project(project_root: &Path) {
     std::fs::write(project_root.join("Cargo.toml"), CARGO_TOML).unwrap();
     std::fs::create_dir_all(project_root.join("src/control")).unwrap();
     std::fs::create_dir_all(project_root.join("src/shared/player")).unwrap();
-    std::fs::write(project_root.join("src/control/on_init.rs"), ON_INIT_RS).unwrap();
-    std::fs::write(project_root.join("src/shared/player.rs"), PLAYER_RS).unwrap();
     std::fs::write(
-        project_root.join("src/shared/player/health.rs"),
-        HEALTH_RS,
+        project_root.join("src/control/on_singleplayer_init.rs"),
+        ON_SINGLEPLAYER_INIT_RS,
     )
     .unwrap();
+    std::fs::write(project_root.join("src/shared/player.rs"), PLAYER_RS).unwrap();
+    std::fs::write(project_root.join("src/shared/player/health.rs"), HEALTH_RS).unwrap();
 }
 
 #[test]
@@ -84,18 +84,18 @@ fn build_generates_nested_module_lua() {
         .unwrap();
     assert!(status.success());
 
-    let on_init_lua =
-        std::fs::read_to_string(project_root.join("dist/lua/control/on_init.lua")).unwrap();
+    let on_singleplayer_init_lua =
+        std::fs::read_to_string(project_root.join("dist/lua/control/on_singleplayer_init.lua"))
+            .unwrap();
     assert!(
-        on_init_lua.contains("local shared_player = require(\"__test-mod__/lua/shared/player\")"),
-        "generated lua:\n{on_init_lua}"
+        on_singleplayer_init_lua
+            .contains("local shared_player = require(\"__test-mod__/lua/shared/player\")"),
+        "generated lua:\n{on_singleplayer_init_lua}"
     );
 
     let player_lua =
         std::fs::read_to_string(project_root.join("dist/lua/shared/player.lua")).unwrap();
-    assert!(
-        player_lua.contains("require(\"__test-mod__/lua/shared/player/health\")")
-    );
+    assert!(player_lua.contains("require(\"__test-mod__/lua/shared/player/health\")"));
 
     let health_lua =
         std::fs::read_to_string(project_root.join("dist/lua/shared/player/health.lua")).unwrap();

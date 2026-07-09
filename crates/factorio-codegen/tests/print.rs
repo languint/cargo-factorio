@@ -3,13 +3,13 @@ mod common;
 use common::must_ok;
 use factorio_codegen::LuaGenerator;
 use factorio_ir::{
-    stage::Stage,
     block::Block,
     expression::Expression,
     function::Function,
     literal::Literal,
     module::{Module, Symbol},
     scope::Scope,
+    stage::Stage,
     statement::Statement,
 };
 
@@ -51,6 +51,7 @@ fn generates_format_concat_for_println() {
                 doc: None,
                 debug: None,
                 event: None,
+                event_filter: None,
             }),
         }],
     };

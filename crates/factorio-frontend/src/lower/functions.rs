@@ -1,27 +1,23 @@
-use syn::{Attribute, Block, ItemFn, PatType, Signature, Visibility};
+use syn::{ItemFn, PatType, Signature};
 
 use crate::error::FrontendResult;
 
 use super::{
-    attrs::extract_factorio_event,
     context::LowerContext,
+    event_handler::resolve_event_handler,
     metadata::{extract_doc_comments, function_header_comment},
     statements::lower_block,
-    types::{lower_binding_pattern, lower_type, receiver_source_string, return_type_string, type_source_string},
+    types::{
+        lower_binding_pattern, lower_type, receiver_source_string, return_type_string,
+        type_source_string,
+    },
 };
 
 pub fn lower_function(
     function: &ItemFn,
     ctx: &mut LowerContext<'_>,
 ) -> FrontendResult<factorio_ir::function::Function> {
-    lower_function_parts(
-        &function.sig,
-        &function.block,
-        &function.vis,
-        &function.attrs,
-        ctx,
-        None,
-    )
+    lower_function_parts(function, ctx, None)
 }
 
 pub fn lower_impl_method(
@@ -29,34 +25,32 @@ pub fn lower_impl_method(
     self_type: &str,
     ctx: &mut LowerContext<'_>,
 ) -> FrontendResult<factorio_ir::function::Function> {
-    lower_function_parts(
-        &method.sig,
-        &method.block,
-        &method.vis,
-        &method.attrs,
-        ctx,
-        Some(self_type),
-    )
+    let function = ItemFn {
+        attrs: method.attrs.clone(),
+        vis: method.vis.clone(),
+        sig: method.sig.clone(),
+        block: Box::new(method.block.clone()),
+    };
+    lower_function_parts(&function, ctx, Some(self_type))
 }
 
 fn lower_function_parts(
-    signature: &Signature,
-    block: &Block,
-    visibility: &Visibility,
-    attrs: &[Attribute],
+    function: &ItemFn,
     ctx: &mut LowerContext<'_>,
     self_type: Option<&str>,
 ) -> FrontendResult<factorio_ir::function::Function> {
+    let event_attr = resolve_event_handler(function);
     Ok(factorio_ir::function::Function {
-        name: signature.ident.to_string(),
-        params: lower_parameters(signature)?,
-        body: lower_block(block, ctx, self_type)?,
-        doc: extract_doc_comments(attrs),
+        name: function.sig.ident.to_string(),
+        params: lower_parameters(&function.sig)?,
+        body: lower_block(&function.block, ctx, self_type)?,
+        doc: extract_doc_comments(&function.attrs),
         debug: Some(factorio_ir::debug::FunctionDebug {
-            header_comment: function_header_comment(visibility, signature),
-            return_type: return_type_string(signature),
+            header_comment: function_header_comment(&function.vis, &function.sig),
+            return_type: return_type_string(&function.sig),
         }),
-        event: extract_factorio_event(attrs),
+        event: event_attr.as_ref().map(|event| event.event_name.clone()),
+        event_filter: event_attr.and_then(|event| event.filter),
     })
 }
 

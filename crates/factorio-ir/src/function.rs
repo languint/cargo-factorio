@@ -16,4 +16,6 @@ pub struct Function {
     pub debug: Option<FunctionDebug>,
     /// Factorio event name when this function is registered with `#[factorio_rs::event(...)]`.
     pub event: Option<String>,
+    /// Optional event filter table passed to `script.on_event`.
+    pub event_filter: Option<crate::expression::Expression>,
 }

@@ -24,7 +24,11 @@ pub fn create_archive(project_root: &Path) -> CliResult<PathBuf> {
     let output_dir = project_root.join(&config.output_dir);
     let zip_path = project_root.join(format!("{}_{}.zip", package.name, package.version));
 
-    write_zip(&output_dir, &zip_path, &format!("{}_{}", package.name, package.version))?;
+    write_zip(
+        &output_dir,
+        &zip_path,
+        &format!("{}_{}", package.name, package.version),
+    )?;
     Ok(zip_path)
 }
 

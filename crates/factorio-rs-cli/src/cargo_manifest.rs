@@ -25,12 +25,11 @@ impl CargoPackage {
                 source,
             })?;
 
-        let manifest: CargoManifest = toml::from_str(&contents).map_err(|source| {
-            CliError::CargoManifestParse {
+        let manifest: CargoManifest =
+            toml::from_str(&contents).map_err(|source| CliError::CargoManifestParse {
                 path: manifest_path,
                 source,
-            }
-        })?;
+            })?;
 
         Ok(manifest.package)
     }

@@ -3,7 +3,7 @@ use factorio_ir::expression::Expression;
 use crate::LuaGenerator;
 
 impl LuaGenerator {
-    pub(crate) fn generate_expression(&self, expression: &Expression) -> String {
+    pub fn generate_expression(&self, expression: &Expression) -> String {
         self.generate_expression_prec(expression, 0)
     }
 
@@ -92,6 +92,14 @@ impl LuaGenerator {
                 .map(|part| self.generate_expression(part))
                 .collect::<Vec<_>>()
                 .join(" .. "),
+            Expression::Array { elements } => {
+                let elements = elements
+                    .iter()
+                    .map(|element| self.generate_expression(element))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{{ {elements} }}")
+            }
             Expression::BinaryOp { .. } => {
                 unreachable!("binary operators are handled by generate_expression_prec")
             }

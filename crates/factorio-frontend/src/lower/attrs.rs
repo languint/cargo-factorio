@@ -1,12 +1,78 @@
-use syn::{Attribute, Meta, Path};
+use syn::{
+    Attribute, Expr, Meta, Path, Token,
+    parse::{Parse, ParseStream},
+};
 
 use factorio_ir::stage::Stage;
 
-/// Parses `#[factorio_rs::event(OnInit)]` and returns the Factorio event name (`on_init`).
-pub fn extract_factorio_event(attrs: &[Attribute]) -> Option<String> {
-    attrs
-        .iter()
-        .find_map(parse_factorio_event_attribute)
+pub(crate) struct EventAttributeArgs {
+    pub(crate) event: Option<Path>,
+    pub(crate) filter: Option<Expr>,
+}
+
+impl Parse for EventAttributeArgs {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        if input.is_empty() {
+            return Ok(Self {
+                event: None,
+                filter: None,
+            });
+        }
+
+        if input.peek(syn::Ident) && input.peek2(Token![=]) {
+            let keyword: syn::Ident = input.parse()?;
+            if keyword != "filter" {
+                return Err(syn::Error::new(
+                    keyword.span(),
+                    "expected `filter` or an event type such as `OnBuiltEntity`",
+                ));
+            }
+            input.parse::<Token![=]>()?;
+            let filter = Some(input.parse::<Expr>()?);
+            return Ok(Self {
+                event: None,
+                filter,
+            });
+        }
+
+        let event: Path = input.parse()?;
+        let filter = if input.peek(Token![,]) {
+            input.parse::<Token![,]>()?;
+            let keyword: syn::Ident = input.parse()?;
+            if keyword != "filter" {
+                return Err(syn::Error::new(
+                    keyword.span(),
+                    "expected `filter` after event type",
+                ));
+            }
+            input.parse::<Token![=]>()?;
+            Some(input.parse::<Expr>()?)
+        } else {
+            None
+        };
+
+        Ok(Self {
+            event: Some(event),
+            filter,
+        })
+    }
+}
+
+/// Parses optional `#[factorio_rs::event(...)]` attribute arguments.
+pub(crate) fn parse_factorio_event_attribute_args(attr: &Attribute) -> Option<EventAttributeArgs> {
+    let path = attr.path();
+    if !is_factorio_path_segment(path, "event") {
+        return None;
+    }
+
+    match &attr.meta {
+        Meta::Path(_) => Some(EventAttributeArgs {
+            event: None,
+            filter: None,
+        }),
+        Meta::List(meta_list) => syn::parse2::<EventAttributeArgs>(meta_list.tokens.clone()).ok(),
+        Meta::NameValue(_) => None,
+    }
 }
 
 /// Parses `#[factorio_rs::control]`, `#[factorio_rs::shared]`, or `#[factorio_rs::data]`.
@@ -42,21 +108,6 @@ fn stage_bang_ident_to_stage(ident: &str) -> Option<Stage> {
     }
 }
 
-fn parse_factorio_event_attribute(attr: &Attribute) -> Option<String> {
-    let path = attr.path();
-    if !is_factorio_path_segment(path, "event") {
-        return None;
-    }
-
-    let Meta::List(meta_list) = &attr.meta else {
-        return None;
-    };
-
-    let path = syn::parse2::<Path>(meta_list.tokens.clone()).ok()?;
-    let segment = path.segments.last()?;
-    event_type_to_name(&segment.ident.to_string())
-}
-
 fn parse_factorio_stage_attribute(attr: &Attribute) -> Option<Stage> {
     let path = attr.path();
     for stage_name in ["control", "shared", "data"] {
@@ -87,38 +138,13 @@ fn stage_ident_to_stage(ident: &str) -> Option<Stage> {
     }
 }
 
-fn event_type_to_name(event_type: &str) -> Option<String> {
-    match event_type {
-        "OnInit" => Some("on_init".to_string()),
-        _ => None,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     #![allow(clippy::panic)]
 
     use syn::parse_str;
 
-    use super::{extract_factorio_event, extract_factorio_stage};
-
-    #[test]
-    fn parses_factorio_event_attribute() {
-        let Ok(function) = parse_str::<syn::ItemFn>(
-            r"
-            #[factorio_rs::event(OnInit)]
-            pub fn on_init() {}
-        ",
-        ) else {
-            assert_eq!(1, 0, "failed to parse function");
-            return;
-        };
-
-        assert_eq!(
-            extract_factorio_event(&function.attrs).as_deref(),
-            Some("on_init")
-        );
-    }
+    use super::extract_factorio_stage;
 
     #[test]
     fn parses_factorio_stage_attribute() {

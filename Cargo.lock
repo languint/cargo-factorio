@@ -138,6 +138,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 
 [[package]]
+name = "convert_case"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "baaaa0ecca5b51987b9423ccdc971514dd8b0bb7b4060b983d3664dad3f1f89f"
+dependencies = [
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "crc32fast"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -191,6 +200,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "factorio-api"
+version = "0.1.0"
+dependencies = [
+ "factorio-api-gen",
+]
+
+[[package]]
+name = "factorio-api-gen"
+version = "0.1.0"
+dependencies = [
+ "convert_case",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "factorio-codegen"
 version = "0.1.0"
 dependencies = [
@@ -203,6 +230,7 @@ dependencies = [
 name = "factorio-frontend"
 version = "0.1.0"
 dependencies = [
+ "factorio-api",
  "factorio-codegen",
  "factorio-ir",
  "proc-macro2",
@@ -221,6 +249,7 @@ dependencies = [
 name = "factorio-macros"
 version = "0.1.0"
 dependencies = [
+ "factorio-api-gen",
  "proc-macro2",
  "quote",
  "syn",
@@ -230,6 +259,7 @@ dependencies = [
 name = "factorio-rs"
 version = "0.1.0"
 dependencies = [
+ "factorio-api",
  "factorio-macros",
 ]
 
@@ -564,6 +594,12 @@ name = "unicode-ident"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+
+[[package]]
+name = "unicode-segmentation"
+version = "1.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6f5d3c3b1bf09027a88a6bc961fc00497d651009560b5463668dc81b0fa87a8"
 
 [[package]]
 name = "utf8parse"

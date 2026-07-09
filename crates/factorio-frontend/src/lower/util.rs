@@ -1,5 +1,5 @@
-use syn::spanned::Spanned;
 use syn::ImplItem;
+use syn::spanned::Spanned;
 
 /// Returns a source location string for error reporting.
 pub fn location(span: &impl Spanned) -> String {

@@ -79,6 +79,7 @@ pub const fn infer_type_from_expression(
             factorio_ir::literal::Literal::Int(_) => Some(factorio_ir::r#type::Type::Int),
             factorio_ir::literal::Literal::Float(_) => Some(factorio_ir::r#type::Type::Float),
             factorio_ir::literal::Literal::String(_) => Some(factorio_ir::r#type::Type::Str),
+            factorio_ir::literal::Literal::Bool(_) | factorio_ir::literal::Literal::Nil => None,
         },
         _ => None,
     }

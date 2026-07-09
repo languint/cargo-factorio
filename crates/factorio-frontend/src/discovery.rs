@@ -103,8 +103,8 @@ mod tests {
         let source_path = source_dir.join("lib.rs");
         let source = r"
             factorio_rs::control_mod! {
-                #[factorio_rs::event(OnInit)]
-                pub fn on_init() {}
+                #[factorio_rs::event(OnSingleplayerInit)]
+                pub fn on_singleplayer_init() {}
             }
         ";
 
@@ -121,8 +121,8 @@ mod tests {
         let source = r"
             #![factorio_rs::control]
 
-            #[factorio_rs::event(OnInit)]
-            pub fn on_init() {}
+            #[factorio_rs::event(OnSingleplayerInit)]
+            pub fn on_singleplayer_init() {}
         ";
 
         let modules = discover_modules(source_dir, &source_path, source).unwrap();

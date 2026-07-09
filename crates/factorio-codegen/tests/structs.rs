@@ -3,12 +3,12 @@ mod common;
 use common::must_ok;
 use factorio_codegen::LuaGenerator;
 use factorio_ir::{
-    stage::Stage,
     block::Block,
     expression::Expression,
     function::{Function, Parameter},
     module::{Module, Symbol},
     scope::Scope,
+    stage::Stage,
     statement::Statement,
     structure::{Struct, StructField},
     r#type::Type,
@@ -49,6 +49,7 @@ fn generates_struct_as_table_with_methods() {
                         doc: None,
                         debug: None,
                         event: None,
+                        event_filter: None,
                     },
                     Function {
                         name: "set_health".to_string(),
@@ -76,6 +77,7 @@ fn generates_struct_as_table_with_methods() {
                         doc: None,
                         debug: None,
                         event: None,
+                        event_filter: None,
                     },
                 ],
                 doc: None,
@@ -121,6 +123,7 @@ fn generates_private_struct_as_local_table() {
                     doc: None,
                     debug: None,
                     event: None,
+                    event_filter: None,
                 }],
                 doc: None,
                 debug: None,

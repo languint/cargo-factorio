@@ -14,5 +14,8 @@ proc-macro2 = "1.0.106"
 quote = "1.0.45"
 syn = { version = "2.0.114", features = ["full"] }
 
+[build-dependencies]
+factorio-api-gen = { path = "../factorio-api-gen" }
+
 [lints]
 workspace = true

@@ -46,7 +46,6 @@ impl Module {
 
     #[must_use]
     pub fn is_imported_type_extension(&self, struct_decl: &crate::structure::Struct) -> bool {
-        struct_decl.fields.is_empty()
-            && self.imported_item_local(&struct_decl.name).is_some()
+        struct_decl.fields.is_empty() && self.imported_item_local(&struct_decl.name).is_some()
     }
 }

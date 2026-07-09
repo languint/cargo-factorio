@@ -17,7 +17,10 @@ pub fn on_init(_event: ()) {
 
 #[test]
 fn parses_module_with_private_helper_and_exported_handler() {
-    let module = must_ok_parse(parse_module(BOUND_DETECTOR_SOURCE, "control.bound_detector"));
+    let module = must_ok_parse(parse_module(
+        BOUND_DETECTOR_SOURCE,
+        "control.bound_detector",
+    ));
 
     assert_eq!(module.name, "control.bound_detector");
     assert_eq!(module.symbols.len(), 1);
@@ -28,7 +31,10 @@ fn parses_module_with_private_helper_and_exported_handler() {
     };
     assert_eq!(helper.name, "helper");
     assert_eq!(
-        helper.debug.as_ref().map(|debug| debug.header_comment.as_str()),
+        helper
+            .debug
+            .as_ref()
+            .map(|debug| debug.header_comment.as_str()),
         Some("fn helper() -> i64")
     );
 
@@ -41,8 +47,12 @@ fn parses_module_with_private_helper_and_exported_handler() {
     assert_eq!(on_init.params[0].name, "_event");
     assert_eq!(on_init.params[0].source_type.as_deref(), Some("()"));
 
-    let Statement::VariableDecl { name, ty, source_type, .. } =
-        &on_init.body.statements[0]
+    let Statement::VariableDecl {
+        name,
+        ty,
+        source_type,
+        ..
+    } = &on_init.body.statements[0]
     else {
         assert_eq!(1, 0, "expected count variable");
         return;
@@ -54,7 +64,10 @@ fn parses_module_with_private_helper_and_exported_handler() {
 
 #[test]
 fn parsed_module_generates_expected_lua() {
-    let module = must_ok_parse(parse_module(BOUND_DETECTOR_SOURCE, "control.bound_detector"));
+    let module = must_ok_parse(parse_module(
+        BOUND_DETECTOR_SOURCE,
+        "control.bound_detector",
+    ));
     let output = must_ok(LuaGenerator::new().generate_module(&module));
 
     assert_eq!(
@@ -76,7 +89,10 @@ fn parsed_module_generates_expected_lua() {
 
 #[test]
 fn debug_level_zero_emits_rust_header_comments() {
-    let module = must_ok_parse(parse_module(BOUND_DETECTOR_SOURCE, "control.bound_detector"));
+    let module = must_ok_parse(parse_module(
+        BOUND_DETECTOR_SOURCE,
+        "control.bound_detector",
+    ));
     let output = must_ok(LuaGenerator::with_debug_level(0).generate_module(&module));
 
     assert!(output.contains("-- fn helper() -> i64"));
@@ -85,7 +101,10 @@ fn debug_level_zero_emits_rust_header_comments() {
 
 #[test]
 fn debug_level_one_emits_type_annotations() {
-    let module = must_ok_parse(parse_module(BOUND_DETECTOR_SOURCE, "control.bound_detector"));
+    let module = must_ok_parse(parse_module(
+        BOUND_DETECTOR_SOURCE,
+        "control.bound_detector",
+    ));
     let output = must_ok(LuaGenerator::with_debug_level(1).generate_module(&module));
 
     assert!(output.contains("function controlBoundDetector.on_init(_event --[[ () ]])"));

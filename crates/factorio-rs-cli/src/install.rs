@@ -53,9 +53,11 @@ fn copy_dir_recursive(source: &Path, dest: &Path) -> CliResult<()> {
             source: std::io::Error::other(err),
         })?;
         let path = entry.path();
-        let relative = path.strip_prefix(source).map_err(|_| CliError::InvalidProjectPath {
-            path: path.to_path_buf(),
-        })?;
+        let relative = path
+            .strip_prefix(source)
+            .map_err(|_| CliError::InvalidProjectPath {
+                path: path.to_path_buf(),
+            })?;
         let target = dest.join(relative);
 
         if path.is_dir() {

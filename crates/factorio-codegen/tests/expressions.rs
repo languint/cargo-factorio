@@ -3,7 +3,6 @@ mod common;
 use common::must_ok;
 use factorio_codegen::LuaGenerator;
 use factorio_ir::{
-    stage::Stage,
     block::Block,
     expression::Expression,
     function::{Function, Parameter},
@@ -11,6 +10,7 @@ use factorio_ir::{
     module::{Module, Symbol},
     operator::Operator,
     scope::Scope,
+    stage::Stage,
     statement::Statement,
     r#type::Type,
 };
@@ -59,6 +59,7 @@ fn generates_binary_ops_and_conditionals() {
                 doc: None,
                 debug: None,
                 event: None,
+                event_filter: None,
             }),
         }],
     };

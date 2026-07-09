@@ -22,10 +22,7 @@ pub fn reset(&mut self, player: ()) {
     assert_eq!(function.params.len(), 2);
     assert_eq!(function.params[0].source_type.as_deref(), Some("&mut self"));
     assert_eq!(function.params[1].source_type.as_deref(), Some("()"));
-    assert_eq!(
-        function.body.statements,
-        vec![Statement::Return(None)]
-    );
+    assert_eq!(function.body.statements, vec![Statement::Return(None)]);
 }
 
 #[test]
@@ -44,7 +41,10 @@ fn helper() -> i64 {
 
     assert_eq!(function.name, "helper");
     assert_eq!(
-        function.debug.as_ref().and_then(|debug| debug.return_type.as_deref()),
+        function
+            .debug
+            .as_ref()
+            .and_then(|debug| debug.return_type.as_deref()),
         Some("i64")
     );
 }

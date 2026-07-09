@@ -45,8 +45,8 @@ fn lower_statement(
             let (ty, source_type) = if let Some((ty, source_type)) = annotated_type {
                 (ty, Some(source_type))
             } else {
-                let ty = infer_type_from_expression(&value)
-                    .unwrap_or(factorio_ir::r#type::Type::Void);
+                let ty =
+                    infer_type_from_expression(&value).unwrap_or(factorio_ir::r#type::Type::Void);
                 let source_type = inferred_source_type(&ty);
                 (ty, source_type)
             };

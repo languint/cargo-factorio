@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
 use crate::{
-    expression::Expression, function::Function, module::Module,
-    prune::module_graph::ModuleGraph, statement::Statement, structure::Struct,
+    expression::Expression, function::Function, module::Module, prune::module_graph::ModuleGraph,
+    statement::Statement, structure::Struct,
 };
 
 /// Find a struct declaration in a module's body or exported symbols.
@@ -64,11 +64,7 @@ pub fn struct_has_method(module: &Module, struct_name: &str, method_name: &str) 
 /// Return the module that owns a struct type referenced from `module`.
 ///
 /// Checks local declarations first, then walks `use` imports and their submodules.
-pub fn struct_owner_module(
-    graph: &ModuleGraph<'_>,
-    module: &Module,
-    struct_name: &str,
-) -> String {
+pub fn struct_owner_module(graph: &ModuleGraph<'_>, module: &Module, struct_name: &str) -> String {
     if struct_exists(module, struct_name) {
         return module.name.clone();
     }

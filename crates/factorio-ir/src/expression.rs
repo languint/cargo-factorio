@@ -33,4 +33,8 @@ pub enum Expression {
     FormatConcat {
         parts: Vec<Self>,
     },
+    /// Lua array literal `{ a, b, c }`.
+    Array {
+        elements: Vec<Self>,
+    },
 }

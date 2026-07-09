@@ -219,6 +219,8 @@ impl LuaGenerator {
             Literal::Int(value) => value.to_string(),
             Literal::Float(value) => value.to_string(),
             Literal::String(value) => format!("\"{}\"", escape_lua_string(value)),
+            Literal::Bool(value) => value.to_string(),
+            Literal::Nil => "nil".to_string(),
         }
     }
 

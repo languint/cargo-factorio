@@ -63,9 +63,9 @@ fn expand_reachable_item(
     };
 
     match item {
-        ItemKey::Function(name) => expand_reachable_function(
-            graph, module, name, reachability, pending,
-        ),
+        ItemKey::Function(name) => {
+            expand_reachable_function(graph, module, name, reachability, pending)
+        }
         ItemKey::Struct(name) => {
             expand_reachable_struct(graph, module, module_name, name, reachability, pending);
         }

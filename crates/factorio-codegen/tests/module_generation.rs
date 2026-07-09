@@ -3,13 +3,13 @@ mod common;
 use common::must_ok;
 use factorio_codegen::LuaGenerator;
 use factorio_ir::{
-    stage::Stage,
     block::Block,
     expression::Expression,
     function::{Function, Parameter},
     literal::Literal,
     module::{Module, Symbol},
     scope::Scope,
+    stage::Stage,
     statement::Statement,
     r#type::Type,
 };
@@ -31,6 +31,7 @@ fn generates_module_with_private_helper_and_exported_handler() {
                 doc: None,
                 debug: None,
                 event: None,
+                event_filter: None,
             })],
         },
         imports: vec![],
@@ -55,6 +56,7 @@ fn generates_module_with_private_helper_and_exported_handler() {
                 doc: None,
                 debug: None,
                 event: None,
+                event_filter: None,
             }),
         }],
     };
@@ -97,6 +99,7 @@ fn omits_unreachable_private_helper_when_pruned() {
                 doc: None,
                 debug: None,
                 event: None,
+                event_filter: None,
             })],
         },
         imports: vec![],
@@ -121,6 +124,7 @@ fn omits_unreachable_private_helper_when_pruned() {
                 doc: None,
                 debug: None,
                 event: Some("on_init".to_string()),
+                event_filter: None,
             }),
         }],
     };

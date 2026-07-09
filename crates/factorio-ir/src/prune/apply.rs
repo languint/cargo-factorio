@@ -2,7 +2,7 @@ use crate::{
     module::Module,
     prune::{
         module_graph::ItemKey,
-        reachability::{is_statement_reachable, ModuleReachability},
+        reachability::{ModuleReachability, is_statement_reachable},
     },
     statement::Statement,
     structure::Struct,

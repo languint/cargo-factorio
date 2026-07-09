@@ -18,7 +18,10 @@ pub fn on_init() {}
         return;
     };
 
-    assert_eq!(function.doc.as_deref(), Some("Called when the game starts."));
+    assert_eq!(
+        function.doc.as_deref(),
+        Some("Called when the game starts.")
+    );
 
     let lua = must_ok(LuaGenerator::new().generate_module(&module));
     assert!(lua.contains("-- Called when the game starts."));

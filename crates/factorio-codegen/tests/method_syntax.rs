@@ -3,11 +3,11 @@ mod common;
 use common::must_ok;
 use factorio_codegen::LuaGenerator;
 use factorio_ir::{
-    stage::Stage,
     block::Block,
     function::{Function, Parameter},
     module::{Module, Symbol},
     scope::Scope,
+    stage::Stage,
     statement::Statement,
     r#type::Type,
 };
@@ -42,6 +42,7 @@ fn generates_method_with_self_using_colon_syntax() {
                 doc: None,
                 debug: None,
                 event: None,
+                event_filter: None,
             }),
         }],
     };

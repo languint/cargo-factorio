@@ -3,10 +3,7 @@ mod common;
 use common::must_ok_parse;
 use factorio_frontend::parse_module;
 use factorio_ir::{
-    expression::Expression,
-    literal::Literal,
-    operator::Operator,
-    statement::Statement,
+    expression::Expression, literal::Literal, operator::Operator, statement::Statement,
 };
 
 #[test]
@@ -31,7 +28,10 @@ pub fn add(a: i32, b: i32) -> i32 {
     assert_eq!(function.params.len(), 2);
     assert_eq!(function.params[0].source_type.as_deref(), Some("i32"));
     assert_eq!(
-        function.debug.as_ref().and_then(|debug| debug.return_type.as_deref()),
+        function
+            .debug
+            .as_ref()
+            .and_then(|debug| debug.return_type.as_deref()),
         Some("i32")
     );
     assert_eq!(
