@@ -3,6 +3,8 @@
 use std::path::Path;
 
 const FACTORIO_TOML: &str = r#"
+prune_dead_code = true
+
 [mod]
 title = "Test Mod"
 "#;
@@ -47,6 +49,7 @@ impl MyPlayer {
 ";
 
 const ON_INIT_RS: &str = r"
+#[factorio::event(OnInit)]
 pub fn on_init() {
     let mut player = crate::shared::player::MyPlayer::new();
 

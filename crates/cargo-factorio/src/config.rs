@@ -14,6 +14,10 @@ fn default_output_dir() -> String {
     "dist".to_string()
 }
 
+fn default_prune_dead_code() -> bool {
+    true
+}
+
 /// Metadata written to generated `info.json`.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct ModConfig {
@@ -40,6 +44,10 @@ pub struct Config {
 
     #[serde(default = "default_output_dir")]
     pub output_dir: String,
+
+    /// Remove unreachable functions and exports from generated Lua.
+    #[serde(default = "default_prune_dead_code")]
+    pub prune_dead_code: bool,
 
     #[serde(default)]
     pub r#mod: ModConfig,
@@ -81,6 +89,7 @@ mod tests {
             Config {
                 source: "src".to_string(),
                 output_dir: "dist".to_string(),
+                prune_dead_code: true,
                 r#mod: super::ModConfig {
                     title: None,
                     description: None,
@@ -88,5 +97,11 @@ mod tests {
                 },
             }
         );
+    }
+
+    #[test]
+    fn parses_prune_dead_code_override() {
+        let config: Config = toml::from_str("prune_dead_code = false").unwrap();
+        assert!(!config.prune_dead_code);
     }
 }

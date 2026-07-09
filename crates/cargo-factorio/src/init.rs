@@ -7,17 +7,18 @@ use crate::{
 
 const FACTORIO_SDK_VERSION: &str = "0.1.0";
 
-const LIB_RS: &str = r"factorio::control_mod! {
+const LIB_RS: &str = r#"factorio::control_mod! {
     #[factorio::event(OnInit)]
     pub fn on_init() {
-        println!("Initialized.");
+        println!("Initialized");
     }
 }
-";
+"#;
 
 const FACTORIO_CONFIG: &str = r#"# cargo-factorio project configuration
 source = "src"
 output_dir = "dist"
+prune_dead_code = true
 
 [mod]
 title = "Factorio Mod"
@@ -43,7 +44,8 @@ pub fn init(project_root: &Path, package_name: Option<&str>) -> CliResult<()> {
         return Err(CliError::AlreadyExists { path: config_path });
     }
 
-    let package_name = package_name.map_or_else(|| default_package_name(project_root), str::to_string);
+    let package_name =
+        package_name.map_or_else(|| default_package_name(project_root), str::to_string);
 
     let source_dir = project_root.join("src");
     let lib_rs = source_dir.join("lib.rs");

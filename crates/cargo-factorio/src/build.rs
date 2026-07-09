@@ -4,7 +4,7 @@ use factorio_codegen::LuaGenerator;
 use factorio_frontend::{
     discover_modules, lua_output_path, parse_discovered_module,
 };
-use factorio_ir::module::Module;
+use factorio_ir::{module::Module, prune::prune_modules};
 
 use crate::{
     cargo_manifest::CargoPackage,
@@ -38,6 +38,7 @@ pub fn build(project_root: &Path, debug_level: Option<u8>) -> CliResult<Vec<Path
 
     let mut outputs = Vec::new();
     let mut event_registrations = Vec::new();
+    let mut discovered_modules = Vec::new();
 
     for source_path in sources {
         let source = std::fs::read_to_string(&source_path).map_err(|err| CliError::ReadFile {
@@ -47,19 +48,36 @@ pub fn build(project_root: &Path, debug_level: Option<u8>) -> CliResult<Vec<Path
         let discovered = discover_modules(&source_dir, &source_path, &source)?;
 
         for module_spec in discovered {
-            let (output_path, module) = transpile_discovered_module(
-                &module_spec,
-                &lua_dir,
-                &package.name,
-                debug_level,
-            )?;
-            event_registrations.extend(collect_event_registrations(&module));
-            outputs.push(output_path);
+            let module = parse_discovered_module(&module_spec)?;
+            discovered_modules.push((module_spec, module));
         }
     }
 
-    if outputs.is_empty() {
+    if discovered_modules.is_empty() {
         return Err(CliError::NoSourceFiles { path: source_dir });
+    }
+
+    if config.prune_dead_code {
+        let mut modules = discovered_modules
+            .iter()
+            .map(|(_, module)| module.clone())
+            .collect::<Vec<_>>();
+        prune_modules(&mut modules);
+        for ((_, module), pruned) in discovered_modules.iter_mut().zip(modules) {
+            *module = pruned;
+        }
+    }
+
+    for (module_spec, module) in discovered_modules {
+        let output_path = transpile_module(
+            &module_spec,
+            &module,
+            &lua_dir,
+            &package.name,
+            debug_level,
+        )?;
+        event_registrations.extend(collect_event_registrations(&module));
+        outputs.push(output_path);
     }
 
     write_mod_manifests(&output_dir, &package, &config, &event_registrations)?;
@@ -122,18 +140,18 @@ fn is_rust_source(path: &Path) -> bool {
             .is_some_and(|extension| extension.eq_ignore_ascii_case("rs"))
 }
 
-fn transpile_discovered_module(
+fn transpile_module(
     discovered: &factorio_frontend::DiscoveredModule,
+    module: &Module,
     lua_dir: &Path,
     mod_name: &str,
     debug_level: Option<u8>,
-) -> CliResult<(PathBuf, Module)> {
-    let module = parse_discovered_module(discovered)?;
+) -> CliResult<PathBuf> {
     let mut generator = match debug_level {
         Some(level) => LuaGenerator::with_mod_name_and_debug(mod_name, level),
         None => LuaGenerator::with_mod_name(mod_name),
     };
-    let lua = generator.generate_module(&module)?;
+    let lua = generator.generate_module(module)?;
 
     let output_path = lua_output_path(lua_dir, &discovered.module_name);
     if let Some(parent) = output_path.parent() {
@@ -148,7 +166,7 @@ fn transpile_discovered_module(
         source,
     })?;
 
-    Ok((output_path, module))
+    Ok(output_path)
 }
 
 #[cfg(test)]
