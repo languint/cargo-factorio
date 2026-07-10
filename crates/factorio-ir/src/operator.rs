@@ -10,4 +10,7 @@ pub enum Operator {
     Le,
     Gt,
     Ge,
+    And,
+    Or,
+    Mod,
 }

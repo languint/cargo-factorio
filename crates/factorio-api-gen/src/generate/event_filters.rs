@@ -251,15 +251,16 @@ pub fn generate_event_filters(api: &RuntimeApi) -> String {
 
 pub fn generate_event_data(
     api: &RuntimeApi,
-    class_names: &std::collections::BTreeSet<String>,
+    known: &crate::generate::types::KnownTypes<'_>,
 ) -> String {
     use crate::generate::events::event_rust_name;
+    use crate::generate::types::map_copy_field_type;
 
     let event_data = api.events.iter().map(|event| {
         let rust_name = make_ident(&format!("{}Event", event_rust_name(&event.name)));
         let fields = event.data.iter().map(|parameter| {
             let field_name = make_ident(&parameter.name);
-            let field_type = map_event_data_type(&parameter.type_name, class_names);
+            let field_type = map_copy_field_type(&parameter.type_name, known);
             quote! {
                 pub #field_name: #field_type,
             }
@@ -274,14 +275,14 @@ pub fn generate_event_data(
         if let Some(description) = doc {
             quote! {
                 #[doc = #description]
-                #[derive(Debug, Clone, PartialEq, Default)]
+                #[derive(Debug, Clone, Copy, PartialEq, Default)]
                 pub struct #rust_name {
                     #( #fields )*
                 }
             }
         } else {
             quote! {
-                #[derive(Debug, Clone, PartialEq, Default)]
+                #[derive(Debug, Clone, Copy, PartialEq, Default)]
                 pub struct #rust_name {
                     #( #fields )*
                 }
@@ -290,30 +291,4 @@ pub fn generate_event_data(
     });
 
     quote! { #( #event_data )* }.to_string()
-}
-
-fn map_event_data_type(
-    api_type: &crate::schema::ApiType,
-    class_names: &std::collections::BTreeSet<String>,
-) -> proc_macro2::TokenStream {
-    if let Some(name) = api_type.as_simple_name() {
-        return match name {
-            "string" | "LocalisedString" | "LuaLazyLoadedValueLocalisedString" => {
-                quote!(String)
-            }
-            "boolean" => quote!(bool),
-            "uint" | "int" | "number" | "float" | "double" | "MapTick" | "Tick" | "uint8"
-            | "uint16" | "uint32" | "uint64" | "int8" | "int16" | "int32" | "int64"
-            | "ItemStackIndex" | "ItemCountType" | "InventoryIndex" => quote!(f64),
-            "nil" | "void" => quote!(()),
-            other if other.starts_with("defines.") => quote!(String),
-            other if class_names.contains(other) => {
-                let ident = make_ident(other);
-                quote!(crate::classes::#ident)
-            }
-            _ => quote!(crate::LuaAny),
-        };
-    }
-
-    quote!(crate::LuaAny)
 }

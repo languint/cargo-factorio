@@ -7,8 +7,6 @@ use crate::{
     paths::{require_local_name, split_crate_path},
 };
 
-use super::util::location;
-
 pub struct ImportFragment {
     pub module: String,
     pub require_local: String,
@@ -20,13 +18,13 @@ struct RawUseBinding {
     rename: Option<String>,
 }
 
-pub fn lower_use(item: &ItemUse) -> FrontendResult<Vec<ImportFragment>> {
+pub fn lower_use(item: &ItemUse, module_prefix: &str) -> FrontendResult<Vec<ImportFragment>> {
     let mut bindings = Vec::new();
     collect_use_bindings(&item.tree, &mut Vec::new(), &mut bindings)?;
 
     let mut fragments = Vec::new();
     for binding in bindings {
-        if let Some(fragment) = finalize_use_binding(binding)? {
+        if let Some(fragment) = finalize_use_binding(binding, module_prefix)? {
             fragments.push(fragment);
         }
     }
@@ -64,10 +62,17 @@ fn collect_use_bindings(
             prefix.pop();
             Ok(())
         }
-        UseTree::Glob(_) => Err(FrontendError::UnsupportedItem {
-            item: "use glob".to_string(),
-            location: location(tree),
-        }),
+        UseTree::Glob(_) => {
+            // `use crate::foo::*` → record a module-level import of `crate::foo`
+            // so the module gets `require`d in Lua.
+            // External globs like `use factorio_rs::prelude::*` are filtered out
+            // later by `finalize_use_binding` because they don't start with `crate`.
+            bindings.push(RawUseBinding {
+                segments: prefix.clone(),
+                rename: None,
+            });
+            Ok(())
+        }
         UseTree::Group(UseGroup { items, .. }) => {
             for item in items {
                 collect_use_bindings(item, prefix, bindings)?;
@@ -77,7 +82,10 @@ fn collect_use_bindings(
     }
 }
 
-fn finalize_use_binding(binding: RawUseBinding) -> FrontendResult<Option<ImportFragment>> {
+fn finalize_use_binding(
+    binding: RawUseBinding,
+    module_prefix: &str,
+) -> FrontendResult<Option<ImportFragment>> {
     if binding.segments.first().map(String::as_str) != Some("crate") {
         return Ok(None);
     }
@@ -91,19 +99,27 @@ fn finalize_use_binding(binding: RawUseBinding) -> FrontendResult<Option<ImportF
     }
 
     if item_segments.is_empty() {
+        // The local Lua name for a bare module import (`use crate::shared::foo`)
+        // is the last segment of the binding path (i.e. `foo`), matching Rust's
+        // scoping rules. The full dotted path is used only for the `require()` call.
+        let default_local = binding
+            .segments
+            .last()
+            .cloned()
+            .unwrap_or_else(|| require_local_name(&module_path));
+        let prefixed_local = apply_prefix(&default_local, module_prefix);
         return Ok(Some(ImportFragment {
             module: module_path.clone(),
-            require_local: binding
-                .rename
-                .unwrap_or_else(|| require_local_name(&module_path)),
+            require_local: binding.rename.unwrap_or(prefixed_local),
             item: None,
         }));
     }
 
     if item_segments.len() == 1 {
+        let prefixed_local = apply_prefix(&require_local_name(&module_path), module_prefix);
         return Ok(Some(ImportFragment {
             module: module_path.clone(),
-            require_local: require_local_name(&module_path),
+            require_local: prefixed_local,
             item: Some(factorio_ir::module::ImportedItem {
                 name: item_segments[0].clone(),
                 local: binding.rename.unwrap_or_else(|| item_segments[0].clone()),
@@ -117,14 +133,17 @@ fn finalize_use_binding(binding: RawUseBinding) -> FrontendResult<Option<ImportF
     })
 }
 
-pub fn merge_imports(fragments: Vec<ImportFragment>) -> Vec<factorio_ir::module::ModuleImport> {
+pub fn merge_imports(
+    fragments: Vec<ImportFragment>,
+    module_prefix: &str,
+) -> Vec<factorio_ir::module::ModuleImport> {
     let mut merged = BTreeMap::<String, factorio_ir::module::ModuleImport>::new();
 
     for fragment in fragments {
         let entry = merged.entry(fragment.module.clone()).or_insert_with(|| {
             factorio_ir::module::ModuleImport {
                 module: fragment.module.clone(),
-                local: require_local_name(&fragment.module),
+                local: apply_prefix(&require_local_name(&fragment.module), module_prefix),
                 items: Vec::new(),
             }
         });
@@ -144,4 +163,12 @@ pub fn merge_imports(fragments: Vec<ImportFragment>) -> Vec<factorio_ir::module:
     }
 
     merged.into_values().collect()
+}
+
+fn apply_prefix(local: &str, prefix: &str) -> String {
+    if prefix.is_empty() {
+        local.to_string()
+    } else {
+        format!("{prefix}_{local}")
+    }
 }

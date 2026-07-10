@@ -7,5 +7,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     factorio_api_gen::write_generated_api(Path::new(&out_dir), &generated)?;
 
     println!("cargo:rerun-if-changed=../factorio-api-gen/api/runtime-api.json");
+    println!("cargo:rerun-if-changed=../factorio-api-gen/src");
     Ok(())
 }

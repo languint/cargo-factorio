@@ -67,7 +67,10 @@ pub fn lower_event_filter_entry(expr: &Expr) -> FrontendResult<Expression> {
         });
     }
 
-    Ok(Expression::StructLiteral { fields })
+    Ok(Expression::StructLiteral {
+        struct_name: None,
+        fields,
+    })
 }
 
 fn call_method_name(func: &Expr) -> Option<String> {
@@ -116,7 +119,7 @@ mod tests {
             panic!("expected array");
         };
         assert_eq!(elements.len(), 1);
-        let Expression::StructLiteral { fields } = &elements[0] else {
+        let Expression::StructLiteral { fields, .. } = &elements[0] else {
             panic!("expected struct literal");
         };
         assert_eq!(

@@ -11,6 +11,18 @@ pub fn lower_type(ty: &Type) -> FrontendResult<factorio_ir::r#type::Type> {
         Type::Reference(reference) if is_self_type(&reference.elem) => {
             Ok(factorio_ir::r#type::Type::Void)
         }
+        Type::Reference(reference) => {
+            // &str and &'static str map to Str
+            if let Type::Path(inner) = reference.elem.as_ref()
+                && inner.path.is_ident("str")
+            {
+                return Ok(factorio_ir::r#type::Type::Str);
+            }
+            Err(FrontendError::UnsupportedType {
+                ty: "unsupported reference type".to_string(),
+                location: location(ty),
+            })
+        }
         _ => Err(FrontendError::UnsupportedType {
             ty: "unsupported type".to_string(),
             location: location(ty),

@@ -21,6 +21,9 @@ pub enum Expression {
         args: Vec<Self>,
     },
     StructLiteral {
+        /// The Rust struct name that produced this literal, used by codegen to inject
+        /// fixed Factorio prototype fields (e.g. `type = "bool-setting"`).
+        struct_name: Option<String>,
         fields: Vec<(String, Self)>,
     },
     /// An operation between a `lhs` and a `rhs` with an [`Operator`]
@@ -37,4 +40,13 @@ pub enum Expression {
     Array {
         elements: Vec<Self>,
     },
+    /// Lua table index expression `base[key]`.
+    Index {
+        base: Box<Self>,
+        key: Box<Self>,
+    },
+    /// Logical `not EXPR` in Lua.
+    Not(Box<Self>),
+    /// Length operator `#EXPR` in Lua.
+    Len(Box<Self>),
 }

@@ -8,6 +8,7 @@ use crate::{
         references::{collect_references_from_expression, collect_references_from_function},
         struct_utils,
     },
+    stage::Stage,
     statement::Statement,
     structure::Struct,
 };
@@ -30,15 +31,38 @@ pub fn compute_reachability(graph: &ModuleGraph<'_>) -> HashMap<String, ModuleRe
 
     for module in graph.modules {
         for symbol in &module.symbols {
-            if let Statement::FunctionDecl(function) = &symbol.statement
-                && function.event.is_some()
-            {
-                enqueue_item(
-                    &mut reachability,
-                    &mut pending,
-                    &module.name,
-                    ItemKey::Function(function.name.clone()),
-                );
+            match &symbol.statement {
+                Statement::FunctionDecl(function) if function.event.is_some() => {
+                    enqueue_item(
+                        &mut reachability,
+                        &mut pending,
+                        &module.name,
+                        ItemKey::Function(function.name.clone()),
+                    );
+                }
+                // Public functions and structs in settings/data modules are stage
+                // entry points - they are exported and used by Factorio at load time.
+                Statement::FunctionDecl(function)
+                    if matches!(module.stage, Stage::Settings | Stage::Data) =>
+                {
+                    enqueue_item(
+                        &mut reachability,
+                        &mut pending,
+                        &module.name,
+                        ItemKey::Function(function.name.clone()),
+                    );
+                }
+                Statement::StructDecl(struct_decl)
+                    if matches!(module.stage, Stage::Settings | Stage::Data) =>
+                {
+                    enqueue_item(
+                        &mut reachability,
+                        &mut pending,
+                        &module.name,
+                        ItemKey::Struct(struct_decl.name.clone()),
+                    );
+                }
+                _ => {}
             }
         }
     }
@@ -64,7 +88,7 @@ fn expand_reachable_item(
 
     match item {
         ItemKey::Function(name) => {
-            expand_reachable_function(graph, module, name, reachability, pending)
+            expand_reachable_function(graph, module, name, reachability, pending);
         }
         ItemKey::Struct(name) => {
             expand_reachable_struct(graph, module, module_name, name, reachability, pending);
@@ -247,7 +271,9 @@ pub fn is_statement_reachable(statement: &Statement, reach: &ModuleReachability)
         | Statement::Assignment { .. }
         | Statement::Conditional { .. }
         | Statement::Return(_)
-        | Statement::Expr(_) => true,
+        | Statement::Expr(_)
+        | Statement::ForIn { .. }
+        | Statement::Continue => true,
     }
 }
 

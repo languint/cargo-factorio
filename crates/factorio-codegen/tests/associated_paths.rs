@@ -41,6 +41,7 @@ fn rewrites_associated_paths_inside_struct_methods() {
                     params: vec![],
                     body: Block {
                         statements: vec![Statement::Return(Some(Expression::StructLiteral {
+                            struct_name: None,
                             fields: vec![(
                                 "health".to_string(),
                                 Expression::QualifiedPath {

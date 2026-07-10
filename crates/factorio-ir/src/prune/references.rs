@@ -57,6 +57,26 @@ fn collect_references_from_block(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
+fn collect_references_from_conditional(
+    graph: &ModuleGraph<'_>,
+    module: &Module,
+    locals: &mut HashMap<String, String>,
+    reachability: &mut HashMap<String, ModuleReachability>,
+    pending: &mut VecDeque<(String, ItemKey)>,
+    condition: &Expression,
+    then_block: &Vec<Statement>,
+    else_block: &Vec<Statement>,
+) {
+    collect_references_from_expression(graph, module, condition, locals, reachability, pending);
+    for statement in then_block {
+        collect_references_from_statement(graph, module, statement, locals, reachability, pending);
+    }
+    for statement in else_block {
+        collect_references_from_statement(graph, module, statement, locals, reachability, pending);
+    }
+}
+
 /// Walk one statement, updating `locals` and enqueueing referenced items.
 fn collect_references_from_statement(
     graph: &ModuleGraph<'_>,
@@ -70,7 +90,6 @@ fn collect_references_from_statement(
         Statement::FunctionDecl(function) => {
             collect_references_from_function(graph, module, function, reachability, pending);
         }
-        Statement::StructDecl(_) => {}
         Statement::VariableDecl {
             name,
             source_type,
@@ -101,36 +120,16 @@ fn collect_references_from_statement(
             condition,
             then_block,
             else_block,
-        } => {
-            collect_references_from_expression(
-                graph,
-                module,
-                condition,
-                locals,
-                reachability,
-                pending,
-            );
-            for statement in then_block {
-                collect_references_from_statement(
-                    graph,
-                    module,
-                    statement,
-                    locals,
-                    reachability,
-                    pending,
-                );
-            }
-            for statement in else_block {
-                collect_references_from_statement(
-                    graph,
-                    module,
-                    statement,
-                    locals,
-                    reachability,
-                    pending,
-                );
-            }
-        }
+        } => collect_references_from_conditional(
+            graph,
+            module,
+            locals,
+            reachability,
+            pending,
+            condition,
+            then_block,
+            else_block,
+        ),
         Statement::Return(value) => {
             if let Some(value) = value {
                 collect_references_from_expression(
@@ -153,6 +152,88 @@ fn collect_references_from_statement(
                 pending,
             );
         }
+        Statement::ForIn { iter, body, .. } => {
+            collect_references_from_expression(graph, module, iter, locals, reachability, pending);
+            for statement in body {
+                collect_references_from_statement(
+                    graph,
+                    module,
+                    statement,
+                    locals,
+                    reachability,
+                    pending,
+                );
+            }
+        }
+        Statement::StructDecl(_) | Statement::Continue => {}
+    }
+}
+
+fn collect_references_from_method_call(
+    graph: &ModuleGraph<'_>,
+    module: &Module,
+    locals: &HashMap<String, String>,
+    reachability: &mut HashMap<String, ModuleReachability>,
+    pending: &mut VecDeque<(String, ItemKey)>,
+    receiver: &Box<Expression>,
+    method: &String,
+    args: &Vec<Expression>,
+) {
+    if let Expression::Identifier(name) = receiver.as_ref() {
+        if let Some((target_module, struct_name)) = resolve_import(module, name) {
+            enqueue_item(
+                reachability,
+                pending,
+                &target_module,
+                ItemKey::StructMethod(struct_name, method.clone()),
+            );
+        } else if let Some(struct_name) = locals.get(name) {
+            let owner = struct_utils::struct_owner_module(graph, module, struct_name);
+            enqueue_item(
+                reachability,
+                pending,
+                &owner,
+                ItemKey::StructMethod(struct_name.clone(), method.clone()),
+            );
+        }
+    } else {
+        collect_references_from_expression(graph, module, receiver, locals, reachability, pending);
+    }
+    for arg in args {
+        collect_references_from_expression(graph, module, arg, locals, reachability, pending);
+    }
+}
+
+fn collect_references_from_field_access(
+    graph: &ModuleGraph<'_>,
+    module: &Module,
+    locals: &HashMap<String, String>,
+    reachability: &mut HashMap<String, ModuleReachability>,
+    pending: &mut VecDeque<(String, ItemKey)>,
+    base: &Box<Expression>,
+    field: &String,
+) {
+    if let Expression::Identifier(name) = base.as_ref() {
+        if let Some((target_module, struct_name)) = resolve_import(module, name) {
+            enqueue_item(
+                reachability,
+                pending,
+                &target_module,
+                ItemKey::Struct(struct_name.clone()),
+            );
+            enqueue_item(
+                reachability,
+                pending,
+                &target_module,
+                ItemKey::StructMethod(struct_name, field.clone()),
+            );
+        } else if let Some(struct_name) = locals.get(name) {
+            queue_struct_member(graph, module, struct_name, field, reachability, pending);
+        } else {
+            queue_struct_member(graph, module, name, field, reachability, pending);
+        }
+    } else {
+        collect_references_from_expression(graph, module, base, locals, reachability, pending);
     }
 }
 
@@ -170,37 +251,15 @@ pub fn collect_references_from_expression(
         Expression::QualifiedPath { segments } => {
             resolve_struct_member_reference(graph, module, segments, reachability, pending);
         }
-        Expression::FieldAccess { base, field } => {
-            if let Expression::Identifier(name) = base.as_ref() {
-                if let Some((target_module, struct_name)) = resolve_import(module, name) {
-                    enqueue_item(
-                        reachability,
-                        pending,
-                        &target_module,
-                        ItemKey::Struct(struct_name.clone()),
-                    );
-                    enqueue_item(
-                        reachability,
-                        pending,
-                        &target_module,
-                        ItemKey::StructMethod(struct_name, field.clone()),
-                    );
-                } else if let Some(struct_name) = locals.get(name) {
-                    queue_struct_member(graph, module, struct_name, field, reachability, pending);
-                } else {
-                    queue_struct_member(graph, module, name, field, reachability, pending);
-                }
-            } else {
-                collect_references_from_expression(
-                    graph,
-                    module,
-                    base,
-                    locals,
-                    reachability,
-                    pending,
-                );
-            }
-        }
+        Expression::FieldAccess { base, field } => collect_references_from_field_access(
+            graph,
+            module,
+            locals,
+            reachability,
+            pending,
+            base,
+            field,
+        ),
         Expression::Call { func, args } => {
             resolve_call_target(graph, module, func, locals, reachability, pending);
             for arg in args {
@@ -218,46 +277,17 @@ pub fn collect_references_from_expression(
             receiver,
             method,
             args,
-        } => {
-            if let Expression::Identifier(name) = receiver.as_ref() {
-                if let Some((target_module, struct_name)) = resolve_import(module, name) {
-                    enqueue_item(
-                        reachability,
-                        pending,
-                        &target_module,
-                        ItemKey::StructMethod(struct_name, method.clone()),
-                    );
-                } else if let Some(struct_name) = locals.get(name) {
-                    let owner = struct_utils::struct_owner_module(graph, module, struct_name);
-                    enqueue_item(
-                        reachability,
-                        pending,
-                        &owner,
-                        ItemKey::StructMethod(struct_name.clone(), method.clone()),
-                    );
-                }
-            } else {
-                collect_references_from_expression(
-                    graph,
-                    module,
-                    receiver,
-                    locals,
-                    reachability,
-                    pending,
-                );
-            }
-            for arg in args {
-                collect_references_from_expression(
-                    graph,
-                    module,
-                    arg,
-                    locals,
-                    reachability,
-                    pending,
-                );
-            }
-        }
-        Expression::StructLiteral { fields } => {
+        } => collect_references_from_method_call(
+            graph,
+            module,
+            locals,
+            reachability,
+            pending,
+            receiver,
+            method,
+            args,
+        ),
+        Expression::StructLiteral { fields, .. } => {
             for (_, value) in fields {
                 collect_references_from_expression(
                     graph,
@@ -296,6 +326,13 @@ pub fn collect_references_from_expression(
                     pending,
                 );
             }
+        }
+        Expression::Index { base, key } => {
+            collect_references_from_expression(graph, module, base, locals, reachability, pending);
+            collect_references_from_expression(graph, module, key, locals, reachability, pending);
+        }
+        Expression::Not(inner) | Expression::Len(inner) => {
+            collect_references_from_expression(graph, module, inner, locals, reachability, pending);
         }
     }
 }
@@ -357,7 +394,18 @@ fn resolve_call_target(
         }
         Expression::QualifiedPath { segments } => {
             if let Some((target_module, rest)) = resolve_module_path(module, segments) {
-                enqueue_import_path(reachability, pending, &target_module, &rest);
+                // A call like `module::function(...)` resolves to a plain function in the
+                // imported module when there is exactly one trailing segment.
+                if rest.len() == 1 {
+                    enqueue_item(
+                        reachability,
+                        pending,
+                        &target_module,
+                        ItemKey::Function(rest[0].clone()),
+                    );
+                } else {
+                    enqueue_import_path(reachability, pending, &target_module, &rest);
+                }
             } else if segments.len() >= 2 {
                 let struct_name = segments[0].clone();
                 let member = segments[1].clone();

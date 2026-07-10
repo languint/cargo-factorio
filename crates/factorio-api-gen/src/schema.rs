@@ -144,4 +144,54 @@ impl ApiType {
             .map(|values| values.iter().cloned().map(ApiType).collect())
             .unwrap_or_default()
     }
+
+    /// Element types of a `tuple` complex type (from the `"values"` array).
+    pub fn tuple_values(&self) -> Vec<ApiType> {
+        self.0
+            .get("values")
+            .and_then(|v| v.as_array())
+            .map(|values| values.iter().cloned().map(ApiType).collect())
+            .unwrap_or_default()
+    }
+
+    /// For a `literal` complex type, returns the primitive kind: `"string"`,
+    /// `"number"`, or `"boolean"`, based on the JSON type of the `"value"` field.
+    ///
+    /// Returns `None` for non-literal types (e.g. `array`, `union`) even if they
+    /// happen to have a `"value"` key - the `complex_type` must be `"literal"`.
+    pub fn literal_kind(&self) -> Option<&'static str> {
+        // Guard: only `literal` complex types are valid here.
+        if self.complex_type() != Some("literal") {
+            return None;
+        }
+        let value = self.0.get("value")?;
+        if value.is_string() {
+            Some("string")
+        } else if value.is_number() {
+            Some("number")
+        } else if value.is_boolean() {
+            Some("boolean")
+        } else {
+            None
+        }
+    }
+
+    /// Parameters of a `table` complex type, as `(name, type, optional)` triples.
+    pub fn parameters(&self) -> Vec<(String, ApiType, bool)> {
+        self.0
+            .get("parameters")
+            .and_then(|value| value.as_array())
+            .map(|params| {
+                params
+                    .iter()
+                    .filter_map(|p| {
+                        let name = p.get("name")?.as_str()?.to_string();
+                        let ty = ApiType(p.get("type")?.clone());
+                        let optional = p.get("optional").and_then(|v| v.as_bool()).unwrap_or(false);
+                        Some((name, ty, optional))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
 }

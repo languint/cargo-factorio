@@ -58,6 +58,7 @@ pub struct GeneratedApi {
     pub defines: String,
     pub classes: String,
     pub globals: String,
+    pub concepts: String,
 }
 
 pub fn parse_runtime_api(json: &str) -> Result<RuntimeApi, serde_json::Error> {
@@ -66,11 +67,13 @@ pub fn parse_runtime_api(json: &str) -> Result<RuntimeApi, serde_json::Error> {
 
 pub fn generate_runtime_api(api: &RuntimeApi) -> GeneratedApi {
     let mappings = generate::collect_event_mappings(api);
-    let class_names = api
-        .classes
-        .iter()
-        .map(|class| class.name.clone())
-        .collect::<std::collections::BTreeSet<_>>();
+    let class_names = generate::class_names(api);
+    let filter_concept_names = generate::event_filter_concept_names(api);
+    let concept_names = generate::generatable_concept_names(api, &filter_concept_names);
+    let known = generate::KnownTypes {
+        classes: &class_names,
+        concepts: &concept_names,
+    };
     let event_filters = generate::generate_event_filters(api);
 
     GeneratedApi {
@@ -82,10 +85,11 @@ pub fn generate_runtime_api(api: &RuntimeApi) -> GeneratedApi {
         event_filter_lookup: generate::generate_event_filter_lookup(&mappings),
         event_module_lookup: generate::generate_event_module_lookup(&mappings),
         event_filters,
-        event_data: generate::generate_event_data(api, &class_names),
+        event_data: generate::generate_event_data(api, &known),
         defines: generate::generate_defines(&api.defines),
-        classes: generate::generate_classes(api),
-        globals: generate::generate_globals(api),
+        classes: generate::generate_classes(api, &known),
+        globals: generate::generate_globals(api, &known),
+        concepts: generate::generate_concepts(api, &known, &filter_concept_names),
     }
 }
 
@@ -112,6 +116,7 @@ pub fn write_generated_api(output_dir: &Path, generated: &GeneratedApi) -> std::
             "// Generated from Factorio runtime API v{} (format v{}).\n\
              #[allow(unused, clippy::all, clippy::pedantic, clippy::nursery)]\n\n\
              pub mod classes;\n\
+             pub mod concepts;\n\
              pub mod defines;\n\
              pub mod event_data;\n\
              pub mod event_filters;\n\
@@ -128,6 +133,7 @@ pub fn write_generated_api(output_dir: &Path, generated: &GeneratedApi) -> std::
     write_module(output_dir, "defines.rs", &generated.defines)?;
     write_module(output_dir, "classes.rs", &generated.classes)?;
     write_module(output_dir, "globals.rs", &generated.globals)?;
+    write_module(output_dir, "concepts.rs", &generated.concepts)?;
 
     Ok(())
 }

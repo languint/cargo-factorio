@@ -101,16 +101,17 @@ pub fn is_factorio_stage_bang(path: &Path) -> Option<Stage> {
 
 fn stage_bang_ident_to_stage(ident: &str) -> Option<Stage> {
     match ident {
+        "settings_mod" => Some(Stage::Settings),
+        "data_mod" => Some(Stage::Data),
         "control_mod" => Some(Stage::Control),
         "shared_mod" => Some(Stage::Shared),
-        "data_mod" => Some(Stage::Data),
         _ => None,
     }
 }
 
 fn parse_factorio_stage_attribute(attr: &Attribute) -> Option<Stage> {
     let path = attr.path();
-    for stage_name in ["control", "shared", "data"] {
+    for stage_name in ["settings", "data", "control", "shared"] {
         if is_factorio_path_segment(path, stage_name) {
             return stage_ident_to_stage(stage_name);
         }
@@ -131,9 +132,10 @@ fn is_factorio_path_segment(path: &Path, segment: &str) -> bool {
 
 fn stage_ident_to_stage(ident: &str) -> Option<Stage> {
     match ident {
+        "settings" => Some(Stage::Settings),
+        "data" => Some(Stage::Data),
         "control" => Some(Stage::Control),
         "shared" => Some(Stage::Shared),
-        "data" => Some(Stage::Data),
         _ => None,
     }
 }

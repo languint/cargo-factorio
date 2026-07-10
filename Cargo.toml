@@ -9,7 +9,8 @@ members = [
     "crates/factorio-codegen",
     "crates/factorio-frontend",
     "crates/factorio-ir",
-    "examples/hello_world"
+    "examples/hello_world",
+    "examples/mandatory_spaghetti"
 ]
 
 [workspace.package]

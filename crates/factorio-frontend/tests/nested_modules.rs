@@ -68,7 +68,7 @@ fn nested_player_modules_generate_expected_lua() {
         assert_eq!(1, 0, "new method not found");
         return;
     };
-    let Statement::Return(Some(Expression::StructLiteral { fields })) =
+    let Statement::Return(Some(Expression::StructLiteral { fields, .. })) =
         &new_method.body.statements[0]
     else {
         assert_eq!(1, 0, "expected struct literal return");

@@ -49,6 +49,10 @@ pub struct Config {
     #[serde(default = "default_prune_dead_code")]
     pub prune_dead_code: bool,
 
+    /// Optional prefix prepended to every generated Lua module's filename
+    #[serde(default)]
+    pub lua_module_prefix: Option<String>,
+
     #[serde(default)]
     pub r#mod: ModConfig,
 }
@@ -90,6 +94,7 @@ mod tests {
                 source: "src".to_string(),
                 output_dir: "dist".to_string(),
                 prune_dead_code: true,
+                lua_module_prefix: None,
                 r#mod: super::ModConfig {
                     title: None,
                     description: None,

@@ -10,19 +10,22 @@ impl LuaGenerator {
             Operator::Sub => "-",
             Operator::Mul => "*",
             Operator::Div => "/",
+            Operator::Mod => "%",
             Operator::Eq => "==",
             Operator::Ne => "~=",
             Operator::Lt => "<",
             Operator::Le => "<=",
             Operator::Gt => ">",
             Operator::Ge => ">=",
+            Operator::And => "and",
+            Operator::Or => "or",
         }
     }
 
     /// Get the precedence for an [`Operator`].
     pub(crate) const fn operator_precedence(operator: Operator) -> u8 {
         match operator {
-            Operator::Mul | Operator::Div => 20,
+            Operator::Mul | Operator::Div | Operator::Mod => 20,
             Operator::Add | Operator::Sub => 19,
             Operator::Eq
             | Operator::Ne
@@ -30,6 +33,8 @@ impl LuaGenerator {
             | Operator::Le
             | Operator::Gt
             | Operator::Ge => 10,
+            Operator::And => 5,
+            Operator::Or => 4,
         }
     }
 }

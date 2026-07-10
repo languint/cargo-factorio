@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     error::{FrontendError, FrontendResult},
     paths::{require_local_name, split_crate_path},
@@ -7,9 +9,40 @@ use super::imports::ImportFragment;
 
 pub struct LowerContext<'a> {
     pub imports: &'a mut Vec<ImportFragment>,
+    /// Prefix prepended to every generated module local name to avoid shadowing
+    /// Factorio built-in globals (e.g. `"ms"` → `settings` becomes `ms_settings`).
+    pub module_prefix: &'a str,
+    /// Maps bare module local names → prefixed names for rewriting path expressions
+    /// of the form `module_name::item` that reference bare-imported modules.
+    /// Only populated for bare module imports (`use crate::foo`), NOT item imports
+    /// (`use crate::foo::Bar`) - this keeps Factorio globals like `settings` safe.
+    pub bare_import_renames: HashMap<String, String>,
 }
 
 impl LowerContext<'_> {
+    /// Compute the Lua local name for a module path, with the configured prefix.
+    pub fn prefixed_local(&self, module_path: &str) -> String {
+        let base = require_local_name(module_path);
+        if self.module_prefix.is_empty() {
+            base
+        } else {
+            format!("{}_{}", self.module_prefix, base)
+        }
+    }
+
+    /// If the first segment of `segments` matches a bare-imported module local,
+    /// rewrite it to the prefixed name.
+    pub fn normalize_bare_import_path(&self, segments: &mut Vec<String>) {
+        if self.bare_import_renames.is_empty() {
+            return;
+        }
+        if let Some(first) = segments.first() {
+            if let Some(renamed) = self.bare_import_renames.get(first.as_str()) {
+                segments[0] = renamed.clone();
+            }
+        }
+    }
+
     fn register_crate_module(&mut self, module: &str) {
         if self
             .imports
@@ -21,7 +54,7 @@ impl LowerContext<'_> {
 
         self.imports.push(ImportFragment {
             module: module.to_string(),
-            require_local: require_local_name(module),
+            require_local: self.prefixed_local(module),
             item: None,
         });
     }
@@ -47,7 +80,7 @@ impl LowerContext<'_> {
 
         self.register_crate_module(&module_path);
 
-        let local = require_local_name(&module_path);
+        let local = self.prefixed_local(&module_path);
         *segments = if rest.is_empty() {
             vec![local]
         } else {

@@ -62,6 +62,39 @@ pub fn on_init() {}
 }
 
 #[test]
+fn ignores_external_glob_use() {
+    let source = r"
+use factorio_rs::prelude::*;
+use crate::shared::player::MyPlayer;
+
+pub fn on_init() {}
+";
+
+    let module = must_ok_parse(parse_module(source, "control.on_init"));
+
+    // External glob is ignored; only the crate import survives.
+    assert_eq!(module.imports.len(), 1);
+    assert_eq!(module.imports[0].module, "shared.player");
+}
+
+#[test]
+fn crate_glob_generates_module_require() {
+    let source = r"
+use crate::shared::utils::*;
+
+pub fn on_init() {}
+";
+
+    let module = must_ok_parse(parse_module(source, "control.on_init"));
+    let lua = must_ok(LuaGenerator::new().generate_module(&module));
+
+    // The module is required even though no specific items were named.
+    assert_eq!(module.imports.len(), 1);
+    assert_eq!(module.imports[0].module, "shared.utils");
+    assert!(lua.contains("require(\"__mod__/lua/shared/utils\")"));
+}
+
+#[test]
 fn generates_require_for_imports() {
     let source = r"
 use crate::shared::player::MyPlayer;

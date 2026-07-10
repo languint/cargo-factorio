@@ -2,6 +2,18 @@ use factorio_ir::{module::Module, scope::Scope, statement::Statement};
 
 use crate::{LuaGenerator, LuaGeneratorResult};
 
+fn body_has_continue(body: &[Statement]) -> bool {
+    body.iter().any(|s| match s {
+        Statement::Continue => true,
+        Statement::Conditional {
+            then_block,
+            else_block,
+            ..
+        } => body_has_continue(then_block) || body_has_continue(else_block),
+        _ => false,
+    })
+}
+
 impl LuaGenerator {
     /// Generate code for a given [`Statement`].
     pub(crate) fn generate_statement(
@@ -72,6 +84,25 @@ impl LuaGenerator {
             }
             Statement::Expr(expression) => {
                 self.write_line(&self.generate_expression(expression));
+            }
+            Statement::ForIn { var, iter, body } => {
+                self.for_depth += 1;
+                let depth = self.for_depth;
+                let iter = self.generate_expression(iter);
+                self.write_line(&format!("for _, {var} in pairs({iter}) do"));
+                self.indent_level += 1;
+                for stmt in body {
+                    self.generate_statement(stmt, module, module_name, Scope::Private)?;
+                }
+                if body_has_continue(body) {
+                    self.write_line(&format!("::__continue_{depth}::"));
+                }
+                self.indent_level -= 1;
+                self.write_line("end");
+                self.for_depth -= 1;
+            }
+            Statement::Continue => {
+                self.write_line(&format!("goto __continue_{}", self.for_depth));
             }
         }
 

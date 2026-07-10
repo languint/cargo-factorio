@@ -17,6 +17,11 @@ pub struct LuaGenerator {
     struct_table_context: Option<(String, String)>,
     debug_level: Option<u8>,
     mod_name: String,
+    /// Depth of nested `for` loops, used to generate unique `::__continue_N::` labels.
+    for_depth: usize,
+    /// Optional prefix prepended to every module's filename and local require variable.
+    /// Empty string means no prefix.
+    module_prefix: String,
 }
 
 impl Default for LuaGenerator {
@@ -39,6 +44,8 @@ impl LuaGenerator {
             struct_table_context: None,
             debug_level: None,
             mod_name: mod_name.into(),
+            for_depth: 0,
+            module_prefix: String::new(),
         }
     }
 
@@ -50,6 +57,8 @@ impl LuaGenerator {
             struct_table_context: None,
             debug_level: Some(debug_level),
             mod_name: "mod".to_string(),
+            for_depth: 0,
+            module_prefix: String::new(),
         }
     }
 
@@ -61,7 +70,16 @@ impl LuaGenerator {
             struct_table_context: None,
             debug_level: Some(debug_level),
             mod_name: mod_name.into(),
+            for_depth: 0,
+            module_prefix: String::new(),
         }
+    }
+
+    /// Set the module prefix applied to all generated module filenames and local names.
+    #[must_use]
+    pub fn with_module_prefix(mut self, prefix: impl Into<String>) -> Self {
+        self.module_prefix = prefix.into();
+        self
     }
 
     const fn debug_level_at_least(&self, level: u8) -> bool {
@@ -113,11 +131,34 @@ impl LuaGenerator {
     }
 
     fn mod_require_path(&self, module_path: &str) -> String {
-        format!(
-            "__{}__/lua/{}",
-            self.mod_name,
-            module_path.replace('.', "/")
-        )
+        let path = module_path.replace('.', "/");
+        let prefixed_path = self.apply_path_prefix(&path);
+        format!("__{}__/lua/{}", self.mod_name, prefixed_path)
+    }
+
+    #[must_use]
+    pub fn apply_path_prefix(&self, path: &str) -> String {
+        if self.module_prefix.is_empty() {
+            return path.to_string();
+        }
+        match path.rfind('/') {
+            Some(slash) => format!(
+                "{}/{prefix}_{}",
+                &path[..slash],
+                &path[slash + 1..],
+                prefix = self.module_prefix
+            ),
+            None => format!("{}_{}", self.module_prefix, path),
+        }
+    }
+
+    /// Return the prefixed local variable name for a module import.
+    pub fn prefixed_local(&self, local: &str) -> String {
+        if self.module_prefix.is_empty() {
+            local.to_string()
+        } else {
+            format!("{}_{}", self.module_prefix, local)
+        }
     }
 
     /// Generate lua code for a single `module`.
@@ -167,6 +208,7 @@ impl LuaGenerator {
 
     fn generate_imports(&mut self, imports: &[factorio_ir::module::ModuleImport]) {
         for import in imports {
+            // `import.local` already has the module prefix baked in at the IR level.
             self.write_line(&format!(
                 "local {} = require(\"{}\")",
                 import.local,

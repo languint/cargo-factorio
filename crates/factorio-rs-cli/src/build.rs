@@ -1,14 +1,16 @@
 use std::path::{Path, PathBuf};
 
 use factorio_codegen::LuaGenerator;
-use factorio_frontend::{discover_modules, lua_output_path, parse_discovered_module};
+use factorio_frontend::{discover_modules, lua_output_path, parse_discovered_module_with_prefix};
 use factorio_ir::{module::Module, prune::prune_modules};
 
 use crate::{
     cargo_manifest::CargoPackage,
     config::Config,
     error::{CliError, CliResult},
-    manifest::{collect_event_registrations, write_mod_manifests},
+    manifest::{
+        StageModules, collect_event_registrations, collect_stage_module, write_mod_manifests,
+    },
 };
 
 /// Transpile Rust sources in a project to a loadable Factorio mod directory.
@@ -36,6 +38,8 @@ pub fn build(project_root: &Path, debug_level: Option<u8>) -> CliResult<Vec<Path
 
     let mut outputs = Vec::new();
     let mut event_registrations = Vec::new();
+    let mut settings_modules: Vec<crate::manifest::StageModule> = Vec::new();
+    let mut data_modules: Vec<crate::manifest::StageModule> = Vec::new();
     let mut discovered_modules = Vec::new();
 
     for source_path in sources {
@@ -45,8 +49,10 @@ pub fn build(project_root: &Path, debug_level: Option<u8>) -> CliResult<Vec<Path
         })?;
         let discovered = discover_modules(&source_dir, &source_path, &source)?;
 
+        let lua_module_prefix_early = config.lua_module_prefix.as_deref().unwrap_or("");
         for module_spec in discovered {
-            let module = parse_discovered_module(&module_spec)?;
+            let module =
+                parse_discovered_module_with_prefix(&module_spec, lua_module_prefix_early)?;
             discovered_modules.push((module_spec, module));
         }
     }
@@ -66,14 +72,39 @@ pub fn build(project_root: &Path, debug_level: Option<u8>) -> CliResult<Vec<Path
         }
     }
 
-    for (module_spec, module) in discovered_modules {
-        let output_path =
-            transpile_module(&module_spec, &module, &lua_dir, &package.name, debug_level)?;
+    let lua_module_prefix = config.lua_module_prefix.as_deref().unwrap_or("");
+    for (module_spec, module) in &discovered_modules {
+        let output_path = transpile_module(
+            &module_spec,
+            &module,
+            &lua_dir,
+            &package.name,
+            debug_level,
+            lua_module_prefix,
+        )?;
         event_registrations.extend(collect_event_registrations(&module));
+        if let Some(stage_module) =
+            collect_stage_module(&module, factorio_ir::stage::Stage::Settings)
+        {
+            settings_modules.push(stage_module);
+        }
+        if let Some(stage_module) = collect_stage_module(&module, factorio_ir::stage::Stage::Data) {
+            data_modules.push(stage_module);
+        }
         outputs.push(output_path);
     }
 
-    write_mod_manifests(&output_dir, &package, &config, &event_registrations)?;
+    let stage_modules = StageModules {
+        settings: settings_modules,
+        data: data_modules,
+    };
+    write_mod_manifests(
+        &output_dir,
+        &package,
+        &config,
+        &event_registrations,
+        &stage_modules,
+    )?;
     outputs.push(output_dir.join("control.lua"));
     outputs.push(output_dir.join("info.json"));
 
@@ -89,6 +120,24 @@ fn purge_output_dir(output_dir: &Path) -> CliResult<()> {
         path: output_dir.to_path_buf(),
         source,
     })
+}
+
+/// Prepend `prefix` to the last dotted segment of `module_name`.
+/// `("settings", "ms")` → `"ms_settings"`;
+/// `("shared.util", "ms")` → `"shared.ms_util"`.
+fn prefix_module_name(module_name: &str, prefix: &str) -> String {
+    if prefix.is_empty() {
+        return module_name.to_string();
+    }
+    match module_name.rfind('.') {
+        Some(dot) => format!(
+            "{}.{}_{}",
+            &module_name[..dot],
+            prefix,
+            &module_name[dot + 1..]
+        ),
+        None => format!("{}_{}", prefix, module_name),
+    }
 }
 
 fn collect_rust_sources(source_dir: &Path) -> CliResult<Vec<PathBuf>> {
@@ -135,14 +184,20 @@ fn transpile_module(
     lua_dir: &Path,
     mod_name: &str,
     debug_level: Option<u8>,
+    module_prefix: &str,
 ) -> CliResult<PathBuf> {
     let mut generator = debug_level.map_or_else(
         || LuaGenerator::with_mod_name(mod_name),
         |level| LuaGenerator::with_mod_name_and_debug(mod_name, level),
     );
+    if !module_prefix.is_empty() {
+        generator = generator.with_module_prefix(module_prefix);
+    }
     let lua = generator.generate_module(module)?;
 
-    let output_path = lua_output_path(lua_dir, &discovered.module_name);
+    // Apply prefix to the last segment of the module name for the output file path.
+    let prefixed_module_name = prefix_module_name(&discovered.module_name, module_prefix);
+    let output_path = lua_output_path(lua_dir, &prefixed_module_name);
     if let Some(parent) = output_path.parent() {
         std::fs::create_dir_all(parent).map_err(|source| CliError::CreateDir {
             path: parent.to_path_buf(),
@@ -213,6 +268,7 @@ mod tests {
             module_names,
             vec![
                 "control".to_string(),
+                "legacy".to_string(), // unknown name -> Stage::Shared
                 "shared.player".to_string(),
                 "shared.player.health".to_string(),
             ]

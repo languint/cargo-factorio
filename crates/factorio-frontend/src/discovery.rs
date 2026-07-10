@@ -34,9 +34,12 @@ pub fn discover_modules(
 ) -> FrontendResult<Vec<DiscoveredModule>> {
     let file = syn::parse_file(source)?;
 
-    if let Some(module_name) = module_name_from_source(source_dir, source_path)
-        && let Some(stage) = Stage::from_module_name(&module_name)
-    {
+    if let Some(module_name) = module_name_from_source(source_dir, source_path) {
+        // Any file under src/ is transpilable. Files whose names don't match a
+        // known stage prefix (control/settings/data/shared) default to Shared so
+        // that helper modules like `adjacent_blacklist.rs` don't need to live
+        // inside a `shared/` subdirectory.
+        let stage = Stage::from_module_name(&module_name).unwrap_or(Stage::Shared);
         return Ok(vec![DiscoveredModule {
             module_name,
             stage,

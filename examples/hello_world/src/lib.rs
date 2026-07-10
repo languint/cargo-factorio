@@ -9,7 +9,7 @@ mod control {
 
     #[factorio_rs::event(filter = OnBuiltEntityFilter::name("inserter"))]
     pub fn on_built_entity(event: OnBuiltEntityEvent) {
-        println!("inserter built at: {:?}", event.entity.position);
-        event.entity.destroy(None);
+        let (x, y) = (event.entity.position().x, event.entity.position().y);
+        println!("inserter built at: ({x},{y})");
     }
 }

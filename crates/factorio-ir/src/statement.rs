@@ -21,4 +21,12 @@ pub enum Statement {
     },
     Return(Option<Expression>),
     Expr(Expression),
+    /// `for _, VAR in pairs(ITER) do BODY end` in Lua.
+    ForIn {
+        var: String,
+        iter: Expression,
+        body: Vec<Self>,
+    },
+    /// `goto __continue_N` in Lua (the label `::__continue_N::` is emitted by the enclosing `ForIn`).
+    Continue,
 }
