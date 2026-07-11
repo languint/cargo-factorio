@@ -51,7 +51,8 @@ if let Some(player) = game.get_player(index.into()) {
 }
 ```
 
-There is no real `Option` wrapper in Lua. Prefer APIs that return a value or nil. 
+There is no real `Option` wrapper in Lua. `None` becomes `nil`, and `Some(x)` is
+transparent so stub APIs typed as `Option<T>` still type-check in Rust.
 
 ## Expressions
 
@@ -59,6 +60,7 @@ There is no real `Option` wrapper in Lua. Prefer APIs that return a value or nil
 | ----------------------------------- | -------------------------------------------------------------- |
 | Literals                            | `i64`/`f64`/string/`bool`                                      |
 | `None`                              | -> `nil`                                                       |
+| `Some(x)` / `Option::Some(x)`       | -> `x` (for typed `Option` stub params)                        |
 | Paths / fields / calls / methods    | Including `crate::` (auto-require)                             |
 | Named struct literals               | -> Lua tables                                                  |
 | `[a, b]`                            | -> `{ a, b }`                                                  |

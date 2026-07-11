@@ -85,7 +85,7 @@ mod tests {
     fn release_defaults_enable_pruning() {
         let settings = resolve_profile(&BTreeMap::new(), "release");
         assert!(settings.prune_dead_code);
-        assert_eq!(settings.debug_level, Some(0));
+        assert_eq!(settings.debug_level, None);
     }
 
     #[test]

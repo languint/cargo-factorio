@@ -180,6 +180,36 @@ pub fn direction() -> &'static str {
 }
 
 #[test]
+fn lowers_some_constructor_to_inner_value() {
+    use factorio_codegen::LuaGenerator;
+
+    let source = r"
+pub fn shout(message: &str) {
+    game.print(
+        message,
+        Some(PrintSettings {
+            color: Color { r: 1.0, g: 0.0, b: 0.0, a: 1.0 }.into(),
+            ..Default::default()
+        }),
+    );
+}
+";
+
+    let module = must_ok_parse(parse_module(source, "control.print_opt"));
+    let lua = LuaGenerator::new()
+        .generate_module(&module)
+        .expect("generate");
+    assert!(
+        lua.contains("game.print(message, {"),
+        "expected bare settings table, got:\n{lua}"
+    );
+    assert!(
+        !lua.contains("Some("),
+        "Some should not appear in Lua:\n{lua}"
+    );
+}
+
+#[test]
 fn lowers_let_chains_in_if_conditions() {
     let source = r"
 pub fn check(flag: bool, value: Option<i32>) {

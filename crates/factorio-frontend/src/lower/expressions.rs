@@ -62,18 +62,7 @@ pub fn lower_expression(
         Expr::Lit(literal) => lower_literal_expression(literal),
         Expr::Path(path) => lower_path_expression(path, ctx, self_type),
         Expr::Field(field) => lower_field_expression(field, ctx, self_type),
-        Expr::Call(call) => {
-            let func = lower_expression(&call.func, ctx, self_type)?;
-            let args = call
-                .args
-                .iter()
-                .map(|arg| lower_expression(arg, ctx, self_type))
-                .collect::<FrontendResult<Vec<_>>>()?;
-            Ok(factorio_ir::expression::Expression::Call {
-                func: Box::new(func),
-                args,
-            })
-        }
+        Expr::Call(call) => lower_call_expression(call, ctx, self_type),
         Expr::MethodCall(call) => lower_method_call(call, ctx, self_type),
         Expr::Struct(item) => lower_struct_expression(item, ctx, self_type),
         Expr::Macro(mac) => lower_macro_expression(mac, ctx, self_type),
@@ -104,6 +93,62 @@ pub fn lower_expression(
         other => Err(FrontendError::UnsupportedExpression {
             location: format!("{} ({})", location(expression), expr_kind_name(other)),
         }),
+    }
+}
+
+fn lower_call_expression(
+    call: &syn::ExprCall,
+    ctx: &mut LowerContext<'_>,
+    self_type: Option<&str>,
+) -> FrontendResult<factorio_ir::expression::Expression> {
+    // `Some(x)` / `Option::Some(x)` -> `x` (Option is value-or-nil in Lua).
+    if is_option_some_constructor(&call.func) {
+        let mut args = call.args.iter();
+        let Some(arg) = args.next() else {
+            return Err(FrontendError::UnsupportedExpression {
+                location: format!(
+                    "{} (Some expects exactly one argument)",
+                    location(call)
+                ),
+            });
+        };
+        if args.next().is_some() {
+            return Err(FrontendError::UnsupportedExpression {
+                location: format!(
+                    "{} (Some expects exactly one argument)",
+                    location(call)
+                ),
+            });
+        }
+        return lower_expression(arg, ctx, self_type);
+    }
+
+    let func = lower_expression(&call.func, ctx, self_type)?;
+    let args = call
+        .args
+        .iter()
+        .map(|arg| lower_expression(arg, ctx, self_type))
+        .collect::<FrontendResult<Vec<_>>>()?;
+    Ok(factorio_ir::expression::Expression::Call {
+        func: Box::new(func),
+        args,
+    })
+}
+
+fn is_option_some_constructor(func: &Expr) -> bool {
+    let Expr::Path(path) = func else {
+        return false;
+    };
+    let segments: Vec<_> = path
+        .path
+        .segments
+        .iter()
+        .map(|segment| segment.ident.to_string())
+        .collect();
+    match segments.as_slice() {
+        [name] if name == "Some" => true,
+        [.., option, name] if option == "Option" && name == "Some" => true,
+        _ => false,
     }
 }
 
