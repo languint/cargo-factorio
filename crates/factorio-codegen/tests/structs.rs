@@ -22,6 +22,7 @@ fn generates_struct_as_table_with_methods() {
         body: Block { statements: vec![] },
         imports: vec![],
         submodules: vec![],
+        locales: vec![],
         symbols: vec![Symbol {
             scope: Scope::Public,
             statement: Statement::StructDecl(Struct {
@@ -131,6 +132,7 @@ fn generates_private_struct_as_local_table() {
         },
         imports: vec![],
         submodules: vec![],
+        locales: vec![],
         symbols: vec![],
     };
 

@@ -315,6 +315,7 @@ mod tests {
             body: Block { statements: vec![] },
             imports: vec![],
             submodules: vec![],
+            locales: vec![],
             symbols: vec![Symbol {
                 scope: Scope::Public,
                 statement: Statement::FunctionDecl(Function {
@@ -337,6 +338,7 @@ mod tests {
             body: Block { statements: vec![] },
             imports: vec![],
             submodules: vec![],
+            locales: vec![],
             symbols: vec![],
         }
     }
@@ -363,6 +365,7 @@ mod tests {
             body: Block { statements: vec![] },
             imports: vec![],
             submodules: vec![],
+            locales: vec![],
             symbols: vec![Symbol {
                 scope: Scope::Public,
                 statement: Statement::FunctionDecl(Function {

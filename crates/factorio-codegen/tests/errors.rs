@@ -19,6 +19,7 @@ fn rejects_exported_local_functions() {
         body: Block { statements: vec![] },
         imports: vec![],
         submodules: vec![],
+        locales: vec![],
         symbols: vec![Symbol {
             scope: Scope::Private,
             statement: Statement::FunctionDecl(Function {

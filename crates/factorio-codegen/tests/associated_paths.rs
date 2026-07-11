@@ -23,6 +23,7 @@ fn rewrites_associated_paths_inside_struct_methods() {
         body: Block { statements: vec![] },
         imports: vec![],
         submodules: vec![],
+        locales: vec![],
         symbols: vec![Symbol {
             scope: Scope::Public,
             statement: Statement::StructDecl(Struct {

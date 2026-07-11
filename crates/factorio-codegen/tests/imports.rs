@@ -26,6 +26,7 @@ fn generates_require_statements() {
             }],
         }],
         submodules: vec![],
+        locales: vec![],
         symbols: vec![Symbol {
             scope: Scope::Public,
             statement: Statement::FunctionDecl(Function {

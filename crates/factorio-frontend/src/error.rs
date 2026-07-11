@@ -51,6 +51,12 @@ pub enum FrontendError {
 
     #[error("unsupported event filter method `{method}` at {location}")]
     UnsupportedEventFilterMethod { method: String, location: String },
+
+    #[error("could not resolve locale key `{path}` to a string constant in this module")]
+    LocaleKeyUnresolved { path: String },
+
+    #[error("invalid locale entry: {message}")]
+    InvalidLocale { message: String },
 }
 
 pub type FrontendResult<T> = Result<T, FrontendError>;

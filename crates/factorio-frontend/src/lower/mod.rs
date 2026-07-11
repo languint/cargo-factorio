@@ -14,6 +14,7 @@ pub mod event_handler;
 pub mod expressions;
 pub mod functions;
 pub mod imports;
+mod locale;
 pub mod metadata;
 mod mod_settings;
 pub mod print;
@@ -101,6 +102,7 @@ fn lower_items(
     let mut inline_imports = Vec::new();
     let mut submodules = Vec::new();
     let mut structs = BTreeMap::<String, PendingStruct>::new();
+    let mut pending_locales = Vec::new();
     let mut ctx = LowerContext {
         imports: &mut inline_imports,
         module_prefix,
@@ -114,6 +116,7 @@ fn lower_items(
         use_imports: &mut use_imports,
         submodules: &mut submodules,
         structs: &mut structs,
+        pending_locales: &mut pending_locales,
     };
 
     for item in items {
@@ -121,6 +124,12 @@ fn lower_items(
     }
 
     finalize_pending_structs(structs, &mut body, &mut symbols);
+
+    let const_strings = locale::collect_const_strings(&body, &symbols);
+    let mut locales = Vec::new();
+    for tokens in pending_locales {
+        locales.extend(locale::expand(tokens, &const_strings)?);
+    }
 
     let mut all_imports = use_imports;
     all_imports.extend(inline_imports);
@@ -132,6 +141,7 @@ fn lower_items(
         symbols,
         imports: merge_imports(all_imports, module_prefix),
         submodules,
+        locales,
     })
 }
 
@@ -143,6 +153,7 @@ struct ModuleLowerState<'a> {
     use_imports: &'a mut Vec<imports::ImportFragment>,
     submodules: &'a mut Vec<String>,
     structs: &'a mut BTreeMap<String, PendingStruct>,
+    pending_locales: &'a mut Vec<proc_macro2::TokenStream>,
 }
 
 fn lower_top_level_item(
@@ -218,6 +229,9 @@ fn lower_top_level_item(
             for item in &expanded {
                 lower_top_level_item(item, module_name, module_state, ctx)?;
             }
+        }
+        Item::Macro(mac) if is_known_macro(&mac.mac, "locale") => {
+            module_state.pending_locales.push(mac.mac.tokens.clone());
         }
         item => {
             return Err(FrontendError::UnsupportedItem {

@@ -8,6 +8,7 @@ use crate::{
     cargo_manifest::CargoPackage,
     config::Config,
     error::{CliError, CliResult},
+    locale,
     manifest::{
         StageModules, collect_event_registrations, collect_stage_module, write_mod_manifests,
     },
@@ -131,6 +132,12 @@ pub fn build(project_root: &Path, options: &BuildOptions) -> CliResult<Vec<PathB
     )?;
     outputs.push(output_dir.join("control.lua"));
     outputs.push(output_dir.join("info.json"));
+
+    let locale_files: Vec<_> = discovered_modules
+        .iter()
+        .flat_map(|(_, module)| module.locales.iter().cloned())
+        .collect();
+    outputs.extend(locale::write_locale_files(&output_dir, &locale_files)?);
 
     Ok(outputs)
 }

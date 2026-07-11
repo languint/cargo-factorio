@@ -7,6 +7,7 @@ mod config;
 mod error;
 mod init;
 mod install;
+mod locale;
 mod manifest;
 mod open;
 mod package;

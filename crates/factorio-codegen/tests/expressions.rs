@@ -23,6 +23,7 @@ fn generates_binary_ops_and_conditionals() {
         body: Block { statements: vec![] },
         imports: vec![],
         submodules: vec![],
+        locales: vec![],
         symbols: vec![Symbol {
             scope: Scope::Public,
             statement: Statement::FunctionDecl(Function {

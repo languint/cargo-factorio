@@ -20,6 +20,7 @@ fn generates_method_with_self_using_colon_syntax() {
         body: Block { statements: vec![] },
         imports: vec![],
         submodules: vec![],
+        locales: vec![],
         symbols: vec![Symbol {
             scope: Scope::Public,
             statement: Statement::FunctionDecl(Function {

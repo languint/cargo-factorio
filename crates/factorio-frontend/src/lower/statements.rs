@@ -55,8 +55,8 @@ fn lower_statement(
                         }
                     })?;
                     let value = lower_expression(rhs, ctx, self_type)?;
-                    let ty =
-                        infer_type_from_expression(&value).unwrap_or(factorio_ir::r#type::Type::Void);
+                    let ty = infer_type_from_expression(&value)
+                        .unwrap_or(factorio_ir::r#type::Type::Void);
                     let source_type = inferred_source_type(&ty);
                     stmts.push(factorio_ir::statement::Statement::VariableDecl {
                         name,
@@ -300,26 +300,25 @@ fn lower_if_expression(
     if let Expr::Let(let_expr) = if_expression.cond.as_ref()
         && let Some(binding) = extract_some_binding(&let_expr.pat)
     {
-            let rhs = lower_expression(&let_expr.expr, ctx, self_type)?;
-            let then_block =
-                lower_block_statements(&if_expression.then_branch.stmts, ctx, self_type)?;
-            let else_block = match &if_expression.else_branch {
-                Some((_, else_branch)) => lower_branch_statements(else_branch, ctx, self_type)?,
-                None => Vec::new(),
-            };
-            return Ok(vec![
-                factorio_ir::statement::Statement::VariableDecl {
-                    name: binding.clone(),
-                    ty: factorio_ir::r#type::Type::Void,
-                    source_type: None,
-                    value: rhs,
-                },
-                factorio_ir::statement::Statement::Conditional {
-                    condition: factorio_ir::expression::Expression::Identifier(binding),
-                    then_block,
-                    else_block,
-                },
-            ]);
+        let rhs = lower_expression(&let_expr.expr, ctx, self_type)?;
+        let then_block = lower_block_statements(&if_expression.then_branch.stmts, ctx, self_type)?;
+        let else_block = match &if_expression.else_branch {
+            Some((_, else_branch)) => lower_branch_statements(else_branch, ctx, self_type)?,
+            None => Vec::new(),
+        };
+        return Ok(vec![
+            factorio_ir::statement::Statement::VariableDecl {
+                name: binding.clone(),
+                ty: factorio_ir::r#type::Type::Void,
+                source_type: None,
+                value: rhs,
+            },
+            factorio_ir::statement::Statement::Conditional {
+                condition: factorio_ir::expression::Expression::Identifier(binding),
+                then_block,
+                else_block,
+            },
+        ]);
     }
 
     let condition = lower_expression(&if_expression.cond, ctx, self_type)?;

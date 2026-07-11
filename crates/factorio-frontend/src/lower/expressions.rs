@@ -4,6 +4,54 @@ use crate::error::{FrontendError, FrontendResult};
 
 use super::{context::LowerContext, print::lower_macro_expression, util::location};
 
+
+#[allow(clippy::missing_const_for_fn)]
+fn expr_kind_name(expression: &Expr) -> &'static str {
+    match expression {
+        Expr::Array(_) => "Array",
+        Expr::Assign(_) => "Assign",
+        Expr::Async(_) => "Async",
+        Expr::Await(_) => "Await",
+        Expr::Binary(_) => "Binary",
+        Expr::Block(_) => "Block",
+        Expr::Break(_) => "Break",
+        Expr::Call(_) => "Call",
+        Expr::Cast(_) => "Cast",
+        Expr::Closure(_) => "Closure",
+        Expr::Const(_) => "Const",
+        Expr::Continue(_) => "Continue",
+        Expr::Field(_) => "Field",
+        Expr::ForLoop(_) => "ForLoop",
+        Expr::Group(_) => "Group",
+        Expr::If(_) => "If",
+        Expr::Index(_) => "Index",
+        Expr::Infer(_) => "Infer",
+        Expr::Let(_) => "Let",
+        Expr::Lit(_) => "Lit",
+        Expr::Loop(_) => "Loop",
+        Expr::Macro(_) => "Macro",
+        Expr::Match(_) => "Match",
+        Expr::MethodCall(_) => "MethodCall",
+        Expr::Paren(_) => "Paren",
+        Expr::Path(_) => "Path",
+        Expr::Range(_) => "Range",
+        Expr::RawAddr(_) => "RawAddr",
+        Expr::Reference(_) => "Reference",
+        Expr::Repeat(_) => "Repeat",
+        Expr::Return(_) => "Return",
+        Expr::Struct(_) => "Struct",
+        Expr::Try(_) => "Try",
+        Expr::TryBlock(_) => "TryBlock",
+        Expr::Tuple(_) => "Tuple",
+        Expr::Unary(_) => "Unary",
+        Expr::Unsafe(_) => "Unsafe",
+        Expr::Verbatim(_) => "Verbatim",
+        Expr::While(_) => "While",
+        Expr::Yield(_) => "Yield",
+        _ => "Other",
+    }
+}
+
 pub fn lower_expression(
     expression: &Expr,
     ctx: &mut LowerContext<'_>,
@@ -53,8 +101,8 @@ pub fn lower_expression(
         // `if cond { a } else { b }` as an expression -> Lua `cond and a or b` ternary idiom.
         Expr::If(if_expr) => lower_if_expr(if_expr, ctx, self_type),
         Expr::Unary(unary) => lower_unary_expression(unary, expression, ctx, self_type),
-        _ => Err(FrontendError::UnsupportedExpression {
-            location: location(expression),
+        other => Err(FrontendError::UnsupportedExpression {
+            location: format!("{} ({})", location(expression), expr_kind_name(other)),
         }),
     }
 }
