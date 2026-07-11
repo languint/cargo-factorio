@@ -21,6 +21,98 @@ pub trait LuaObject {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct LuaAny;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct LuaFunction;
+
+impl LuaFunction {
+    #[must_use]
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+impl From<LuaFunction> for LuaAny {
+    fn from(_: LuaFunction) -> Self {
+        LuaAny
+    }
+}
+
+impl<R> From<fn() -> R> for LuaFunction {
+    fn from(_: fn() -> R) -> Self {
+        LuaFunction
+    }
+}
+
+impl<A, R> From<fn(A) -> R> for LuaFunction {
+    fn from(_: fn(A) -> R) -> Self {
+        LuaFunction
+    }
+}
+
+impl<A, B, R> From<fn(A, B) -> R> for LuaFunction {
+    fn from(_: fn(A, B) -> R) -> Self {
+        LuaFunction
+    }
+}
+
+impl<A, B, C, R> From<fn(A, B, C) -> R> for LuaFunction {
+    fn from(_: fn(A, B, C) -> R) -> Self {
+        LuaFunction
+    }
+}
+
+impl<A, B, C, D, R> From<fn(A, B, C, D) -> R> for LuaFunction {
+    fn from(_: fn(A, B, C, D) -> R) -> Self {
+        LuaFunction
+    }
+}
+
+pub trait IntoOptionalLuaFunction {
+    fn into_optional_lua_function(self) -> Option<LuaFunction>;
+}
+
+impl IntoOptionalLuaFunction for LuaFunction {
+    fn into_optional_lua_function(self) -> Option<LuaFunction> {
+        Some(self)
+    }
+}
+
+impl IntoOptionalLuaFunction for Option<LuaFunction> {
+    fn into_optional_lua_function(self) -> Option<LuaFunction> {
+        self
+    }
+}
+
+impl<R> IntoOptionalLuaFunction for fn() -> R {
+    fn into_optional_lua_function(self) -> Option<LuaFunction> {
+        Some(self.into())
+    }
+}
+
+impl<A, R> IntoOptionalLuaFunction for fn(A) -> R {
+    fn into_optional_lua_function(self) -> Option<LuaFunction> {
+        Some(self.into())
+    }
+}
+
+impl<A, B, R> IntoOptionalLuaFunction for fn(A, B) -> R {
+    fn into_optional_lua_function(self) -> Option<LuaFunction> {
+        Some(self.into())
+    }
+}
+
+impl<A, B, C, R> IntoOptionalLuaFunction for fn(A, B, C) -> R {
+    fn into_optional_lua_function(self) -> Option<LuaFunction> {
+        Some(self.into())
+    }
+}
+
+impl<A, B, C, D, R> IntoOptionalLuaFunction for fn(A, B, C, D) -> R {
+    fn into_optional_lua_function(self) -> Option<LuaFunction> {
+        Some(self.into())
+    }
+}
+
 /// Index-or-name parameter used by APIs such as `game.get_player` /
 /// `game.get_surface` (`uint32 | string` in the Factorio schema).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

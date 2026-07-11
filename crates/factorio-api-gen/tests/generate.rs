@@ -103,3 +103,26 @@ fn emits_identification_enums() {
         "ScriptRenderTarget should have MapPosition arm"
     );
 }
+
+#[test]
+fn function_parameters_use_lua_function() {
+    let generated = generate_from_bundled_api().expect("generate");
+    let classes = &generated.classes;
+
+    assert!(
+        classes.contains("impl Into < crate :: LuaFunction >")
+            || classes.contains("impl Into<crate::LuaFunction>"),
+        "add_command-style handlers should accept Into<LuaFunction>"
+    );
+    // quote! may insert spaces around `::` / `<`.
+    assert!(
+        classes.contains("impl crate :: IntoOptionalLuaFunction")
+            || classes.contains("impl crate::IntoOptionalLuaFunction"),
+        "on_event-style handlers should accept IntoOptionalLuaFunction"
+    );
+    assert!(
+        !classes.contains("handler : crate :: LuaAny")
+            && !classes.contains("handler: crate::LuaAny"),
+        "event handlers must not be typed as LuaAny"
+    );
+}

@@ -69,12 +69,28 @@ if let Some(player) = game.get_player(player_index.into()) {
 }
 ```
 
+## Callbacks (`LuaFunction`)
+
+Schema `function` parameters map to `LuaFunction`, not `LuaAny`. Required
+callbacks take `impl Into<LuaFunction>`; `function | nil` (e.g. `script.on_event`)
+takes `impl IntoOptionalLuaFunction`, so you can pass a Rust `fn` item or
+`None`:
+
+```rust
+commands.add_command("hello", "Say hello", hello_cmd);
+script.on_event(defines::events::on_tick, on_tick);
+script.on_event(defines::events::on_tick, None); // unregister
+```
+
+`fn` pointers coerce and convert via `From` / the optional trait; the stub
+value is only for type-checking - the transpiler emits the function name in Lua.
+
 ## When `LuaAny` remains
 
 Keep using `LuaAny` (or expect it) for truly open values:
 
 - `Any` / `AnyBasic`
-- Unstructured `table` / `function`
+- Unstructured `table`
 - `Tags` and similar open dictionaries
 - A few leftover heterogeneous unions not covered by Identification enums
 

@@ -34,6 +34,22 @@ pub fn lua_any_type() -> TokenStream {
     quote!(crate::LuaAny)
 }
 
+fn lua_function_type() -> TokenStream {
+    quote!(crate::LuaFunction)
+}
+
+/// Whether this API type is (or unwraps to) a Factorio `function` complex type.
+fn is_function_api_type(api_type: &ApiType) -> bool {
+    let ty = if api_type.complex_type() == Some("type") {
+        api_type
+            .child_type("value")
+            .unwrap_or_else(|| api_type.clone())
+    } else {
+        api_type.clone()
+    };
+    ty.complex_type() == Some("function")
+}
+
 pub enum ReturnStub {
     Unit,
     Bool,
@@ -158,6 +174,7 @@ pub fn return_stub_for_type(api_type: &ApiType, known: &KnownTypes<'_>) -> Retur
             .child_type("value")
             .map(|value| return_stub_for_type(&value, known))
             .unwrap_or(ReturnStub::LuaAny),
+        Some("function") => ReturnStub::Default,
         _ => ReturnStub::LuaAny,
     }
 }
@@ -244,7 +261,8 @@ pub fn map_api_type(api_type: &ApiType, known: &KnownTypes<'_>) -> TokenStream {
             .unwrap_or_else(lua_any_type),
         Some("tuple") => map_tuple_type(api_type, known, map_api_type),
         Some("literal") => map_literal_type(api_type),
-        Some("function") | Some("LuaStruct") => lua_any_type(),
+        Some("function") => lua_function_type(),
+        Some("LuaStruct") => lua_any_type(),
         Some("LuaLazyLoadedValue") => api_type
             .child_type("value")
             .map(|value| map_api_type(&value, known))
@@ -359,7 +377,8 @@ pub fn map_field_type(api_type: &ApiType, known: &KnownTypes<'_>) -> TokenStream
             .unwrap_or_else(lua_any_type),
         Some("tuple") => map_tuple_type(api_type, known, map_field_type),
         Some("literal") => map_literal_field_type(api_type),
-        Some("function") | Some("LuaStruct") => lua_any_type(),
+        Some("function") => lua_function_type(),
+        Some("LuaStruct") => lua_any_type(),
         Some("LuaLazyLoadedValue") => api_type
             .child_type("value")
             .map(|value| map_field_type(&value, known))
@@ -686,7 +705,8 @@ pub fn map_copy_field_type(api_type: &ApiType, known: &KnownTypes<'_>) -> TokenS
                 _ => lua_any_type(),
             }
         }
-        Some("function") | Some("LuaStruct") => lua_any_type(),
+        Some("function") => lua_function_type(),
+        Some("LuaStruct") => lua_any_type(),
         Some("LuaLazyLoadedValue") => api_type
             .child_type("value")
             .map(|value| map_copy_field_type(&value, known))
@@ -719,7 +739,8 @@ pub fn map_field_type_unboxed(api_type: &ApiType, known: &KnownTypes<'_>) -> Tok
             .unwrap_or_else(lua_any_type),
         Some("tuple") => map_tuple_type(api_type, known, map_field_type_unboxed),
         Some("literal") => map_literal_field_type(api_type),
-        Some("function") | Some("LuaStruct") => lua_any_type(),
+        Some("function") => lua_function_type(),
+        Some("LuaStruct") => lua_any_type(),
         Some("LuaLazyLoadedValue") => api_type
             .child_type("value")
             .map(|value| map_field_type_unboxed(&value, known))
@@ -761,12 +782,36 @@ pub fn map_parameter_type(
     parameter: &crate::schema::Parameter,
     known: &KnownTypes<'_>,
 ) -> TokenStream {
+    // Callback parameters accept Rust `fn` items via `Into<LuaFunction>`.
+    if let Some(tokens) = map_function_parameter_type(parameter) {
+        return tokens;
+    }
     let base = map_api_type(&parameter.type_name, known);
     if parameter.optional {
         quote!(Option<#base>)
     } else {
         base
     }
+}
+
+fn map_function_parameter_type(parameter: &crate::schema::Parameter) -> Option<TokenStream> {
+    let ty = &parameter.type_name;
+    if is_function_api_type(ty) {
+        return Some(if parameter.optional {
+            // Rare: optional function without a nil union arm.
+            quote!(impl crate::IntoOptionalLuaFunction)
+        } else {
+            quote!(impl Into<crate::LuaFunction>)
+        });
+    }
+    if ty.complex_type() == Some("union") {
+        let non_nil = ty.non_nil_options();
+        if non_nil.len() == 1 && is_function_api_type(&non_nil[0]) && ty.union_has_nil() {
+            // `function | nil` - pass a handler or `None` to unregister.
+            return Some(quote!(impl crate::IntoOptionalLuaFunction));
+        }
+    }
+    None
 }
 
 pub fn map_return_type(
