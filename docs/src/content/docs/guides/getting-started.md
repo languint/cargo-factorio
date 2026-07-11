@@ -88,6 +88,9 @@ factorio-rs package           # release profile and zip at project root
 Zip name: `{cargo_package_name}_{version}.zip` with a Factorio-ready root
 folder inside.
 
+Place an optional `thumbnail.png` in the project root (or set
+`[mod].thumbnail`) so it is copied into the mod for the Factorio mod portal.
+
 ## Next steps
 
 - [Language support](language/) - what Rust syntax you can use

@@ -5,6 +5,7 @@ use factorio_frontend::{discover_modules, lua_output_path, parse_discovered_modu
 use factorio_ir::{module::Module, prune::prune_modules};
 
 use crate::{
+    assets,
     cargo_manifest::CargoPackage,
     config::Config,
     error::{CliError, CliResult},
@@ -138,6 +139,10 @@ pub fn build(project_root: &Path, options: &BuildOptions) -> CliResult<Vec<PathB
         .flat_map(|(_, module)| module.locales.iter().cloned())
         .collect();
     outputs.extend(locale::write_locale_files(&output_dir, &locale_files)?);
+
+    if let Some(thumbnail) = assets::copy_thumbnail(project_root, &output_dir, &config)? {
+        outputs.push(thumbnail);
+    }
 
     Ok(outputs)
 }

@@ -1,5 +1,6 @@
 use clap::Parser;
 
+mod assets;
 mod build;
 mod cargo_manifest;
 mod cli;

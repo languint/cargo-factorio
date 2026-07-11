@@ -14,15 +14,29 @@ description: Project configuration keys for factorio-rs.
 
 ## `[mod]`
 
-Written into `info.json`:
+Written into `info.json` (and related packaging):
 
 | Key | Description |
 | --- | --- |
 | `title` | Display title |
 | `description` | Optional description |
 | `factorio_version` | Factorio version string (default `"2.0"`); also used for a `base` dependency |
+| `thumbnail` | Optional path to an image copied to `thumbnail.png` in the mod output |
 
 Mod **name** / zip id still come from Cargo `[package].name` and version.
+
+### Thumbnail
+
+Factorio's mod portal expects `thumbnail.png` in the mod root (commonly
+144×144). By default, if `thumbnail.png` exists in the project root it is
+copied into `dist/` on build. Override the source path with:
+
+```toml
+[mod]
+thumbnail = "assets/thumbnail.png"
+```
+
+If `thumbnail` is set and the file is missing, the build fails.
 
 ## `[emit]`
 
@@ -49,6 +63,7 @@ output_dir = "dist"
 title = "My Mod"
 description = "Does things"
 factorio_version = "2.0"
+thumbnail = "thumbnail.png"
 
 [emit]
 lua_module_prefix = "mm"

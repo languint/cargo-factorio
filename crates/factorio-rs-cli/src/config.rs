@@ -32,6 +32,7 @@ pub struct ModConfig {
     pub title: Option<String>,
     pub description: Option<String>,
     pub factorio_version: Option<String>,
+    pub thumbnail: Option<String>,
 }
 
 impl Default for ModConfig {
@@ -40,6 +41,7 @@ impl Default for ModConfig {
             title: None,
             description: None,
             factorio_version: Some("2.0".to_string()),
+            thumbnail: None,
         }
     }
 }
