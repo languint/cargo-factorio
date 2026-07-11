@@ -45,10 +45,12 @@ See [Locale](../guides/locale/).
 
 ## Expression macros
 
-In executable code, **`println!`** and **`format!`** are lowered:
+In executable code, **`println!`**, **`format!`**, and (with the `tracing`
+feature) **`tracing::{error,warn,info,debug,trace}!`** are lowered:
 
 - `println!(…)` → `game.print(…)`
 - `format!(…)` → Lua string concatenation with `..`
+- `tracing::info!(…)` / `warn!` / … → colored `game.print` (see [Tracing](../guides/tracing/))
 
 Item macros such as `mod_settings!` and `locale!` are handled separately during
 module lowering.

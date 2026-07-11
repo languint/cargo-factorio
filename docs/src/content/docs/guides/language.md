@@ -71,6 +71,7 @@ transparent so stub APIs typed as `Option<T>` still type-check in Rust.
 | `if c { a } else { b }`             | Each arm must be a **single** expression; emits `c and a or b` |
 | `println!(...)`                     | -> `game.print(...)` with `..` concatenation                   |
 | `format!(...)`                      | -> string via `..` concatenation                               |
+| `tracing::info!` / `warn!` / …      | -> colored `game.print` (CLI `tracing` feature; default on)    |
 | Literal string unions               | e.g. `GuiDirection::Horizontal` -> `"horizontal"`              |
 
 **Transparent zero-arg methods** (receiver kept): `into`, `unwrap`, `clone`,
@@ -160,12 +161,17 @@ only**.
 
 ## Expression macros
 
-Only **`println!`** and **`format!`** are lowered:
+Only **`println!`**, **`format!`**, and (CLI default) **`tracing::*!`** level
+macros are lowered:
 
 | Macro | Lua |
 | --- | --- |
 | `println!(…)` | `game.print(…)` with `..` concatenation |
 | `format!(…)` | string built with `..` (no `game.print`) |
+| `tracing::info!` / `warn!` / `error!` / `debug!` / `trace!` | `game.print` with `[LEVEL]` prefix + color |
+
+Enable `factorio-rs` feature `tracing` in the mod `Cargo.toml` so those macros
+type-check. Details: [Tracing](tracing/).
 
 Supported template forms: `{}`, `{0}`, `{name}`, and `{{` / `}}` escapes.
 Format specs after `:` (e.g. `{:.2}`) are ignored.
@@ -181,10 +187,11 @@ Other macros in expression position fail with `UnsupportedMacro`.
 | `let binding requires an initializer` | `let x;` without value |
 | `event handlers are only allowed in control-stage modules` | Move handler to control |
 | `could not resolve locale key` | `Settings::FOO` not in this module |
-| `unsupported macro` | Only `println!` / `format!` in expressions |
+| `unsupported macro` | Only `println!` / `format!` / `tracing::*!` in expressions |
 
 ## See also
 
 - [mandatory_spaghetti](../examples/mandatory-spaghetti/) - settings, locale,
   `Vec`, `for`, `continue`, `..Default::default()`, let-chains
 - [hello_world](../examples/hello-world/) - events, filters, `println!`
+- [tracing_test](../examples/tracing-test/) - optional `tracing` feature

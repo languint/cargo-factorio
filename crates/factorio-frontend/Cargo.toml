@@ -8,6 +8,10 @@ homepage.workspace = true
 readme.workspace = true
 description = "Rust frontend that lowers Factorio mod sources into factorio-ir"
 
+[features]
+default = []
+tracing = []
+
 [dependencies]
 factorio-api.workspace = true
 factorio-ir.workspace = true

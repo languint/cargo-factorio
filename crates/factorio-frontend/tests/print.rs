@@ -107,3 +107,59 @@ pub fn message() -> String {
 
     assert!(lua.contains(r#"return "hello""#));
 }
+
+#[cfg(feature = "tracing")]
+#[test]
+fn lowers_tracing_info_to_colored_game_print() {
+    let source = r#"
+pub fn on_init() {
+    tracing::info!("ready");
+}
+"#;
+
+    let module = must_ok_parse(parse_module(source, "control.on_init"));
+    let lua = must_ok(LuaGenerator::new().generate_module(&module));
+
+    assert!(
+        lua.contains(r#"game.print("[INFO] ready", { color = { r = 0.55, g = 0.85, b = 1, a = 1 } })"#),
+        "unexpected lua:\n{lua}"
+    );
+}
+
+#[cfg(feature = "tracing")]
+#[test]
+fn lowers_tracing_warn_with_format_args() {
+    let source = r#"
+pub fn on_init() {
+    let name = "iron";
+    tracing::warn!("missing {name}");
+}
+"#;
+
+    let module = must_ok_parse(parse_module(source, "control.on_init"));
+    let lua = must_ok(LuaGenerator::new().generate_module(&module));
+
+    assert!(
+        lua.contains(r#"game.print("[WARN] missing " .. name"#),
+        "unexpected lua:\n{lua}"
+    );
+    assert!(lua.contains("color = {"), "expected color settings:\n{lua}");
+}
+
+#[cfg(feature = "tracing")]
+#[test]
+fn lowers_bare_error_macro_when_tracing_enabled() {
+    let source = r#"
+pub fn on_init() {
+    error!("boom");
+}
+"#;
+
+    let module = must_ok_parse(parse_module(source, "control.on_init"));
+    let lua = must_ok(LuaGenerator::new().generate_module(&module));
+
+    assert!(
+        lua.contains(r#""[ERROR] boom""#),
+        "unexpected lua:\n{lua}"
+    );
+}

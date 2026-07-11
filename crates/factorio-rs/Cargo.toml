@@ -8,9 +8,14 @@ homepage.workspace = true
 readme.workspace = true
 description = "Rust SDK for Factorio modding"
 
+[features]
+default = []
+tracing = ["dep:tracing"]
+
 [dependencies]
 factorio-api = { workspace = true }
 factorio-macros = { workspace = true }
+tracing = { version = "0.1", optional = true, default-features = false }
 
 [lints]
 workspace = true

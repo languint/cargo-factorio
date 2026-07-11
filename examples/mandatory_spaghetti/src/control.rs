@@ -100,7 +100,6 @@ fn adjacency(source: classes::LuaEntity, player_index: u32) {
 fn find_pattern(source: classes::LuaEntity, mut offset: MapPosition) -> Vec<classes::LuaEntity> {
     let mut pos = source.position();
 
-    // Manual swap keeps the transpiler happy (`std::mem::swap` is not lowered).
     #[allow(clippy::manual_swap)]
     if pos.x > offset.x {
         let tmp = pos.x;

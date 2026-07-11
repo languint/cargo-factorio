@@ -10,7 +10,8 @@ members = [
     "crates/factorio-frontend",
     "crates/factorio-ir",
     "examples/hello_world",
-    "examples/mandatory_spaghetti"
+    "examples/mandatory_spaghetti",
+    "examples/tracing_test"
 ]
 
 [workspace.package]

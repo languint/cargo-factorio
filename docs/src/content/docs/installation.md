@@ -22,6 +22,15 @@ In your mod’s `Cargo.toml`:
 factorio-rs = "0.1.1"
 ```
 
+Optional features:
+
+```toml
+# Type-check `tracing::info!` etc.; CLI lowers them to colored game.print
+factorio-rs = { version = "0.1.1", features = ["tracing"] }
+```
+
+See [Tracing](guides/tracing/) for details.
+
 `factorio-rs init` scaffolds a project with this pin and `edition = "2024"`.
 
 ## Factorio (optional)

@@ -10,6 +10,9 @@ pub use factorio_macros::{
     settings_mod, settings_updates_mod, shared_mod,
 };
 
+#[cfg(feature = "tracing")]
+pub use tracing;
+
 pub mod prelude {
     pub use crate::{
         control, control_mod, data, data_final_fixes, data_final_fixes_mod, data_mod, data_updates,
@@ -18,4 +21,7 @@ pub mod prelude {
         shared_mod,
     };
     pub use factorio_api::prelude::*;
+
+    #[cfg(feature = "tracing")]
+    pub use tracing::{debug, error, info, trace, warn};
 }

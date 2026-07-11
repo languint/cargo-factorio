@@ -12,6 +12,10 @@ description = "CLI for transpiling Rust into Lua Factorio mods"
 name = "factorio-rs"
 path = "src/main.rs"
 
+[features]
+default = ["tracing"]
+tracing = ["factorio-frontend/tracing"]
+
 [dependencies]
 anyhow = "1.0.103"
 clap = { version = "4.6.1", features = ["derive"] }
