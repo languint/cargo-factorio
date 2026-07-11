@@ -19,14 +19,14 @@ In your mod’s `Cargo.toml`:
 
 ```toml
 [dependencies]
-factorio-rs = "0.1.1"
+factorio-rs = "0.1.2"
 ```
 
 Optional features:
 
 ```toml
 # Type-check `tracing::info!` etc.; CLI lowers them to colored game.print
-factorio-rs = { version = "0.1.1", features = ["tracing"] }
+factorio-rs = { version = "0.1.2", features = ["tracing"] }
 ```
 
 See [Tracing](guides/tracing/) for details.
