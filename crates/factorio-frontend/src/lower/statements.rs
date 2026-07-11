@@ -295,39 +295,22 @@ fn lower_if_expression(
     ctx: &mut LowerContext<'_>,
     self_type: Option<&str>,
 ) -> FrontendResult<Vec<factorio_ir::statement::Statement>> {
-    // Handle `if let Some(x) = expr { ... }`:
-    // Lower as `local x = expr` followed by `if x then ... end`.
-    if let Expr::Let(let_expr) = if_expression.cond.as_ref()
-        && let Some(binding) = extract_some_binding(&let_expr.pat)
-    {
-        let rhs = lower_expression(&let_expr.expr, ctx, self_type)?;
-        let then_block = lower_block_statements(&if_expression.then_branch.stmts, ctx, self_type)?;
-        let else_block = match &if_expression.else_branch {
-            Some((_, else_branch)) => lower_branch_statements(else_branch, ctx, self_type)?,
-            None => Vec::new(),
-        };
-        return Ok(vec![
-            factorio_ir::statement::Statement::VariableDecl {
-                name: binding.clone(),
-                ty: factorio_ir::r#type::Type::Void,
-                source_type: None,
-                value: rhs,
-            },
-            factorio_ir::statement::Statement::Conditional {
-                condition: factorio_ir::expression::Expression::Identifier(binding),
-                then_block,
-                else_block,
-            },
-        ]);
-    }
-
-    let condition = lower_expression(&if_expression.cond, ctx, self_type)?;
     let then_block = lower_block_statements(&if_expression.then_branch.stmts, ctx, self_type)?;
     let else_block = match &if_expression.else_branch {
         Some((_, else_branch)) => lower_branch_statements(else_branch, ctx, self_type)?,
         None => Vec::new(),
     };
 
+    let clauses = flatten_and_clauses(if_expression.cond.as_ref());
+    if clauses
+        .iter()
+        .any(|clause| matches!(clause, CondClause::Let { .. }))
+    {
+        return lower_let_chain_clauses(&clauses, then_block, else_block, ctx, self_type);
+    }
+
+    // Plain `if cond` (no `let` bindings in the condition).
+    let condition = lower_expression(&if_expression.cond, ctx, self_type)?;
     Ok(vec![factorio_ir::statement::Statement::Conditional {
         condition,
         then_block,
@@ -335,8 +318,75 @@ fn lower_if_expression(
     }])
 }
 
+enum CondClause<'a> {
+    /// A normal boolean expression.
+    Expr(&'a Expr),
+    /// `let Some(name) = expr` / `let name = expr`.
+    Let { binding: String, value: &'a Expr },
+}
+
+fn flatten_and_clauses(expr: &Expr) -> Vec<CondClause<'_>> {
+    match expr {
+        Expr::Paren(paren) => flatten_and_clauses(&paren.expr),
+        Expr::Binary(binary) if matches!(binary.op, BinOp::And(_)) => {
+            let mut clauses = flatten_and_clauses(&binary.left);
+            clauses.extend(flatten_and_clauses(&binary.right));
+            clauses
+        }
+        Expr::Let(let_expr) => extract_some_binding(&let_expr.pat).map_or_else(
+            || vec![CondClause::Expr(expr)],
+            |binding| {
+                vec![CondClause::Let {
+                    binding,
+                    value: let_expr.expr.as_ref(),
+                }]
+            },
+        ),
+        other => vec![CondClause::Expr(other)],
+    }
+}
+
+fn lower_let_chain_clauses(
+    clauses: &[CondClause<'_>],
+    then_block: Vec<factorio_ir::statement::Statement>,
+    else_block: Vec<factorio_ir::statement::Statement>,
+    ctx: &mut LowerContext<'_>,
+    self_type: Option<&str>,
+) -> FrontendResult<Vec<factorio_ir::statement::Statement>> {
+    match clauses {
+        [] => Ok(then_block),
+        [CondClause::Expr(condition), rest @ ..] => {
+            let condition = lower_expression(condition, ctx, self_type)?;
+            let nested =
+                lower_let_chain_clauses(rest, then_block, else_block.clone(), ctx, self_type)?;
+            Ok(vec![factorio_ir::statement::Statement::Conditional {
+                condition,
+                then_block: nested,
+                else_block,
+            }])
+        }
+        [CondClause::Let { binding, value }, rest @ ..] => {
+            let rhs = lower_expression(value, ctx, self_type)?;
+            let nested =
+                lower_let_chain_clauses(rest, then_block, else_block.clone(), ctx, self_type)?;
+            Ok(vec![
+                factorio_ir::statement::Statement::VariableDecl {
+                    name: binding.clone(),
+                    ty: factorio_ir::r#type::Type::Void,
+                    source_type: None,
+                    value: rhs,
+                },
+                factorio_ir::statement::Statement::Conditional {
+                    condition: factorio_ir::expression::Expression::Identifier(binding.clone()),
+                    then_block: nested,
+                    else_block,
+                },
+            ])
+        }
+    }
+}
+
 /// Extract the inner binding name from `Some(x)` or plain `x` patterns used in `if let`.
-/// Returns `None` for unsupported patterns (caller will fall through to a regular condition).
 fn extract_some_binding(pat: &Pat) -> Option<String> {
     match pat {
         // `if let Some(x) = ...`

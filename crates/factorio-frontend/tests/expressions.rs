@@ -178,3 +178,99 @@ pub fn direction() -> &'static str {
     let lua = generator.generate_module(&module).expect("generate");
     assert!(lua.contains("return \"vertical\""), "lua was:\n{lua}");
 }
+
+#[test]
+fn lowers_let_chains_in_if_conditions() {
+    let source = r"
+pub fn check(flag: bool, value: Option<i32>) {
+    if flag && let Some(x) = value {
+        let y = x;
+    }
+}
+";
+
+    let module = must_ok_parse(parse_module(source, "control.let_chain"));
+    let Statement::FunctionDecl(function) = &module.symbols[0].statement else {
+        assert_eq!(1, 0, "expected function declaration");
+        return;
+    };
+
+    assert_eq!(
+        function.body.statements,
+        vec![Statement::Conditional {
+            condition: Expression::Identifier("flag".to_string()),
+            then_block: vec![
+                Statement::VariableDecl {
+                    name: "x".to_string(),
+                    ty: factorio_ir::r#type::Type::Void,
+                    source_type: None,
+                    value: Expression::Identifier("value".to_string()),
+                },
+                Statement::Conditional {
+                    condition: Expression::Identifier("x".to_string()),
+                    then_block: vec![Statement::VariableDecl {
+                        name: "y".to_string(),
+                        ty: factorio_ir::r#type::Type::Void,
+                        source_type: None,
+                        value: Expression::Identifier("x".to_string()),
+                    }],
+                    else_block: vec![],
+                },
+            ],
+            else_block: vec![],
+        }]
+    );
+}
+
+#[test]
+fn lowers_leading_if_let_in_chain() {
+    let source = r"
+pub fn check(value: Option<i32>) {
+    if let Some(x) = value && x > 0 {
+        let y = x;
+    }
+}
+";
+
+    let module = must_ok_parse(parse_module(source, "control.let_chain"));
+    let Statement::FunctionDecl(function) = &module.symbols[0].statement else {
+        assert_eq!(1, 0, "expected function declaration");
+        return;
+    };
+
+    assert_eq!(
+        &function.body.statements[0],
+        &Statement::VariableDecl {
+            name: "x".to_string(),
+            ty: factorio_ir::r#type::Type::Void,
+            source_type: None,
+            value: Expression::Identifier("value".to_string()),
+        }
+    );
+    let Statement::Conditional {
+        condition,
+        then_block,
+        ..
+    } = &function.body.statements[1]
+    else {
+        assert_eq!(1, 0, "expected conditional after binding");
+        return;
+    };
+    assert_eq!(condition, &Expression::Identifier("x".to_string()));
+    let Statement::Conditional {
+        condition: inner_cond,
+        ..
+    } = &then_block[0]
+    else {
+        assert_eq!(1, 0, "expected nested condition for `x > 0`");
+        return;
+    };
+    assert!(matches!(
+        inner_cond,
+        Expression::BinaryOp {
+            op: Operator::Gt,
+            ..
+        }
+    ));
+}
+
