@@ -23,7 +23,7 @@ pub struct DiscoveredModule {
 /// Modules are found via:
 /// - path-based layout (`src/control/...`, `src/control.rs`, ...)
 /// - `factorio_rs::control_mod! { ... }` block macros (and `shared_mod!` / `data_mod!` /
-///   `settings_updates_mod!` / …)
+///   `settings_updates_mod!` / ...)
 /// - `#[factorio_rs::control] mod name { ... }` inline modules
 ///
 /// # Errors

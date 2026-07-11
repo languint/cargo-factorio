@@ -59,7 +59,7 @@ pub struct Config {
     #[serde(default)]
     pub r#mod: ModConfig,
 
-    /// Named transpile profiles (`[profiles.debug]`, `[profiles.release]`, …).
+    /// Named transpile profiles (`[profiles.debug]`, `[profiles.release]`, ...).
     #[serde(default)]
     pub profiles: BTreeMap<String, ProfileSettings>,
 }

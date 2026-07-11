@@ -20,8 +20,7 @@ pub fn expand(
     tokens: TokenStream,
     const_strings: &BTreeMap<String, String>,
 ) -> FrontendResult<Vec<LocaleFile>> {
-    let input: LocaleInput =
-        syn::parse2(tokens).map_err(|e| FrontendError::Syn(e.to_string()))?;
+    let input: LocaleInput = syn::parse2(tokens).map_err(|e| FrontendError::Syn(e.to_string()))?;
 
     let file = input.file.unwrap_or_else(|| "locale".to_string());
     let mut files = Vec::new();
@@ -50,7 +49,7 @@ pub fn expand(
     Ok(files)
 }
 
-/// Collect `StructName::CONST` → string value from lowered module statements.
+/// Collect `StructName::CONST` -> string value from lowered module statements.
 pub fn collect_const_strings(
     body: &[Statement],
     symbols: &[factorio_ir::module::Symbol],
@@ -72,7 +71,10 @@ pub fn collect_const_strings(
     map
 }
 
-fn resolve_key(key: &LocaleKey, const_strings: &BTreeMap<String, String>) -> FrontendResult<String> {
+fn resolve_key(
+    key: &LocaleKey,
+    const_strings: &BTreeMap<String, String>,
+) -> FrontendResult<String> {
     match key {
         LocaleKey::Literal(s) => Ok(s.clone()),
         LocaleKey::Path(path) => {
@@ -199,7 +201,7 @@ impl Parse for CategoryBlock {
         let name = if input.peek(LitStr) {
             input.parse::<LitStr>()?.value()
         } else {
-            // `mod_setting_name` → `mod-setting-name`
+            // `mod_setting_name` -> `mod-setting-name`
             let ident: Ident = input.parse()?;
             ident.to_string().replace('_', "-")
         };

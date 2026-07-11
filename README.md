@@ -5,3 +5,12 @@
 
 > [!NOTE]
 > This project is in development, expect breaking changes.
+
+## Quick start
+
+```bash
+cargo install factorio-rs-cli
+mkdir my-mod && cd my-mod
+factorio-rs init --name my-mod
+factorio-rs build
+```

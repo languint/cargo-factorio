@@ -10,7 +10,7 @@ pub struct LocaleEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LocaleFile {
-    /// Language code (`en`, `de`, …).
+    /// Language code (`en`, `de`, ...).
     pub lang: String,
     /// File stem written under `locale/<lang>/` (without `.cfg`).
     pub file: String,

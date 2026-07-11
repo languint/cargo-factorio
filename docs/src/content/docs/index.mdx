@@ -1,40 +1,42 @@
 ---
-title: Welcome to Starlight
-description: Get started building your docs site with Starlight.
-template: splash # Remove or comment out this line to display the site sidebar on this page.
+title: factorio-rs
+description: Write Factorio mods in Rust and transpile them to Lua.
+template: splash
 hero:
-  tagline: Congrats on setting up a new Starlight project!
-  image:
-    file: ../../assets/houston.webp
+  tagline: Rust SDK for Factorio's modding API, transpile Rust into loadable Lua mods.
   actions:
-    - text: Example Guide
-      link: /guides/example/
+    - text: Get started
+      link: /guides/getting-started/
       icon: right-arrow
-    - text: Read the Starlight docs
-      link: https://starlight.astro.build
+    - text: GitHub
+      link: https://github.com/languint/factorio-rs
       icon: external
       variant: minimal
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Card, CardGrid } from "@astrojs/starlight/components";
 
-## Next steps
+:::caution
+This project is in development. Expect breaking changes between releases.
+:::
 
-<CardGrid stagger>
-	<Card title="Update content" icon="pencil">
-		Edit `src/content/docs/index.mdx` to see this page change.
-	</Card>
-	<Card title="Change page layout" icon="document">
-		Delete `template: splash` in `src/content/docs/index.mdx` to display a
-		sidebar on this page.
-	</Card>
-	<Card title="Add new content" icon="add-document">
-		Add Markdown or MDX files to `src/content/docs` to create new pages.
-	</Card>
-	<Card title="Configure your site" icon="setting">
-		Edit your `sidebar` and other config in `astro.config.mjs`.
-	</Card>
-	<Card title="Read the docs" icon="open-book">
-		Learn more in [the Starlight Docs](https://starlight.astro.build/).
-	</Card>
+## What you get
+
+<CardGrid>
+  <Card title="Rust authoring" icon="pencil">
+    Use familiar Rust syntax, crates.io packages, and `cargo check` for type
+    checking - including proc macros for events, settings, and locale.
+  </Card>
+  <Card title="Factorio Lua output" icon="document">
+    The CLI emits a normal Factorio mod directory (`info.json`, stage entry
+    files, `lua/`, optional `locale/`).
+  </Card>
+  <Card title="Install and run" icon="rocket">
+    Build into `dist/`, copy into your Factorio mods folder, and optionally
+    launch the game with `factorio-rs open`.
+  </Card>
+  <Card title="Guides" icon="open-book">
+    See [Installation](/installation/), [Getting started](/guides/getting-started/),
+    [Language support](/guides/language/), and the [CLI reference](/reference/cli/).
+  </Card>
 </CardGrid>

@@ -24,7 +24,7 @@ pub struct LuaGenerator {
     /// Optional prefix prepended to every module's filename and local require variable.
     /// Empty string means no prefix.
     module_prefix: String,
-    /// Active transpile profile name (`debug`, `release`, …), if known.
+    /// Active transpile profile name (`debug`, `release`, ...), if known.
     profile: Option<String>,
 }
 
