@@ -125,8 +125,9 @@ fn generate_method(
         // takes_table method, single named params struct argument
         vec![quote!(params: #struct_ident)]
     } else {
-        method
-            .parameters
+        let mut parameters = method.parameters.clone();
+        parameters.sort_by_key(|parameter| parameter.order);
+        parameters
             .iter()
             .map(|parameter| {
                 let param_name = make_ident(&parameter.name);
@@ -415,7 +416,9 @@ pub fn generate_globals(api: &RuntimeApi, known: &KnownTypes<'_>) -> String {
         let name = method_rust_name(&function.name);
         let return_type = map_return_type(&function.return_values, known);
         let body = stub_expr(&map_return_stub(&function.return_values, known));
-        let params = function.parameters.iter().map(|parameter| {
+        let mut parameters = function.parameters.clone();
+        parameters.sort_by_key(|parameter| parameter.order);
+        let params = parameters.iter().map(|parameter| {
             let param_name = global_function_param_ident(&parameter.name);
             let param_type = map_parameter_type(parameter, known);
             quote!( #param_name: #param_type )

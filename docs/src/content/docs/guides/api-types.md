@@ -77,13 +77,14 @@ takes `impl IntoOptionalLuaFunction`, so you can pass a Rust `fn` item or
 `None`:
 
 ```rust
-commands.add_command("hello", "Say hello", hello_cmd);
+commands.add_command("hello", "Say hello", lua_fn(hello_cmd));
 script.on_event(defines::events::on_tick, on_tick);
 script.on_event(defines::events::on_tick, None); // unregister
 ```
 
-`fn` pointers coerce and convert via `From` / the optional trait; the stub
-value is only for type-checking - the transpiler emits the function name in Lua.
+`lua_fn` (and `lua_fn0` / `lua_fn2`) coerce Rust `fn` items to `LuaFunction` for
+`cargo check`; the frontend strips them so Lua still gets the bare function name.
+`fn` pointers also convert via `From` / the optional trait.
 
 ## When `LuaAny` remains
 

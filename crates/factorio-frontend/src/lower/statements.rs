@@ -432,6 +432,8 @@ fn lower_branch_statements(
 ) -> FrontendResult<Vec<factorio_ir::statement::Statement>> {
     match expression {
         Expr::Block(block) => lower_block_statements(&block.block.stmts, ctx, self_type),
+        // `else if cond { ... }` is an `Expr::If`, not a block.
+        Expr::If(if_expression) => lower_if_expression(if_expression, ctx, self_type),
         _ => Err(FrontendError::UnsupportedStatement {
             location: location(expression),
         }),

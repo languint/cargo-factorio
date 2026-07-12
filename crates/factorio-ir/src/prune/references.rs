@@ -248,7 +248,26 @@ pub fn collect_references_from_expression(
     pending: &mut VecDeque<(String, ItemKey)>,
 ) {
     match expression {
-        Expression::Literal(_) | Expression::Identifier(_) => {}
+        Expression::Literal(_) => {}
+        Expression::Identifier(name) => {
+            // Function names used as values (e.g. `commands.add_command(..., greet)`)
+            // must keep the referenced function alive under dead-code pruning.
+            if function_exists(module, name) {
+                enqueue_item(
+                    reachability,
+                    pending,
+                    &module.name,
+                    ItemKey::Function(name.clone()),
+                );
+            } else if struct_utils::struct_exists(module, name) {
+                enqueue_item(
+                    reachability,
+                    pending,
+                    &module.name,
+                    ItemKey::Struct(name.clone()),
+                );
+            }
+        }
         Expression::QualifiedPath { segments } => {
             resolve_struct_member_reference(graph, module, segments, reachability, pending);
         }

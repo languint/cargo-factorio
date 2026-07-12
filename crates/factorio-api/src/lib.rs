@@ -91,6 +91,39 @@ impl From<LuaFunction> for LuaAny {
     }
 }
 
+/// Factorio [`LocalisedString`](https://lua-api.factorio.com/latest/concepts/LocalisedString.html):
+/// a plain string or a translation table `{ "category.key", arg1, ... }`.
+///
+/// Pass a string, or an array of strings (locale key plus `__1__` / `__2__` args).
+/// `.into()` is transparent when lowering, so `[key, name].into()` becomes
+/// `{ key, name }` in Lua.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct LocalisedString;
+
+impl From<LocalisedString> for LuaAny {
+    fn from(_: LocalisedString) -> Self {
+        LuaAny
+    }
+}
+
+impl<'a> From<&'a str> for LocalisedString {
+    fn from(_: &'a str) -> Self {
+        Self
+    }
+}
+
+impl From<String> for LocalisedString {
+    fn from(_: String) -> Self {
+        Self
+    }
+}
+
+impl<'a, const N: usize> From<[&'a str; N]> for LocalisedString {
+    fn from(_: [&'a str; N]) -> Self {
+        Self
+    }
+}
+
 impl<R> From<fn() -> R> for LuaFunction {
     fn from(_: fn() -> R) -> Self {
         LuaFunction
@@ -119,6 +152,25 @@ impl<A, B, C, D, R> From<fn(A, B, C, D) -> R> for LuaFunction {
     fn from(_: fn(A, B, C, D) -> R) -> Self {
         LuaFunction
     }
+}
+
+/// Coerce a Rust `fn` item to [`LuaFunction`] for APIs like `commands.add_command`.
+///
+/// Fn item types do not implement `From`/`Into` for [`LuaFunction`] directly; this
+/// helper's `fn(...)` parameter is a coercion site.
+#[must_use]
+pub fn lua_fn<A, R>(f: fn(A) -> R) -> LuaFunction {
+    f.into()
+}
+
+#[must_use]
+pub fn lua_fn0<R>(f: fn() -> R) -> LuaFunction {
+    f.into()
+}
+
+#[must_use]
+pub fn lua_fn2<A, B, R>(f: fn(A, B) -> R) -> LuaFunction {
+    f.into()
 }
 
 pub trait IntoOptionalLuaFunction {
@@ -383,6 +435,7 @@ pub use map::{event_filter_type, event_type_to_name};
 pub use unions::literal_enum_variant_str;
 
 pub mod prelude {
+    pub use crate::LocalisedString;
     pub use crate::SettingValue;
     pub use crate::concepts::*;
     pub use crate::event_data::*;
@@ -390,6 +443,9 @@ pub mod prelude {
     pub use crate::event_type_to_name;
     pub use crate::events::*;
     pub use crate::globals::*;
+    pub use crate::lua_fn;
+    pub use crate::lua_fn0;
+    pub use crate::lua_fn2;
     pub use crate::settings::{
         BoolSetting, DoubleSetting, IntSetting, ModSettingValue, StringSetting, data, settings,
     };

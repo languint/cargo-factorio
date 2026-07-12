@@ -168,4 +168,21 @@ fn function_parameters_use_lua_function() {
             && !classes.contains("handler: crate::LuaAny"),
         "event handlers must not be typed as LuaAny"
     );
+    assert!(
+        classes.contains("impl Into < crate :: LocalisedString >")
+            || classes.contains("impl Into<crate::LocalisedString>"),
+        "LocalisedString parameters should accept Into<LocalisedString>"
+    );
+    // Sorted by Factorio `order`: name, help, function (not JSON array order).
+    let add_command = classes
+        .find("fn add_command")
+        .map(|i| &classes[i..i.saturating_add(280)])
+        .expect("add_command method");
+    let name_at = add_command.find("name").expect("name param");
+    let help_at = add_command.find("help").expect("help param");
+    let function_at = add_command.find("function").expect("function param");
+    assert!(
+        name_at < help_at && help_at < function_at,
+        "add_command parameters should follow Factorio order (name, help, function), got:\n{add_command}"
+    );
 }

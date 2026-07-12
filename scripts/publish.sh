@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# Publish workspace crates to crates.io in dependency order.
+#
+# Usage:
+#   ./scripts/publish.sh           # publish current versions
+#   ./scripts/publish.sh --dry-run # package/verify only
+#   ./scripts/publish.sh --yes     # skip confirmation prompt
+#
+# Requires `cargo login` (credentials in ~/.cargo/credentials.toml).
+
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -8,6 +17,7 @@ DRY_RUN=0
 ASSUME_YES=0
 SLEEP_SECS="${PUBLISH_SLEEP_SECS:-45}"
 
+# Bottom-up publish order (path deps must already be on crates.io).
 CRATES=(
   factorio-ir
   factorio-api-gen
@@ -82,7 +92,7 @@ for crate in "${CRATES[@]}"; do
   ver="$(crate_version "$crate")"
   versions+=("$ver")
   if crates_io_has_version "$crate" "$ver"; then
-    echo "  - ${crate}@${ver}  (already on crates.io - will skip)"
+    echo "  - ${crate}@${ver}  (already on crates.io — will skip)"
   else
     echo "  - ${crate}@${ver}"
   fi

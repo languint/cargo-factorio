@@ -65,7 +65,7 @@ transparent so stub APIs typed as `Option<T>` still type-check in Rust.
 | Paths / fields / calls / methods    | Including `crate::` (auto-require)                             |
 | Named struct literals               | -> Lua tables                                                  |
 | `[a, b]`                            | -> `{ a, b }`                                                  |
-| `a[i]`                              | Index `0` becomes Lua `1`                                      |
+| `a[i]`                              | Integer literal indices are +1 for Lua (`0`→`1`, `1`→`2`, …) |
 | `&x`, `*x`, `x as T`, `(x)`         | Transparent                                                    |
 | `!` / `-`                           | `not` / unary minus                                            |
 | `+ - * / % == != < <= > >= && \|\|` |                                                                |
@@ -212,6 +212,7 @@ Other macros in expression position fail with `UnsupportedMacro`.
 
 - [mandatory_spaghetti](../examples/mandatory-spaghetti/) - settings, locale,
   `Vec`, `for`, `continue`, `..Default::default()`, let-chains
+- [locale_test](../examples/locale-test/) - console command + localized greetings
 - [hello_world](../examples/hello-world/) - events, filters, `println!`
 - [tracing_test](../examples/tracing-test/) - optional `tracing` feature
 - [API types](api-types/) - concepts, Identification enums, `LuaAny`

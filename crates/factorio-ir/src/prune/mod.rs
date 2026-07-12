@@ -95,6 +95,64 @@ mod tests {
     }
 
     #[test]
+    fn keeps_functions_passed_as_values() {
+        use crate::expression::Expression;
+
+        let mut modules = vec![Module {
+            name: "control".to_string(),
+            stage: Stage::Control,
+            body: Block {
+                statements: vec![Statement::FunctionDecl(Function {
+                    name: "greet".to_string(),
+                    params: vec![],
+                    body: Block { statements: vec![] },
+                    doc: None,
+                    debug: None,
+                    event: None,
+                    event_filter: None,
+                })],
+            },
+            imports: vec![],
+            submodules: vec![],
+            locales: vec![],
+            symbols: vec![Symbol {
+                scope: Scope::Public,
+                statement: Statement::FunctionDecl(Function {
+                    name: "on_init".to_string(),
+                    params: vec![],
+                    body: Block {
+                        statements: vec![Statement::Expr(Expression::MethodCall {
+                            receiver: Box::new(Expression::Identifier("commands".to_string())),
+                            method: "add_command".to_string(),
+                            args: vec![
+                                Expression::Literal(crate::literal::Literal::String(
+                                    "greet".to_string(),
+                                )),
+                                Expression::Identifier("greet".to_string()),
+                            ],
+                        })],
+                    },
+                    doc: None,
+                    debug: None,
+                    event: Some("on_init".to_string()),
+                    event_filter: None,
+                }),
+            }],
+        }];
+
+        prune_modules(&mut modules);
+
+        assert_eq!(modules[0].body.statements.len(), 1);
+        assert_eq!(
+            match &modules[0].body.statements[0] {
+                Statement::FunctionDecl(function) => function.name.as_str(),
+                _ => panic!("expected greet to remain"),
+            },
+            "greet"
+        );
+    }
+
+    #[test]
     fn prunes_unused_public_exports() {
         let mut modules = vec![Module {
             name: "control".to_string(),

@@ -70,7 +70,8 @@ pub fn return_stub_for_type(api_type: &ApiType, known: &KnownTypes<'_>) -> Retur
     if let Some(name) = api_type.as_simple_name() {
         return match name {
             "boolean" => ReturnStub::Bool,
-            "string" | "LocalisedString" | "LuaLazyLoadedValueLocalisedString" => ReturnStub::Str,
+            "string" => ReturnStub::Str,
+            "LocalisedString" | "LuaLazyLoadedValueLocalisedString" => ReturnStub::Default,
             // Exact integer types - stub with `{ 0 }` (inferred by Rust to the return type).
             "uint8" | "uint16" | "uint32" | "uint64" | "uint" | "int8" | "int16" | "int32"
             | "int64" | "int" | "MapTick" | "Tick" | "ItemStackIndex" | "ItemCountType"
@@ -330,8 +331,9 @@ fn is_integer_api_type(name: &str) -> bool {
 
 fn map_simple_type(name: &str, known: &KnownTypes<'_>) -> TokenStream {
     match name {
-        "string" | "LocalisedString" | "LuaLazyLoadedValueLocalisedString" => {
-            quote!(&'static str)
+        "string" => quote!(&'static str),
+        "LocalisedString" | "LuaLazyLoadedValueLocalisedString" => {
+            quote!(crate::LocalisedString)
         }
         "boolean" => quote!(bool),
         "nil" | "void" => quote!(()),
@@ -638,8 +640,9 @@ fn map_simple_field_type_unboxed(name: &str, known: &KnownTypes<'_>) -> TokenStr
 
 pub fn map_simple_copy_field_type(name: &str, known: &KnownTypes<'_>) -> TokenStream {
     match name {
-        "string" | "LocalisedString" | "LuaLazyLoadedValueLocalisedString" => {
-            quote!(&'static str)
+        "string" => quote!(&'static str),
+        "LocalisedString" | "LuaLazyLoadedValueLocalisedString" => {
+            quote!(crate::LocalisedString)
         }
         "boolean" => quote!(bool),
         "nil" | "void" => quote!(()),
@@ -786,12 +789,31 @@ pub fn map_parameter_type(
     if let Some(tokens) = map_function_parameter_type(parameter) {
         return tokens;
     }
+    if let Some(tokens) = map_localised_string_parameter(parameter) {
+        return tokens;
+    }
     let base = map_api_type(&parameter.type_name, known);
     if parameter.optional {
         quote!(Option<#base>)
     } else {
         base
     }
+}
+
+fn map_localised_string_parameter(parameter: &crate::schema::Parameter) -> Option<TokenStream> {
+    let ty = &parameter.type_name;
+    let is_localised = matches!(
+        ty.as_simple_name(),
+        Some("LocalisedString" | "LuaLazyLoadedValueLocalisedString")
+    );
+    if !is_localised {
+        return None;
+    }
+    Some(if parameter.optional {
+        quote!(Option<crate::LocalisedString>)
+    } else {
+        quote!(impl Into<crate::LocalisedString>)
+    })
 }
 
 fn map_function_parameter_type(parameter: &crate::schema::Parameter) -> Option<TokenStream> {
@@ -820,13 +842,25 @@ pub fn map_return_type(
 ) -> TokenStream {
     match return_values.len() {
         0 => quote!(()),
-        1 => map_parameter_type(&return_values[0], known),
+        1 => map_return_value_type(&return_values[0], known),
         _ => {
             let types: Vec<_> = return_values
                 .iter()
-                .map(|value| map_parameter_type(value, known))
+                .map(|value| map_return_value_type(value, known))
                 .collect();
             quote!((#(#types),*))
         }
+    }
+}
+
+fn map_return_value_type(
+    parameter: &crate::schema::Parameter,
+    known: &KnownTypes<'_>,
+) -> TokenStream {
+    let base = map_api_type(&parameter.type_name, known);
+    if parameter.optional {
+        quote!(Option<#base>)
+    } else {
+        base
     }
 }

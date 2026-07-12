@@ -53,3 +53,28 @@ dist/locale/de/settings.cfg
 [mod-setting-name]
 msr-casual-mode=Casual mode
 ```
+
+## Runtime messages (`LocalisedString`)
+
+`locale!` only writes `.cfg` files. To print a translated string in-game, pass a
+Factorio localised string: a plain string, or a table
+`{ "category.key", arg1, ... }` where `__1__`, `__2__`, … in the locale value
+are filled from those args.
+
+```rust
+factorio_rs::locale! {
+    en {
+        greetings {
+            "hello" = "Hello, __1__!",
+        }
+    }
+}
+
+player.print(["greetings.hello", player.name()], None);
+// → player.print({ "greetings.hello", player.name })
+```
+
+Arrays and plain strings implement `Into<LocalisedString>`, so they can be passed
+directly to `print` / other localised parameters.
+
+Example: [locale_test](../examples/locale-test/).

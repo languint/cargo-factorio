@@ -228,9 +228,12 @@ impl LuaGenerator {
     fn generate_index(&self, base: &Expression, key: &Expression) -> String {
         let base = self.generate_expression(base);
 
-        // Lua is 1-indexed, so translate 0 to 1
+        // Lua is 1-indexed: shift Rust integer literals (`0` -> `1`, `1` -> `2`, …).
+        // Variable indices are left as-is (callers should use 1-based values).
         let key = match key {
-            Expression::Literal(factorio_ir::literal::Literal::Int(0)) => "1".to_string(),
+            Expression::Literal(factorio_ir::literal::Literal::Int(index)) => {
+                (*index + 1).to_string()
+            }
             _ => self.generate_expression(key),
         };
         format!("{base}[{key}]")

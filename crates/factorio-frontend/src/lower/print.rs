@@ -398,7 +398,7 @@ fn maybe_debug_format(
 
 fn debug_uses_json(type_key: Option<&str>) -> bool {
     let Some(key) = type_key else {
-        // Unknown -> `tostring` (safe for userdata; tables print poorly but won't crash).
+        // Unknown → `tostring` (safe for userdata; tables print poorly but won't crash).
         return false;
     };
 

@@ -126,6 +126,22 @@ fn lower_call_expression(
         return lower_expression(arg, ctx, self_type);
     }
 
+    // `lua_fn(handler)` / `lua_fn0` / `lua_fn2` - stub-only coercion helpers; emit the fn name.
+    if is_lua_fn_helper(&call.func) {
+        let mut args = call.args.iter();
+        let Some(arg) = args.next() else {
+            return Err(FrontendError::UnsupportedExpression {
+                location: format!("{} (lua_fn expects exactly one argument)", location(call)),
+            });
+        };
+        if args.next().is_some() {
+            return Err(FrontendError::UnsupportedExpression {
+                location: format!("{} (lua_fn expects exactly one argument)", location(call)),
+            });
+        }
+        return lower_expression(arg, ctx, self_type);
+    }
+
     if let Some(func_name) = serde_json_path_name(&call.func) {
         #[cfg(not(feature = "serde"))]
         {
@@ -195,6 +211,16 @@ fn is_option_some_constructor(func: &Expr) -> bool {
         [.., option, name] if option == "Option" && name == "Some" => true,
         _ => false,
     }
+}
+
+fn is_lua_fn_helper(func: &Expr) -> bool {
+    let Expr::Path(path) = func else {
+        return false;
+    };
+    path.path
+        .segments
+        .last()
+        .is_some_and(|segment| matches!(segment.ident.to_string().as_str(), "lua_fn" | "lua_fn0" | "lua_fn2"))
 }
 
 fn lower_method_call(

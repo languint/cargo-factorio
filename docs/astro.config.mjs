@@ -64,6 +64,7 @@ export default defineConfig({
           label: "Examples",
           items: [
             { label: "hello_world", slug: "examples/hello-world" },
+            { label: "locale_test", slug: "examples/locale-test" },
             {
               label: "mandatory_spaghetti",
               slug: "examples/mandatory-spaghetti",

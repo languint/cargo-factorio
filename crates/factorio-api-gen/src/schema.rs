@@ -108,7 +108,7 @@ pub struct Attribute {
     pub optional: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Parameter {
     #[serde(default)]
     pub name: String,
@@ -118,6 +118,9 @@ pub struct Parameter {
     pub type_name: ApiType,
     #[serde(default)]
     pub optional: bool,
+    /// Factorio call / field order (JSON array order is not always correct).
+    #[serde(default)]
+    pub order: u32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
