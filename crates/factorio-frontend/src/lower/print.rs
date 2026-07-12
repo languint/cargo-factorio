@@ -260,7 +260,7 @@ fn lower_format_template(
     let pieces = parse_format_pieces(template);
     let sequential_count = pieces
         .iter()
-        .filter(|piece| matches!(piece, FormatPiece::PositionalArg))
+        .filter(|piece| matches!(piece, FormatPiece::PositionalArg { .. }))
         .count();
 
     if sequential_count > args.len() {
@@ -273,7 +273,7 @@ fn lower_format_template(
     }
 
     for piece in &pieces {
-        if let FormatPiece::PositionalIndex(index) = piece
+        if let FormatPiece::PositionalIndex { index, .. } = piece
             && *index >= args.len()
         {
             return Err(FrontendError::FormatArgumentMismatch {
@@ -295,7 +295,7 @@ fn lower_format_template(
                     factorio_ir::literal::Literal::String(value),
                 ));
             }
-            FormatPiece::PositionalArg => {
+            FormatPiece::PositionalArg { debug } => {
                 let Some(arg) = args.get(sequential_index).cloned() else {
                     return Err(FrontendError::FormatArgumentMismatch {
                         template: template.to_string(),
@@ -304,14 +304,17 @@ fn lower_format_template(
                         location,
                     });
                 };
-                parts.push(arg);
+                parts.push(maybe_debug_format(arg, debug));
                 sequential_index += 1;
             }
-            FormatPiece::PositionalIndex(index) => {
-                parts.push(args[index].clone());
+            FormatPiece::PositionalIndex { index, debug } => {
+                parts.push(maybe_debug_format(args[index].clone(), debug));
             }
-            FormatPiece::NamedCapture(name) => {
-                parts.push(factorio_ir::expression::Expression::Identifier(name));
+            FormatPiece::NamedCapture { name, debug } => {
+                parts.push(maybe_debug_format(
+                    factorio_ir::expression::Expression::Identifier(name),
+                    debug,
+                ));
             }
         }
     }
@@ -329,11 +332,28 @@ fn lower_format_template(
     Ok(factorio_ir::expression::Expression::FormatConcat { parts })
 }
 
+/// `{:?}` / `{:#?}` dump tables via Factorio JSON.
+fn maybe_debug_format(
+    value: factorio_ir::expression::Expression,
+    debug: bool,
+) -> factorio_ir::expression::Expression {
+    if !debug {
+        return value;
+    }
+    factorio_ir::expression::Expression::MethodCall {
+        receiver: Box::new(factorio_ir::expression::Expression::Identifier(
+            "helpers".to_string(),
+        )),
+        method: "table_to_json".to_string(),
+        args: vec![value],
+    }
+}
+
 enum FormatPiece {
     Literal(String),
-    PositionalArg,
-    PositionalIndex(usize),
-    NamedCapture(String),
+    PositionalArg { debug: bool },
+    PositionalIndex { index: usize, debug: bool },
+    NamedCapture { name: String, debug: bool },
 }
 
 fn parse_format_pieces(template: &str) -> Vec<FormatPiece> {
@@ -390,25 +410,29 @@ fn parse_format_pieces(template: &str) -> Vec<FormatPiece> {
 }
 
 fn parse_format_placeholder(contents: &str) -> FormatPiece {
-    if contents.is_empty() {
-        return FormatPiece::PositionalArg;
-    }
-
-    let name = contents.split(':').next().unwrap_or(contents);
+    let (name, spec) = match contents.split_once(':') {
+        Some((name, spec)) => (name, Some(spec)),
+        None => (contents, None),
+    };
+    // `:?` / `:#?` (and similar) → JSON dump via helpers.table_to_json.
+    let debug = spec.is_some_and(|s| s.contains('?'));
 
     if name.is_empty() {
-        return FormatPiece::PositionalArg;
+        return FormatPiece::PositionalArg { debug };
     }
 
     if let Ok(index) = name.parse::<usize>() {
-        return FormatPiece::PositionalIndex(index);
+        return FormatPiece::PositionalIndex { index, debug };
     }
 
     if is_format_ident(name) {
-        return FormatPiece::NamedCapture(name.to_string());
+        return FormatPiece::NamedCapture {
+            name: name.to_string(),
+            debug,
+        };
     }
 
-    FormatPiece::PositionalArg
+    FormatPiece::PositionalArg { debug }
 }
 
 fn is_format_ident(name: &str) -> bool {
