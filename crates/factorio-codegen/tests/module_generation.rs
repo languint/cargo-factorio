@@ -148,3 +148,61 @@ fn omits_unreachable_private_helper_when_pruned() {
         )
     );
 }
+
+#[test]
+fn qualifies_exported_function_identifiers_used_as_values() {
+    let module = Module {
+        name: "control".to_string(),
+        stage: Stage::Control,
+        body: Block { statements: vec![] },
+        imports: vec![],
+        submodules: vec![],
+        locales: vec![],
+        symbols: vec![
+            Symbol {
+                scope: Scope::Public,
+                statement: Statement::FunctionDecl(Function {
+                    name: "greet".to_string(),
+                    params: vec![],
+                    body: Block { statements: vec![] },
+                    doc: None,
+                    debug: None,
+                    event: None,
+                    event_filter: None,
+                }),
+            },
+            Symbol {
+                scope: Scope::Public,
+                statement: Statement::FunctionDecl(Function {
+                    name: "on_init".to_string(),
+                    params: vec![],
+                    body: Block {
+                        statements: vec![Statement::Expr(Expression::MethodCall {
+                            receiver: Box::new(Expression::Identifier("commands".to_string())),
+                            method: "add_command".to_string(),
+                            args: vec![
+                                Expression::Literal(Literal::String("greet".to_string())),
+                                Expression::Identifier("greet".to_string()),
+                            ],
+                        })],
+                    },
+                    doc: None,
+                    debug: None,
+                    event: Some("on_init".to_string()),
+                    event_filter: None,
+                }),
+            },
+        ],
+    };
+
+    let output = must_ok(LuaGenerator::new().generate_module(&module));
+
+    assert!(
+        output.contains("commands.add_command(\"greet\", control.greet)"),
+        "pub fn references must qualify through the module table, got:\n{output}"
+    );
+    assert!(
+        !output.contains("add_command(\"greet\", greet)"),
+        "bare exported fn name would be nil at runtime:\n{output}"
+    );
+}

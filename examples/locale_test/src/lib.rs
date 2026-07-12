@@ -46,7 +46,7 @@ factorio_rs::control_mod! {
         commands.add_command("greet", ["greetings.command-help"], lua_fn(greet));
     }
 
-    fn greet(command: CustomCommandData) {
+    pub fn greet(command: CustomCommandData) {
         if let Some(player) = game.get_player(command.player_index.into()) {
             if command.parameter == "1" {
                 player.print([GREETINGS[0], player.name()], None);

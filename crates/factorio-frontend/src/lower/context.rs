@@ -17,7 +17,7 @@ pub struct LowerContext<'a> {
     /// Only populated for bare module imports (`use crate::foo`), NOT item imports
     /// (`use crate::foo::Bar`) - this keeps Factorio globals like `settings` safe.
     pub bare_import_renames: HashMap<String, String>,
-    /// Binding name → Rust type key (last path segment, `Option`/`&` peeled) for
+    /// Binding name -> Rust type key (last path segment, `Option`/`&` peeled) for
     /// compile-time `{:?}` Debug format selection.
     pub binding_types: HashMap<String, String>,
 }

@@ -27,16 +27,17 @@ factorio_rs::locale! {
 
 commands.add_command("greet", ["greetings.command-help"], lua_fn(greet));
 
-// Keep the handler non-`pub` so it lowers to `local function greet` (callable by name).
-fn greet(command: CustomCommandData) {
+pub fn greet(command: CustomCommandData) {
     // ...
     player.print([key, player.name()], None);
 }
-// → player.print({ key, player.name })
+// -> commands.add_command("greet", { "greetings.command-help" }, control.greet)
+// -> player.print({ key, player.name })
 ```
 
 `lua_fn` coerces a Rust `fn` item to `LuaFunction` for `cargo check` and is
-stripped when lowering (Lua still receives the function name).
+stripped when lowering. `pub fn` callbacks are emitted as `control.greet` (not a
+bare global). Private `fn greet` also works and becomes a Lua `local function`.
 
 ## Try it
 
@@ -46,7 +47,7 @@ factorio-rs build
 factorio-rs install --open   # optional
 ```
 
-In-game (change language under Settings → Interface to see other locales):
+In-game (change language under Settings -> Interface to see other locales):
 
 ```text
 /greet 1

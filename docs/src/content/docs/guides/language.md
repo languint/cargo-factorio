@@ -15,7 +15,7 @@ Lua has no enums, traits, or borrow checker. Option-like values are usually
 
 | Supported                   | Notes                                                            |
 | --------------------------- | ---------------------------------------------------------------- |
-| `fn`                        | `pub` functions are exported from the module                     |
+| `fn`                        | Private -> `local function`; `pub` -> `module.name` (see below) |
 | `struct` + inherent `impl`  | Fields, methods, associated `const`s                             |
 | `const`                     | Becomes a local (or exported) binding                            |
 | `use crate::...`            | Other crates are ignored; only `crate::` paths become `require`s |
@@ -24,6 +24,16 @@ Lua has no enums, traits, or borrow checker. Option-like values are usually
 | Doc comments                | Emitted as Lua comments when debug comments are on               |
 
 **Not supported (yet):** `enum`, `trait`, trait `impl`, `type` aliases, `static`, tuple structs, unknown macros at item position.
+
+### `pub fn` vs `fn`
+
+| Rust | Lua definition | Name used as a value (`add_command(..., greet)`) |
+| --- | --- | --- |
+| `fn greet` | `local function greet` | `greet` |
+| `pub fn greet` | `function control.greet` | `control.greet` |
+
+Either form is valid for callbacks. Prefer `fn` for handlers that only exist to
+pass to Factorio APIs; use `pub fn` when other modules need to call the function.
  
 ## Statements
 
@@ -65,7 +75,7 @@ transparent so stub APIs typed as `Option<T>` still type-check in Rust.
 | Paths / fields / calls / methods    | Including `crate::` (auto-require)                             |
 | Named struct literals               | -> Lua tables                                                  |
 | `[a, b]`                            | -> `{ a, b }`                                                  |
-| `a[i]`                              | Integer literal indices are +1 for Lua (`0`→`1`, `1`→`2`, …) |
+| `a[i]`                              | Integer literal indices are +1 for Lua (`0`->`1`, `1`->`2`, …) |
 | `&x`, `*x`, `x as T`, `(x)`         | Transparent                                                    |
 | `!` / `-`                           | `not` / unary minus                                            |
 | `+ - * / % == != < <= > >= && \|\|` |                                                                |

@@ -59,7 +59,7 @@ impl LuaGenerator {
     pub(crate) fn generate_atom(&self, expression: &Expression) -> String {
         match expression {
             Expression::Literal(literal) => Self::generate_literal(literal),
-            Expression::Identifier(name) => name.clone(),
+            Expression::Identifier(name) => self.generate_identifier(name),
             Expression::FieldAccess { base, field } => {
                 let base = self.generate_expression(base);
                 format!("{base}.{field}")
@@ -98,6 +98,16 @@ impl LuaGenerator {
                 unreachable!("binary operators are handled by generate_expression_prec")
             }
         }
+    }
+
+    /// Resolve a bare name: exported `pub fn`s become `module.name`, locals stay bare.
+    fn generate_identifier(&self, name: &str) -> String {
+        if self.exported_functions.contains(name)
+            && let Some(module_table) = &self.current_module_table
+        {
+            return format!("{module_table}.{name}");
+        }
+        name.to_string()
     }
 
     fn generate_qualified_path(&self, segments: &[String]) -> String {

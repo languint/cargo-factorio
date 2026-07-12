@@ -1,6 +1,8 @@
 use std::fmt::Write as _;
 
-use factorio_ir::{block::Block, literal::Literal, module::Module, scope::Scope};
+use factorio_ir::{
+    block::Block, literal::Literal, module::Module, scope::Scope, statement::Statement,
+};
 
 use crate::generator::error::LuaGeneratorResult;
 
@@ -26,6 +28,8 @@ pub struct LuaGenerator {
     module_prefix: String,
     /// Active transpile profile name (`debug`, `release`, ...), if known.
     profile: Option<String>,
+    exported_functions: std::collections::HashSet<String>,
+    current_module_table: Option<String>,
 }
 
 impl Default for LuaGenerator {
@@ -51,6 +55,8 @@ impl LuaGenerator {
             for_depth: 0,
             module_prefix: String::new(),
             profile: None,
+            exported_functions: std::collections::HashSet::new(),
+            current_module_table: None,
         }
     }
 
@@ -65,6 +71,8 @@ impl LuaGenerator {
             for_depth: 0,
             module_prefix: String::new(),
             profile: None,
+            exported_functions: std::collections::HashSet::new(),
+            current_module_table: None,
         }
     }
 
@@ -79,6 +87,8 @@ impl LuaGenerator {
             for_depth: 0,
             module_prefix: String::new(),
             profile: None,
+            exported_functions: std::collections::HashSet::new(),
+            current_module_table: None,
         }
     }
 
@@ -189,6 +199,18 @@ impl LuaGenerator {
     pub fn generate_module(&mut self, module: &Module) -> LuaGeneratorResult<String> {
         self.output.clear();
         self.indent_level = 0;
+        self.exported_functions.clear();
+
+        for symbol in &module.symbols {
+            if let Statement::FunctionDecl(function) = &symbol.statement {
+                self.exported_functions.insert(function.name.clone());
+            }
+        }
+
+        let module_name = Self::module_identifier(&module.name);
+        // Qualify exported fn references even in private body code; those bodies only
+        // run after the module table exists (events / commands), not during load.
+        self.current_module_table = Some(module_name.clone());
 
         let module_header = self.generate_module_meta(module);
         self.output.push_str(&module_header);
@@ -200,7 +222,6 @@ impl LuaGenerator {
             self.generate_statement(statement, Some(module), None, Scope::Private)?;
         }
 
-        let module_name = Self::module_identifier(&module.name);
         let (exporter_start, exporter_end) = Self::generate_symbol_exporter(&module_name);
         self.write_line(&exporter_start);
 
@@ -223,6 +244,8 @@ impl LuaGenerator {
         self.generate_submodules(&module.submodules);
 
         self.write_line(&exporter_end);
+        self.current_module_table = None;
+        self.exported_functions.clear();
 
         Ok(self.output.clone())
     }

@@ -71,7 +71,7 @@ factorio_rs::locale! {
 }
 
 player.print(["greetings.hello", player.name()], None);
-// → player.print({ "greetings.hello", player.name })
+// -> player.print({ "greetings.hello", player.name })
 ```
 
 Arrays and plain strings implement `Into<LocalisedString>`, so they can be passed
