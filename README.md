@@ -9,6 +9,7 @@
 ## Docs
 
 - **Online:** https://languint.github.io/factorio-rs/
+- **Changelog:** [CHANGELOG.md](CHANGELOG.md)
 - **Local:**
 
 ```bash

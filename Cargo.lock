@@ -211,14 +211,14 @@ dependencies = [
 
 [[package]]
 name = "factorio-api"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "factorio-api-gen",
 ]
 
 [[package]]
 name = "factorio-api-gen"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "convert_case",
  "proc-macro2",
@@ -229,7 +229,7 @@ dependencies = [
 
 [[package]]
 name = "factorio-codegen"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "factorio-ir",
  "heck",
@@ -238,7 +238,7 @@ dependencies = [
 
 [[package]]
 name = "factorio-frontend"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "ariadne",
  "factorio-api",
@@ -253,14 +253,14 @@ dependencies = [
 
 [[package]]
 name = "factorio-ir"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "factorio-macros"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "factorio-api-gen",
  "proc-macro2",
@@ -270,7 +270,7 @@ dependencies = [
 
 [[package]]
 name = "factorio-rs"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "factorio-api",
  "factorio-macros",
@@ -281,7 +281,7 @@ dependencies = [
 
 [[package]]
 name = "factorio-rs-cli"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -339,7 +339,7 @@ checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
 name = "hello_world"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "factorio-rs",
 ]
@@ -380,7 +380,7 @@ checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
 
 [[package]]
 name = "locale_test"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "factorio-rs",
 ]
@@ -393,7 +393,7 @@ checksum = "0ceec5bc11778974d1bcb055b18002eba7f4b3518b6a0081b3af5f21666da9ad"
 
 [[package]]
 name = "mandatory_spaghetti"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "factorio-rs",
 ]
@@ -643,7 +643,7 @@ checksum = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
 
 [[package]]
 name = "tracing_test"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "factorio-rs",
 ]

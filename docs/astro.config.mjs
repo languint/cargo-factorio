@@ -31,6 +31,11 @@ export default defineConfig({
             { label: "Introduction", slug: "intro" },
             { label: "Installation", slug: "installation" },
             { label: "Getting started", slug: "guides/getting-started" },
+            {
+              label: "Changelog",
+              link: "https://github.com/languint/factorio-rs/blob/main/CHANGELOG.md",
+              attrs: { target: "_blank" },
+            },
           ],
         },
         {

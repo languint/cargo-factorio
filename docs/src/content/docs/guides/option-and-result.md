@@ -16,7 +16,7 @@ This page is the full reference. For the rest of the language surface, see
 | Rust | Lua representation | How you test it |
 | --- | --- | --- |
 | `Option<T>` | value or `nil` (no wrapper) | `x ~= nil` |
-| `Result<T, E>` | `{ ok = T }` or `{ err = E }` | `r.err == nil` → Ok |
+| `Result<T, E>` | `{ ok = T }` or `{ err = E }` | `r.err == nil` -> Ok |
 
 **Option is transparent.** `Some(x)` is just `x`; `None` is `nil`. That matches
 how Factorio already signals “no entity / no player”.
