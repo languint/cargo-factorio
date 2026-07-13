@@ -242,7 +242,11 @@ pub fn check(flag: bool, value: Option<i32>) {
                     value: Expression::Identifier("value".to_string()),
                 },
                 Statement::Conditional {
-                    condition: Expression::Identifier("x".to_string()),
+                    condition: Expression::BinaryOp {
+                        lhs: Box::new(Expression::Identifier("x".to_string())),
+                        op: Operator::Ne,
+                        rhs: Box::new(Expression::Literal(Literal::Nil)),
+                    },
                     then_block: vec![Statement::VariableDecl {
                         name: "y".to_string(),
                         ty: factorio_ir::r#type::Type::Void,
@@ -291,7 +295,14 @@ pub fn check(value: Option<i32>) {
         assert_eq!(1, 0, "expected conditional after binding");
         return;
     };
-    assert_eq!(condition, &Expression::Identifier("x".to_string()));
+    assert_eq!(
+        condition,
+        &Expression::BinaryOp {
+            lhs: Box::new(Expression::Identifier("x".to_string())),
+            op: Operator::Ne,
+            rhs: Box::new(Expression::Literal(Literal::Nil)),
+        }
+    );
     let Statement::Conditional {
         condition: inner_cond,
         ..
@@ -514,4 +525,131 @@ pub fn bad() {
     let err = parse_module(source, "control.serde_json").expect_err("json! unsupported");
     let msg = err.to_string();
     assert!(msg.contains("serde_json::json"), "{msg}");
+}
+
+fn ne_nil_ident(name: &str) -> Expression {
+    Expression::BinaryOp {
+        lhs: Box::new(Expression::Identifier(name.to_string())),
+        op: Operator::Ne,
+        rhs: Box::new(Expression::Literal(Literal::Nil)),
+    }
+}
+
+#[test]
+fn lowers_option_is_some_and_is_none() {
+    let source = r"
+pub fn check(x: Option<i32>) -> bool {
+    x.is_some()
+}
+";
+    let module = must_ok_parse(parse_module(source, "control.option_methods"));
+    let Statement::FunctionDecl(function) = &module.symbols[0].statement else {
+        panic!("expected function");
+    };
+    let Statement::Return(Some(expr)) = &function.body.statements[0] else {
+        panic!("expected return, got {:?}", function.body.statements);
+    };
+    assert_eq!(expr, &ne_nil_ident("x"));
+
+    let source = r"
+pub fn check(x: Option<i32>) -> bool {
+    x.is_none()
+}
+";
+    let module = must_ok_parse(parse_module(source, "control.option_methods"));
+    let Statement::FunctionDecl(function) = &module.symbols[0].statement else {
+        panic!("expected function");
+    };
+    let Statement::Return(Some(expr)) = &function.body.statements[0] else {
+        panic!("expected return");
+    };
+    assert_eq!(
+        expr,
+        &Expression::BinaryOp {
+            lhs: Box::new(Expression::Identifier("x".to_string())),
+            op: Operator::Eq,
+            rhs: Box::new(Expression::Literal(Literal::Nil)),
+        }
+    );
+}
+
+#[test]
+fn lowers_option_unwrap_or_or_and() {
+    let source = r"
+pub fn check(x: Option<i32>, y: Option<i32>) -> i32 {
+    let a = x.unwrap_or(0);
+    let b = x.or(y);
+    x.and(y)
+}
+";
+    let module = must_ok_parse(parse_module(source, "control.option_methods"));
+    let Statement::FunctionDecl(function) = &module.symbols[0].statement else {
+        panic!("expected function");
+    };
+
+    let Statement::VariableDecl { value: a, .. } = &function.body.statements[0] else {
+        panic!("expected unwrap_or binding");
+    };
+    assert_eq!(
+        a,
+        &Expression::If {
+            condition: Box::new(ne_nil_ident("x")),
+            then_expr: Box::new(Expression::Identifier("x".to_string())),
+            else_expr: Box::new(Expression::Literal(Literal::Int(0))),
+        }
+    );
+
+    let Statement::VariableDecl { value: b, .. } = &function.body.statements[1] else {
+        panic!("expected or binding");
+    };
+    assert_eq!(
+        b,
+        &Expression::If {
+            condition: Box::new(ne_nil_ident("x")),
+            then_expr: Box::new(Expression::Identifier("x".to_string())),
+            else_expr: Box::new(Expression::Identifier("y".to_string())),
+        }
+    );
+
+    let Statement::Return(Some(and_expr)) = &function.body.statements[2] else {
+        panic!("expected and return");
+    };
+    assert_eq!(
+        and_expr,
+        &Expression::If {
+            condition: Box::new(ne_nil_ident("x")),
+            then_expr: Box::new(Expression::Identifier("y".to_string())),
+            else_expr: Box::new(Expression::Literal(Literal::Nil)),
+        }
+    );
+}
+
+#[test]
+fn rejects_option_map_and_unwrap_or_else() {
+    let source = r"
+pub fn bad(x: Option<i32>) -> Option<i32> {
+    x.map(|n| n + 1)
+}
+";
+    let err = parse_module(source, "control.option_methods").expect_err("map unsupported");
+    let msg = err.to_string();
+    assert!(msg.contains("map"), "got {msg}");
+    assert!(
+        matches!(err, factorio_frontend::FrontendError::UnsupportedOptionMethod { .. }),
+        "got {err:?}"
+    );
+
+    let source = r"
+pub fn bad(x: Option<i32>) -> i32 {
+    x.unwrap_or_else(|| 0)
+}
+";
+    let err =
+        parse_module(source, "control.option_methods").expect_err("unwrap_or_else unsupported");
+    let msg = err.to_string();
+    assert!(msg.contains("unwrap_or_else"), "got {msg}");
+    assert!(
+        matches!(err, factorio_frontend::FrontendError::UnsupportedOptionMethod { .. }),
+        "got {err:?}"
+    );
 }

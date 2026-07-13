@@ -125,7 +125,7 @@ let item = inventory[i]; // only if `i` is already 1-based
 
 ### `identification_ctor` (`E0005`)
 
-Schema “identification” unions (`ForceID`, `EntityID`, …) are stub enums in
+Schema “identification” unions (`ForceID`, `EntityID`, ...) are stub enums in
 Rust. Writing `ForceID::Name("enemy")` does not lower to a real Lua value.
 Pass the payload with `.into()` instead:
 

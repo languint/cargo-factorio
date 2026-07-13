@@ -42,8 +42,8 @@ pass to Factorio APIs; use `pub fn` when other modules need to call the function
 | `let x = ...` / `let x: T = ...`                     | Initializer required                    |
 | `let (a, b) = (e1, e2)`                              | Same length; plain idents only          |
 | `if` / `else` / `else if`                            |                                         |
-| `if let Some(x) = e` / `if let x = e`                | Binds `e`, then tests truthiness        |
-| Let chains (`a && let Some(x) = e && ...`)           | Nested locals + `if`s                   |
+| `if let Some(x) = e` / `if let x = e`                | Binds `e`, then tests `x ~= nil`        |
+| Let chains (`a && let Some(x) = e && ...`)           | Nested locals + `if x ~= nil`           |
 | `for x in iter`                                      | -> `for _, x in pairs(iter)`            |
 | `continue`                                           | -> labeled `goto` inside `for`          |
 | `return` / tail expression                           | Last expression without `;` is returned |
@@ -57,13 +57,34 @@ pass to Factorio APIs; use `pub fn` when other modules need to call the function
 
 ```rust
 if let Some(player) = game.get_player(index.into()) {
-    // player is the Lua value; nil/false would skip the body
+    // player is the Lua value; only `nil` skips the body
+}
+
+if let Some(flag) = maybe_bool {
+    // `Some(false)` still enters - condition is `flag ~= nil`, not truthiness
 }
 ```
 
 `get_player` takes [`IndexOrName`](api-types/) (`u32` or `&str` via `.into()`).
 There is no real `Option` wrapper in Lua. `None` becomes `nil`, and `Some(x)` is
 transparent so stub APIs typed as `Option<T>` still type-check in Rust.
+
+`if let Some(x) = e` lowers to `local x = e` then `if x ~= nil then`, so
+`Some(false)` and `Some(0)` both enter the body. Plain `if cond { }` still uses
+Lua truthiness (`nil` / `false` are falsey; `0` and `""` are truthy).
+
+**Option methods** (nil-aware):
+
+| Rust | Lua |
+| --- | --- |
+| `x.is_some()` | `x ~= nil` |
+| `x.is_none()` | `x == nil` |
+| `x.unwrap_or(d)` / `x.or(d)` | safe if-expr: `x` if present else `d` |
+| `x.and(y)` | `y` if `x` present else `nil` |
+
+`.unwrap()` / `.expect(...)` still strip to the receiver and lint (no nil check).
+Closure-taking methods (`map`, `and_then`, `unwrap_or_else`, ...) are unsupported -
+use `if let Some` instead.
 
 ## Expressions
 
@@ -91,6 +112,10 @@ transparent so stub APIs typed as `Option<T>` still type-check in Rust.
 
 `.unwrap()` and `.expect("...")` are also stripped to the receiver, but emit
 lints `unwrap` / `expect` (default **deny**; see [Lints](lints/)).
+
+**Option methods** (nil-aware): `is_some` / `is_none` / `unwrap_or` / `or` /
+`and` - see [`if let` and `Option`](#if-let-and-option). Closure-taking Option
+methods (`map`, `and_then`, ...) error at transpile time.
 
 **Special method lowering:**
 
@@ -223,7 +248,7 @@ or fails the build with a lint code. Full reference: [Lints](lints/).
 | `ForceID::Name(...)` etc. | Not a real Lua ctor | `"enemy".into()` / `force.into()` |
 | Trailing `None` args | Omitted from Lua calls | Prefer omit / `None` only for unused tails |
 | `if c { a } else { b }` when `a` is falsey | Was wrong with `and`/`or`; now safe IIFE | Prefer statement `if` for complex arms |
-| `if let Some` / truthiness | Skips `0` / `false` / `""` | Explicit comparisons when needed |
+| `Option.map` / `and_then` / `unwrap_or_else` | Unsupported (no closures) | `if let Some` / `.unwrap_or(value)` |
 | Optional table fields | Typed `Option<T>`; `None` omitted | Set `Some(...)` only for fields you need |
 | Stringly callback names under prune | Prefer fn items / `lua_fn` | Pass the function value, not only a string |
 

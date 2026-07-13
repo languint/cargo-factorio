@@ -391,7 +391,15 @@ fn lower_let_chain_clauses(
                     value: rhs,
                 },
                 factorio_ir::statement::Statement::Conditional {
-                    condition: factorio_ir::expression::Expression::Identifier(binding.clone()),
+                    condition: factorio_ir::expression::Expression::BinaryOp {
+                        lhs: Box::new(factorio_ir::expression::Expression::Identifier(
+                            binding.clone(),
+                        )),
+                        op: factorio_ir::operator::Operator::Ne,
+                        rhs: Box::new(factorio_ir::expression::Expression::Literal(
+                            factorio_ir::literal::Literal::Nil,
+                        )),
+                    },
                     then_block: nested,
                     else_block,
                 },

@@ -164,10 +164,7 @@ fn lower_call_expression(
         #[cfg(feature = "serde")]
         {
             let Some(kind) = classify_serde_json_fn(&func_name) else {
-                return Err(unsupported_serde_json_fn_error(
-                    &func_name,
-                    location(call),
-                ));
+                return Err(unsupported_serde_json_fn_error(&func_name, location(call)));
             };
             let mut args = call.args.iter();
             let Some(arg) = args.next() else {
@@ -277,6 +274,8 @@ fn lower_method_call(
         "to_string",
         "to_owned",
     ];
+    const UNSUPPORTED_OPTION_CLOSURE_METHODS: &[&str] =
+        &["unwrap_or_else", "map", "and_then", "or_else", "filter"];
     let method = call.method.to_string();
     if method == "unwrap" && call.args.is_empty() {
         ctx.emit_lint(
@@ -297,6 +296,17 @@ fn lower_method_call(
     if TRANSPARENT_METHODS.contains(&method.as_str()) && call.args.is_empty() {
         return lower_expression(&call.receiver, ctx, self_type);
     }
+    if UNSUPPORTED_OPTION_CLOSURE_METHODS.contains(&method.as_str()) {
+        return Err(FrontendError::UnsupportedOptionMethod {
+            method,
+            location: location(call),
+        });
+    }
+
+    if let Some(expr) = lower_option_method(call, ctx, self_type)? {
+        return Ok(expr);
+    }
+
     let receiver = lower_expression(&call.receiver, ctx, self_type)?;
     let args = call
         .args
@@ -308,6 +318,67 @@ fn lower_method_call(
         method: lua_method_name(&method),
         args,
     })
+}
+
+/// Nil-aware Option helpers (`is_some` / `unwrap_or` / ...). Returns `Ok(None)` when
+/// the method is not an Option special.
+fn lower_option_method(
+    call: &syn::ExprMethodCall,
+    ctx: &mut LowerContext<'_>,
+    self_type: Option<&str>,
+) -> FrontendResult<Option<factorio_ir::expression::Expression>> {
+    let method = call.method.to_string();
+    match method.as_str() {
+        "is_some" if call.args.is_empty() => {
+            let receiver = lower_expression(&call.receiver, ctx, self_type)?;
+            Ok(Some(ne_nil(receiver)))
+        }
+        "is_none" if call.args.is_empty() => {
+            let receiver = lower_expression(&call.receiver, ctx, self_type)?;
+            Ok(Some(eq_nil(receiver)))
+        }
+        "unwrap_or" | "or" if call.args.len() == 1 => {
+            let receiver = lower_expression(&call.receiver, ctx, self_type)?;
+            let default = lower_expression(&call.args[0], ctx, self_type)?;
+            Ok(Some(factorio_ir::expression::Expression::If {
+                condition: Box::new(ne_nil(receiver.clone())),
+                then_expr: Box::new(receiver),
+                else_expr: Box::new(default),
+            }))
+        }
+        "and" if call.args.len() == 1 => {
+            let receiver = lower_expression(&call.receiver, ctx, self_type)?;
+            let other = lower_expression(&call.args[0], ctx, self_type)?;
+            Ok(Some(factorio_ir::expression::Expression::If {
+                condition: Box::new(ne_nil(receiver)),
+                then_expr: Box::new(other),
+                else_expr: Box::new(factorio_ir::expression::Expression::Literal(
+                    factorio_ir::literal::Literal::Nil,
+                )),
+            }))
+        }
+        _ => Ok(None),
+    }
+}
+
+fn ne_nil(expr: factorio_ir::expression::Expression) -> factorio_ir::expression::Expression {
+    factorio_ir::expression::Expression::BinaryOp {
+        lhs: Box::new(expr),
+        op: factorio_ir::operator::Operator::Ne,
+        rhs: Box::new(factorio_ir::expression::Expression::Literal(
+            factorio_ir::literal::Literal::Nil,
+        )),
+    }
+}
+
+fn eq_nil(expr: factorio_ir::expression::Expression) -> factorio_ir::expression::Expression {
+    factorio_ir::expression::Expression::BinaryOp {
+        lhs: Box::new(expr),
+        op: factorio_ir::operator::Operator::Eq,
+        rhs: Box::new(factorio_ir::expression::Expression::Literal(
+            factorio_ir::literal::Literal::Nil,
+        )),
+    }
 }
 
 /// Remap Rust overload aliases to the real Lua library method name.

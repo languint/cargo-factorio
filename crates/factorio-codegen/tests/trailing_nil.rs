@@ -86,6 +86,26 @@ fn generates_safe_if_expression() {
 }
 
 #[test]
+fn generates_unwrap_or_preserving_falsey_some() {
+    // `x.unwrap_or(true)` when x is `false` must return `false`, not the default.
+    let expr = Expression::If {
+        condition: Box::new(Expression::BinaryOp {
+            lhs: Box::new(Expression::Identifier("x".to_string())),
+            op: factorio_ir::operator::Operator::Ne,
+            rhs: Box::new(Expression::Literal(Literal::Nil)),
+        }),
+        then_expr: Box::new(Expression::Identifier("x".to_string())),
+        else_expr: Box::new(Expression::Literal(Literal::Bool(true))),
+    };
+    let lua = LuaGenerator::new().generate_expression(&expr);
+    assert_eq!(
+        lua,
+        "(function() if x ~= nil then return x else return true end end)()"
+    );
+}
+
+
+#[test]
 fn omits_nil_fields_from_struct_literals() {
     let expr = Expression::StructLiteral {
         struct_name: Some("PrintSettings".to_string()),
