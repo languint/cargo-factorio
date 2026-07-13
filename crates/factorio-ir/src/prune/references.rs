@@ -154,18 +154,33 @@ fn collect_references_from_statement(
         }
         Statement::ForIn { iter, body, .. } => {
             collect_references_from_expression(graph, module, iter, locals, reachability, pending);
-            for statement in body {
-                collect_references_from_statement(
-                    graph,
-                    module,
-                    statement,
-                    locals,
-                    reachability,
-                    pending,
-                );
-            }
+            collect_references_from_stmts(graph, module, body, locals, reachability, pending);
         }
-        Statement::StructDecl(_) | Statement::Continue => {}
+        Statement::While { condition, body } => {
+            collect_references_from_expression(
+                graph,
+                module,
+                condition,
+                locals,
+                reachability,
+                pending,
+            );
+            collect_references_from_stmts(graph, module, body, locals, reachability, pending);
+        }
+        Statement::StructDecl(_) | Statement::Continue | Statement::Break => {}
+    }
+}
+
+fn collect_references_from_stmts(
+    graph: &ModuleGraph<'_>,
+    module: &Module,
+    body: &[Statement],
+    locals: &mut HashMap<String, String>,
+    reachability: &mut HashMap<String, ModuleReachability>,
+    pending: &mut VecDeque<(String, ItemKey)>,
+) {
+    for statement in body {
+        collect_references_from_statement(graph, module, statement, locals, reachability, pending);
     }
 }
 

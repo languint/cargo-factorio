@@ -27,6 +27,15 @@ pub enum Statement {
         iter: Expression,
         body: Vec<Self>,
     },
-    /// `goto __continue_N` in Lua (the label `::__continue_N::` is emitted by the enclosing `ForIn`).
+    /// `while CONDITION do BODY end` in Lua. Rust `loop { }` lowers with
+    /// `condition = true`.
+    While {
+        condition: Expression,
+        body: Vec<Self>,
+    },
+    /// `goto __continue_N` in Lua (the label `::__continue_N::` is emitted by
+    /// the enclosing `ForIn` / `While`).
     Continue,
+    /// Lua `break` (exits the innermost loop).
+    Break,
 }

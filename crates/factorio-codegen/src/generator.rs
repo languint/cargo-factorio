@@ -21,8 +21,8 @@ pub struct LuaGenerator {
     struct_table_context: Option<(String, String)>,
     debug_level: Option<u8>,
     mod_name: String,
-    /// Depth of nested `for` loops, used to generate unique `::__continue_N::` labels.
-    for_depth: usize,
+    /// Depth of nested `for` / `while` loops, used for `::__continue_N::` labels.
+    loop_depth: usize,
     /// Optional prefix prepended to every module's filename and local require variable.
     /// Empty string means no prefix.
     module_prefix: String,
@@ -52,7 +52,7 @@ impl LuaGenerator {
             struct_table_context: None,
             debug_level: None,
             mod_name: mod_name.into(),
-            for_depth: 0,
+            loop_depth: 0,
             module_prefix: String::new(),
             profile: None,
             exported_functions: std::collections::HashSet::new(),
@@ -68,7 +68,7 @@ impl LuaGenerator {
             struct_table_context: None,
             debug_level: Some(debug_level),
             mod_name: "mod".to_string(),
-            for_depth: 0,
+            loop_depth: 0,
             module_prefix: String::new(),
             profile: None,
             exported_functions: std::collections::HashSet::new(),
@@ -84,7 +84,7 @@ impl LuaGenerator {
             struct_table_context: None,
             debug_level: Some(debug_level),
             mod_name: mod_name.into(),
-            for_depth: 0,
+            loop_depth: 0,
             module_prefix: String::new(),
             profile: None,
             exported_functions: std::collections::HashSet::new(),
@@ -119,7 +119,7 @@ impl LuaGenerator {
             struct_table_context: self.struct_table_context.clone(),
             debug_level: self.debug_level,
             mod_name: self.mod_name.clone(),
-            for_depth: 0,
+            loop_depth: 0,
             module_prefix: self.module_prefix.clone(),
             profile: self.profile.clone(),
             exported_functions: self.exported_functions.clone(),

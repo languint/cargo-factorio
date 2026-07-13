@@ -45,13 +45,45 @@ pass to Factorio APIs; use `pub fn` when other modules need to call the function
 | `if let Some(x) = e` / `if let x = e`                | Binds `e`, then tests `x ~= nil`        |
 | Let chains (`a && let Some(x) = e && ...`)           | Nested locals + `if x ~= nil`           |
 | `for x in iter`                                      | -> `for _, x in pairs(iter)`            |
-| `continue`                                           | -> labeled `goto` inside `for`          |
+| `while cond { ... }`                                 | -> `while cond do ... end`              |
+| `loop { ... }`                                       | -> `while true do ... end`              |
+| `continue`                                           | -> labeled `goto` inside `for` / `while` / `loop` |
+| `break`                                              | -> Lua `break` (no value / label)       |
+| `match`                                              | Desugared to nested `if`/`else` (see below) |
 | `return` / tail expression                           | Last expression without `;` is returned |
 | `x = ...` / `x.field = ...`                          | Path or field targets only              |
 | `+=` `-=` `*=` `/=`                                  |                                         |
 | `println!(...);` and other call expressions with `;` |                                         |
 
-**Not supported (yet):** `match`, `while`, `loop`, `break`, bare mid-block expressions without `;` (except `if` / `for`).
+**Not supported (yet):** `break value`, labeled break/continue, bare mid-block expressions without `;` (except `if` / `for` / `while` / `loop` / `match`).
+
+### `match`
+
+```rust
+match value {
+    Some(player) if player.connected() => { /* ... */ }
+    Some(_) | None => {}
+}
+
+match point {
+    Point { x, y: 0 } => x,
+    Point { x, y, .. } => x + y,
+}
+
+let n = match flag {
+    true | false => 1, // or-pattern
+};
+```
+
+Supported patterns: `_`, literals, `None` / `Option::None`, `Some(...)` (nested
+patterns ok), struct patterns (`Foo { a, b: 0, .. }`), or-patterns (`A | B`),
+plain bindings, and `if` guards. Guards that fail fall through to later arms.
+Struct patterns only destructure fields (no runtime type tag). Top-level
+`A | B => body` expands to nested arms so each alternative can bind differently;
+nested ors require identical bindings.
+
+Statement-position `match` becomes a temp plus nested `if`/`else`. Value-position
+`match` (including tail expressions and `let x = match ...`) becomes an IIFE.
 
 ### `if let` and `Option`
 
@@ -274,7 +306,7 @@ or fails the build with a lint code. Full reference: [Lints](lints/).
 
 | Error | Typical cause |
 | --- | --- |
-| `unsupported expression (Match)` / `(While)` / ... | Use `if` / `for` instead |
+| `unsupported expression (Async)` / ... | Use a supported construct (see [Language](language/)) |
 | `unsupported item` | `enum` / `trait` / unknown macro |
 | `let binding requires an initializer` | `let x;` without value |
 | `event handlers are only allowed in control-stage modules` | Move handler to control |
@@ -284,7 +316,7 @@ or fails the build with a lint code. Full reference: [Lints](lints/).
 ## See also
 
 - [mandatory_spaghetti](../examples/mandatory-spaghetti/) - settings, locale,
-  `Vec`, `for`, `continue`, `..Default::default()`, let-chains
+  `Vec`, `for`, `while`, `loop`, `match`, `continue`, `break`, `..Default::default()`, let-chains
 - [locale_test](../examples/locale-test/) - console command + localized greetings
 - [hello_world](../examples/hello-world/) - events, filters, `println!`
 - [tracing_test](../examples/tracing-test/) - optional `tracing` feature

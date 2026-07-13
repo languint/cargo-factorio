@@ -165,7 +165,7 @@ unwrap = "warn"
 | Kind | Example | Behavior |
 | --- | --- | --- |
 | Lint | `x.unwrap()`, `{:.2}` | Collected for the whole project; deny fails after reporting |
-| Hard error | `match`, unsupported macro, bad locale key | Stops that module; other modules still run; build fails at the end |
+| Hard error | unsupported macro, bad locale key, unsupported pattern | Stops that module; other modules still run; build fails at the end |
 
 Hard errors are not configurable via `[lints]`. Fix the source or use a
 supported construct (see [Language support](language/)).

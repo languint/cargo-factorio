@@ -10,6 +10,7 @@ fn body_has_continue(body: &[Statement]) -> bool {
             else_block,
             ..
         } => body_has_continue(then_block) || body_has_continue(else_block),
+        Statement::ForIn { body, .. } | Statement::While { body, .. } => body_has_continue(body),
         _ => false,
     })
 }
@@ -86,8 +87,8 @@ impl LuaGenerator {
                 self.write_line(&self.generate_expression(expression));
             }
             Statement::ForIn { var, iter, body } => {
-                self.for_depth += 1;
-                let depth = self.for_depth;
+                self.loop_depth += 1;
+                let depth = self.loop_depth;
                 let iter = self.generate_expression(iter);
                 self.write_line(&format!("for _, {var} in pairs({iter}) do"));
                 self.indent_level += 1;
@@ -99,10 +100,29 @@ impl LuaGenerator {
                 }
                 self.indent_level -= 1;
                 self.write_line("end");
-                self.for_depth -= 1;
+                self.loop_depth -= 1;
+            }
+            Statement::While { condition, body } => {
+                self.loop_depth += 1;
+                let depth = self.loop_depth;
+                let condition = self.generate_expression(condition);
+                self.write_line(&format!("while {condition} do"));
+                self.indent_level += 1;
+                for stmt in body {
+                    self.generate_statement(stmt, module, module_name, Scope::Private)?;
+                }
+                if body_has_continue(body) {
+                    self.write_line(&format!("::__continue_{depth}::"));
+                }
+                self.indent_level -= 1;
+                self.write_line("end");
+                self.loop_depth -= 1;
             }
             Statement::Continue => {
-                self.write_line(&format!("goto __continue_{}", self.for_depth));
+                self.write_line(&format!("goto __continue_{}", self.loop_depth));
+            }
+            Statement::Break => {
+                self.write_line("break");
             }
         }
 

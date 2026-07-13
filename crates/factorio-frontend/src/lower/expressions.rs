@@ -106,6 +106,9 @@ pub fn lower_expression(
         Expr::Paren(paren) => lower_expression(&paren.expr, ctx, self_type),
         // `if cond { a } else { b }` as an expression -> safe Lua if/else (not `and`/`or`).
         Expr::If(if_expr) => lower_if_expr(if_expr, ctx, self_type),
+        Expr::Match(match_expr) => {
+            super::statements::lower_match_expression(match_expr, ctx, self_type)
+        }
         Expr::Unary(unary) => lower_unary_expression(unary, expression, ctx, self_type),
         Expr::Closure(closure) => lower_closure(closure, ctx, self_type),
         other => Err(FrontendError::UnsupportedExpression {
