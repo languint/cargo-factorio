@@ -278,11 +278,7 @@ fn lower_for_loop(
     })?;
     let (mut stmts, iter) = lower_expr(&for_loop.expr, ctx, self_type)?;
     let body = lower_block_statements(&for_loop.body.stmts, ctx, self_type)?;
-    stmts.push(factorio_ir::statement::Statement::ForIn {
-        var,
-        iter,
-        body,
-    });
+    stmts.push(factorio_ir::statement::Statement::ForIn { var, iter, body });
     Ok(stmts)
 }
 
@@ -293,10 +289,7 @@ fn lower_while_loop(
 ) -> FrontendResult<Vec<factorio_ir::statement::Statement>> {
     let (mut stmts, condition) = lower_expr(&while_expr.cond, ctx, self_type)?;
     let body = lower_block_statements(&while_expr.body.stmts, ctx, self_type)?;
-    stmts.push(factorio_ir::statement::Statement::While {
-        condition,
-        body,
-    });
+    stmts.push(factorio_ir::statement::Statement::While { condition, body });
     Ok(stmts)
 }
 
@@ -314,9 +307,7 @@ fn lower_infinite_loop(
     }])
 }
 
-fn lower_break(
-    break_expr: &syn::ExprBreak,
-) -> FrontendResult<factorio_ir::statement::Statement> {
+fn lower_break(break_expr: &syn::ExprBreak) -> FrontendResult<factorio_ir::statement::Statement> {
     if break_expr.expr.is_some() || break_expr.label.is_some() {
         return Err(FrontendError::UnsupportedExpression {
             location: location(break_expr)
@@ -471,21 +462,19 @@ fn lower_let_chain_clauses(
             });
             Ok(stmts)
         }
-        [CondClause::Let {
-            kind,
-            binding,
-            value,
-        }, rest @ ..] => {
+        [
+            CondClause::Let {
+                kind,
+                binding,
+                value,
+            },
+            rest @ ..,
+        ] => {
             let (mut stmts, rhs) = lower_expr(value, ctx, self_type)?;
             let nested =
                 lower_let_chain_clauses(rest, then_block, else_block.clone(), ctx, self_type)?;
             stmts.extend(lower_let_pattern_binding(
-                *kind,
-                binding,
-                rhs,
-                nested,
-                else_block,
-                ctx,
+                *kind, binding, rhs, nested, else_block, ctx,
             ));
             Ok(stmts)
         }
@@ -843,11 +832,7 @@ fn lower_match_arm_body(
 
 fn flatten_or_patterns(pat: &Pat) -> Vec<&Pat> {
     match pat {
-        Pat::Or(or_pat) => or_pat
-            .cases
-            .iter()
-            .flat_map(flatten_or_patterns)
-            .collect(),
+        Pat::Or(or_pat) => or_pat.cases.iter().flat_map(flatten_or_patterns).collect(),
         Pat::Paren(paren) => flatten_or_patterns(&paren.pat),
         other => vec![other],
     }
@@ -955,7 +940,7 @@ fn lower_struct_pattern(
         };
         bindings.extend(field_binds);
     }
-    // `..` / rest is ignored — Lua tables have no exhaustiveness check.
+    // `..` / rest is ignored - Lua tables have no exhaustiveness check.
     Ok((condition, bindings))
 }
 
@@ -1083,15 +1068,11 @@ fn or_expr(
 }
 
 fn is_none_path(path: &syn::Path) -> bool {
-    path.segments
-        .last()
-        .is_some_and(|seg| seg.ident == "None")
+    path.segments.last().is_some_and(|seg| seg.ident == "None")
 }
 
 fn is_some_path(path: &syn::Path) -> bool {
-    path.segments
-        .last()
-        .is_some_and(|seg| seg.ident == "Some")
+    path.segments.last().is_some_and(|seg| seg.ident == "Some")
 }
 
 fn is_ok_path(path: &syn::Path) -> bool {

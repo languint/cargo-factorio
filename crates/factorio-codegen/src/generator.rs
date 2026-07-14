@@ -176,9 +176,37 @@ impl LuaGenerator {
     }
 
     fn mod_require_path(&self, module_path: &str) -> String {
+        self.require_path(&self.mod_name, "lua", module_path, true)
+    }
+
+    fn import_require_path(&self, import: &factorio_ir::module::ModuleImport) -> String {
+        let own_mod = import.factorio_mod.is_none();
+        let mod_name = import
+            .factorio_mod
+            .as_deref()
+            .unwrap_or(self.mod_name.as_str());
+        let module_root = import.module_root.as_deref().unwrap_or("lua");
+        self.require_path(mod_name, module_root, &import.module, own_mod)
+    }
+
+    fn require_path(
+        &self,
+        mod_name: &str,
+        module_root: &str,
+        module_path: &str,
+        apply_prefix: bool,
+    ) -> String {
         let path = module_path.replace('.', "/");
-        let prefixed_path = self.apply_path_prefix(&path);
-        format!("__{}__/lua/{}", self.mod_name, prefixed_path)
+        let path = if apply_prefix {
+            self.apply_path_prefix(&path)
+        } else {
+            path
+        };
+        if module_root.is_empty() {
+            format!("__{mod_name}__/{path}")
+        } else {
+            format!("__{mod_name}__/{module_root}/{path}")
+        }
     }
 
     #[must_use]
@@ -273,7 +301,7 @@ impl LuaGenerator {
             self.write_line(&format!(
                 "local {} = require(\"{}\")",
                 import.local,
-                self.mod_require_path(&import.module)
+                self.import_require_path(import)
             ));
 
             for item in &import.items {

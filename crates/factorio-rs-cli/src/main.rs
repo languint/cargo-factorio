@@ -1,6 +1,9 @@
 use clap::Parser;
 
+mod add;
+mod api_crate;
 mod assets;
+mod bindings;
 mod build;
 mod cargo_manifest;
 mod cli;
@@ -15,7 +18,7 @@ mod package;
 mod paths;
 
 use build::BuildOptions;
-use cli::{BuildArgs, Cli, Command, InitArgs, InstallArgs, PackageArgs};
+use cli::{AddArgs, BuildArgs, Cli, Command, InitArgs, InstallArgs, PackageArgs};
 use error::project_root;
 
 fn main() -> anyhow::Result<()> {
@@ -26,6 +29,7 @@ fn main() -> anyhow::Result<()> {
         Command::Build(args) => run_build(&args),
         Command::Package(args) => run_package(&args),
         Command::Install(args) => run_install(&args),
+        Command::Add(args) => run_add(&args),
         Command::Open => run_open(),
     }
 }
@@ -82,5 +86,45 @@ fn run_install(args: &InstallArgs) -> anyhow::Result<()> {
 fn run_open() -> anyhow::Result<()> {
     let target = open::open()?;
     println!("Opened Factorio (`{}`)", target.display());
+    Ok(())
+}
+
+fn run_add(args: &AddArgs) -> anyhow::Result<()> {
+    let consumer_root = project_root(args.manifest_path.as_deref())?;
+    let result = add::add(&consumer_root, &args.path)?;
+
+    if result.cargo_dep_added {
+        println!(
+            "Added `{}` = {{ path = \"{}\" }} to Cargo.toml",
+            result.crate_name,
+            result.stub_path.display()
+        );
+    } else {
+        println!("`{}` already listed in Cargo.toml", result.crate_name);
+    }
+
+    for dep in &result.factorio_deps_added {
+        println!("Added `{dep}` to Factorio.toml [mod].dependencies");
+    }
+    if result.factorio_deps_added.is_empty() {
+        println!("Factorio.toml dependencies already up to date");
+    }
+
+    println!(
+        "Use `{}::...` - root remotes call `remote.call`; `{}::shared::...` requires modules.",
+        result.rust_crate, result.rust_crate
+    );
+    if !result.remote_fns.is_empty() {
+        println!(
+            "Remote stubs: {}",
+            result
+                .remote_fns
+                .iter()
+                .map(|name| format!("{}::{name}(...)", result.rust_crate))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
+
     Ok(())
 }

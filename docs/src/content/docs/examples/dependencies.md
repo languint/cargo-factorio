@@ -1,0 +1,25 @@
+---
+title: provider / consumer
+description: Two-mod example - export from provider, call from consumer.
+---
+
+Minimal walkthrough of sharing an API between mods. Full guide:
+[Sharing code between mods](../guides/dependencies/).
+
+| Path | Role |
+| --- | --- |
+| `examples/provider` | Library mod with control + shared exports |
+| `examples/consumer` | Depends on provider and calls both |
+
+```bash
+factorio-rs build --manifest-path examples/provider
+factorio-rs add examples/provider --manifest-path examples/consumer
+factorio-rs build --manifest-path examples/consumer
+```
+
+In the consumer:
+
+```rust
+provider::greet("consumer");              // → remote.call
+provider::shared::api::greet("consumer"); // → require
+```

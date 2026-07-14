@@ -334,9 +334,8 @@ pub fn sample(n: i64) -> i64 {
         return;
     };
 
-    let Statement::Return(Some(Expression::MethodCall {
-        method, args, ..
-    })) = &function.body.statements[0]
+    let Statement::Return(Some(Expression::MethodCall { method, args, .. })) =
+        &function.body.statements[0]
     else {
         assert_eq!(1, 0, "expected return of method call");
         return;
@@ -467,12 +466,7 @@ pub fn decode_bin(blob: &'static str) -> i64 {
 }
 "#;
     let module = must_ok_parse(parse_module(source, "control.serde_json"));
-    let Expression::MethodCall {
-        method,
-        args,
-        ..
-    } = return_expr(&module)
-    else {
+    let Expression::MethodCall { method, args, .. } = return_expr(&module) else {
         panic!("expected json_to_table call");
     };
     assert_eq!(method, "json_to_table");
@@ -738,7 +732,10 @@ pub fn bad() {
 }
 ";
     let err = parse_module(source, "control.closures").expect_err("async");
-    assert!(err.to_string().contains("unsupported") || err.to_string().contains("async"), "{err}");
+    assert!(
+        err.to_string().contains("unsupported") || err.to_string().contains("async"),
+        "{err}"
+    );
 
     let source = r"
 pub fn bad() {

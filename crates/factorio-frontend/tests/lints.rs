@@ -1,5 +1,5 @@
-use factorio_frontend::parse_module_with_options;
 use factorio_frontend::ParseOptions;
+use factorio_frontend::parse_module_with_options;
 use factorio_ir::{
     lint::{LintConfig, LintId, LintLevel},
     statement::Statement,
@@ -178,10 +178,7 @@ pub fn pick(flag: bool) -> i32 {
         panic!("expected function");
     };
     let Statement::Return(Some(expr)) = &function.body.statements[0] else {
-        panic!(
-            "expected return, got {:?}",
-            function.body.statements
-        );
+        panic!("expected return, got {:?}", function.body.statements);
     };
     assert!(matches!(
         expr,

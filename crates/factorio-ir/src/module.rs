@@ -8,9 +8,15 @@ pub struct Symbol {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleImport {
+    /// Dotted module path inside the Factorio mod (e.g. `shared.player`).
     pub module: String,
     pub local: String,
     pub items: Vec<ImportedItem>,
+    /// When set, `require` targets this Factorio mod instead of the consuming mod.
+    pub factorio_mod: Option<String>,
+    /// Path prefix inside the Factorio mod (`Some("lua")`, `Some("")`, ...).
+    /// When [`Self::factorio_mod`] is `None`, codegen always uses `lua`.
+    pub module_root: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

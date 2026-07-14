@@ -2,11 +2,13 @@ use std::path::Path;
 
 use syn::{File, Item};
 
-use factorio_ir::stage::Stage;
+use factorio_ir::{function::ExportMeta, stage::Stage};
 
 use crate::{
     error::{FrontendError, FrontendResult},
-    lower::attrs::{extract_factorio_stage, is_factorio_stage_bang},
+    lower::attrs::{
+        extract_factorio_stage, is_factorio_stage_bang, parse_factorio_export_attribute,
+    },
     paths::module_name_from_source,
 };
 
@@ -16,6 +18,9 @@ pub struct DiscoveredModule {
     pub module_name: String,
     pub stage: Stage,
     pub items: Vec<Item>,
+    /// When the module itself carries `#[factorio_rs::export]`, every `pub fn`
+    /// without its own export attribute inherits this metadata.
+    pub default_export: Option<ExportMeta>,
 }
 
 /// Discover transpilable modules in a source file.
@@ -45,6 +50,7 @@ pub fn discover_modules(
             module_name,
             stage,
             items: file.items,
+            default_export: file.attrs.iter().find_map(parse_factorio_export_attribute),
         }]);
     }
 
@@ -55,6 +61,7 @@ pub fn discover_modules(
             module_name: stage.default_module_name().to_string(),
             stage,
             items: file.items,
+            default_export: file.attrs.iter().find_map(parse_factorio_export_attribute),
         });
         return Ok(discovered);
     }
@@ -68,6 +75,7 @@ pub fn discover_modules(
                         module_name: stage.default_module_name().to_string(),
                         stage,
                         items,
+                        default_export: None,
                     });
                 }
             }
@@ -80,6 +88,10 @@ pub fn discover_modules(
                         module_name: item_mod.ident.to_string(),
                         stage,
                         items,
+                        default_export: item_mod
+                            .attrs
+                            .iter()
+                            .find_map(parse_factorio_export_attribute),
                     });
                 }
             }

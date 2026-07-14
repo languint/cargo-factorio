@@ -44,6 +44,7 @@ fn generates_method_with_self_using_colon_syntax() {
                 debug: None,
                 event: None,
                 event_filter: None,
+                export: None,
             }),
         }],
     };

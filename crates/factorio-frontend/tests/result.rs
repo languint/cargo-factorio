@@ -26,13 +26,18 @@ pub fn err_msg() -> Result<i32, String> {
             _ => None,
         })
         .expect("ok_one");
-    let Statement::Return(Some(Expression::StructLiteral { fields, struct_name })) =
-        &ok_fn.body.statements[0]
+    let Statement::Return(Some(Expression::StructLiteral {
+        fields,
+        struct_name,
+    })) = &ok_fn.body.statements[0]
     else {
         panic!("expected Ok struct, got {:?}", ok_fn.body.statements);
     };
     assert_eq!(struct_name.as_deref(), Some("Result"));
-    assert_eq!(fields, &vec![("ok".to_string(), Expression::Literal(Literal::Int(1)))]);
+    assert_eq!(
+        fields,
+        &vec![("ok".to_string(), Expression::Literal(Literal::Int(1)))]
+    );
 
     let err_fn = module
         .symbols
@@ -258,7 +263,10 @@ pub fn place(entity: Option<i32>) -> Result<i32, String> {
         else_expr,
     })) = &function.body.statements[0]
     else {
-        panic!("expected if-expr return, got {:?}", function.body.statements);
+        panic!(
+            "expected if-expr return, got {:?}",
+            function.body.statements
+        );
     };
     assert!(matches!(
         condition.as_ref(),

@@ -3,6 +3,7 @@ use syn::{Expr, ExprClosure, ItemFn, Pat, PatType, Signature};
 use crate::error::{FrontendError, FrontendResult};
 
 use super::{
+    attrs::parse_factorio_export_attribute,
     context::LowerContext,
     event_handler::resolve_event_handler,
     expressions::lower_expression,
@@ -84,6 +85,10 @@ fn lower_function_parts(
     self_type: Option<&str>,
 ) -> FrontendResult<factorio_ir::function::Function> {
     let event_attr = resolve_event_handler(function);
+    let export = function
+        .attrs
+        .iter()
+        .find_map(parse_factorio_export_attribute);
     let binding_snapshot = ctx.binding_types.clone();
     let params = lower_parameters(&function.sig, ctx)?;
     let body = lower_block(&function.block, ctx, self_type)?;
@@ -99,6 +104,7 @@ fn lower_function_parts(
         }),
         event: event_attr.as_ref().map(|event| event.event_name.clone()),
         event_filter: event_attr.and_then(|event| event.filter),
+        export,
     })
 }
 

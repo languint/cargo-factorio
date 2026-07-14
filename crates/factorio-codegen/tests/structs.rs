@@ -51,6 +51,7 @@ fn generates_struct_as_table_with_methods() {
                         debug: None,
                         event: None,
                         event_filter: None,
+                        export: None,
                     },
                     Function {
                         name: "set_health".to_string(),
@@ -79,6 +80,7 @@ fn generates_struct_as_table_with_methods() {
                         debug: None,
                         event: None,
                         event_filter: None,
+                        export: None,
                     },
                 ],
                 doc: None,
@@ -125,6 +127,7 @@ fn generates_private_struct_as_local_table() {
                     debug: None,
                     event: None,
                     event_filter: None,
+                    export: None,
                 }],
                 doc: None,
                 debug: None,

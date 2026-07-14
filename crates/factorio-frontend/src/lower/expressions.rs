@@ -238,6 +238,64 @@ fn lower_call_expression(
         )?;
     }
 
+    if let Expr::Path(path) = call.func.as_ref() {
+        let mut segments = lower_path_segments(path, self_type)?;
+        if let Some((interface, fn_name)) = ctx.resolve_remote_call(&segments) {
+            let mut args = vec![
+                factorio_ir::expression::Expression::Literal(
+                    factorio_ir::literal::Literal::String(interface),
+                ),
+                factorio_ir::expression::Expression::Literal(
+                    factorio_ir::literal::Literal::String(fn_name),
+                ),
+            ];
+            for arg in &call.args {
+                args.push(lower_expression(arg, ctx, self_type)?);
+            }
+            return Ok(factorio_ir::expression::Expression::Call {
+                func: Box::new(factorio_ir::expression::Expression::QualifiedPath {
+                    segments: vec!["remote".to_string(), "call".to_string()],
+                }),
+                args,
+            });
+        }
+        // Rewrite crate/binding paths with last-segment-as-fn for lowercase callees.
+        ctx.normalize_crate_path_for_call(&mut segments)?;
+        ctx.normalize_bare_import_path(&mut segments);
+        if let Some((interface, fn_name)) = ctx.resolve_remote_call(&segments) {
+            let mut args = vec![
+                factorio_ir::expression::Expression::Literal(
+                    factorio_ir::literal::Literal::String(interface),
+                ),
+                factorio_ir::expression::Expression::Literal(
+                    factorio_ir::literal::Literal::String(fn_name),
+                ),
+            ];
+            for arg in &call.args {
+                args.push(lower_expression(arg, ctx, self_type)?);
+            }
+            return Ok(factorio_ir::expression::Expression::Call {
+                func: Box::new(factorio_ir::expression::Expression::QualifiedPath {
+                    segments: vec!["remote".to_string(), "call".to_string()],
+                }),
+                args,
+            });
+        }
+        let func = match segments.len() {
+            1 => factorio_ir::expression::Expression::Identifier(segments[0].clone()),
+            _ => factorio_ir::expression::Expression::QualifiedPath { segments },
+        };
+        let args = call
+            .args
+            .iter()
+            .map(|arg| lower_expression(arg, ctx, self_type))
+            .collect::<FrontendResult<Vec<_>>>()?;
+        return Ok(factorio_ir::expression::Expression::Call {
+            func: Box::new(func),
+            args,
+        });
+    }
+
     let func = lower_expression(&call.func, ctx, self_type)?;
     let args = call
         .args

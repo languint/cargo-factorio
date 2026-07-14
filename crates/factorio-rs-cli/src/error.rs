@@ -38,6 +38,11 @@ pub enum CliError {
     #[error("could not find `{path}`")]
     NotFound { path: PathBuf },
 
+    #[error(
+        "exports manifest missing at `{path}`; run `factorio-rs build` in the library project first"
+    )]
+    ExportsManifestMissing { path: PathBuf },
+
     #[error("invalid project path `{path}`")]
     InvalidProjectPath { path: PathBuf },
 
@@ -65,6 +70,9 @@ pub enum CliError {
     #[error("failed to serialize info.json")]
     InfoJsonSerialize { source: serde_json::Error },
 
+    #[error("failed to resolve Factorio binding crates: {message}")]
+    CargoMetadata { message: String },
+
     #[error("failed to write zip archive `{path}`")]
     ZipWrite {
         path: PathBuf,
@@ -79,6 +87,9 @@ pub enum CliError {
         target: String,
         source: std::io::Error,
     },
+
+    #[error("failed to edit `{path}`: {message}")]
+    TomlEdit { path: PathBuf, message: String },
 
     #[error(transparent)]
     Frontend(#[from] factorio_frontend::FrontendError),

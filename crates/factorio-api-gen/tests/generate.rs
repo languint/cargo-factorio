@@ -181,9 +181,7 @@ fn optional_takes_table_fields_are_option() {
 fn emits_is_identification_type_helper() {
     let generated = generate_from_bundled_api().expect("generate");
     assert!(
-        generated
-            .debug_types
-            .contains("fn is_identification_type"),
+        generated.debug_types.contains("fn is_identification_type"),
         "debug_types should expose is_identification_type"
     );
     assert!(

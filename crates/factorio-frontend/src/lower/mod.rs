@@ -39,6 +39,7 @@ use util::{item_name, item_name_impl, location};
 pub struct ParseOptions<'a> {
     pub module_prefix: &'a str,
     pub lints: &'a LintConfig,
+    pub bindings: Option<&'a crate::BindingRegistry>,
 }
 
 impl<'a> ParseOptions<'a> {
@@ -47,6 +48,7 @@ impl<'a> ParseOptions<'a> {
         Self {
             module_prefix: "",
             lints,
+            bindings: None,
         }
     }
 
@@ -54,6 +56,21 @@ impl<'a> ParseOptions<'a> {
     pub const fn with_prefix(mut self, module_prefix: &'a str) -> Self {
         self.module_prefix = module_prefix;
         self
+    }
+
+    #[must_use]
+    pub const fn with_bindings(mut self, bindings: &'a crate::BindingRegistry) -> Self {
+        self.bindings = Some(bindings);
+        self
+    }
+
+    #[must_use]
+    pub fn bindings(&self) -> &crate::BindingRegistry {
+        if let Some(bindings) = self.bindings {
+            return bindings;
+        }
+        static EMPTY: std::sync::OnceLock<crate::BindingRegistry> = std::sync::OnceLock::new();
+        EMPTY.get_or_init(crate::BindingRegistry::new)
     }
 }
 
@@ -125,8 +142,10 @@ pub fn parse_module_with_options(
         module_name,
         stage,
         options.module_prefix,
+        options.bindings(),
         options.lints,
         diagnostics,
+        None,
     )
 }
 
@@ -173,8 +192,10 @@ pub fn parse_discovered_module_with_options(
         &discovered.module_name,
         discovered.stage,
         options.module_prefix,
+        options.bindings(),
         options.lints,
         diagnostics,
+        discovered.default_export.as_ref(),
     )
 }
 
@@ -183,8 +204,10 @@ fn lower_items(
     module_name: &str,
     stage: factorio_ir::stage::Stage,
     module_prefix: &str,
+    bindings: &crate::BindingRegistry,
     lints: &LintConfig,
     diagnostics: &mut Vec<Diagnostic>,
+    default_export: Option<&factorio_ir::function::ExportMeta>,
 ) -> FrontendResult<factorio_ir::module::Module> {
     let mut body = Vec::new();
     let mut symbols = Vec::new();
@@ -196,7 +219,10 @@ fn lower_items(
     let mut ctx = LowerContext {
         imports: &mut inline_imports,
         module_prefix,
+        bindings,
         bare_import_renames: std::collections::HashMap::new(),
+        remote_locals: std::collections::HashMap::new(),
+        remote_fn_locals: std::collections::HashMap::new(),
         binding_types: std::collections::HashMap::new(),
         lints,
         diagnostics,
@@ -212,6 +238,7 @@ fn lower_items(
         submodules: &mut submodules,
         structs: &mut structs,
         pending_locales: &mut pending_locales,
+        default_export: default_export.cloned(),
     };
 
     for item in items {
@@ -249,6 +276,7 @@ struct ModuleLowerState<'a> {
     submodules: &'a mut Vec<String>,
     structs: &'a mut BTreeMap<String, PendingStruct>,
     pending_locales: &'a mut Vec<proc_macro2::TokenStream>,
+    default_export: Option<factorio_ir::function::ExportMeta>,
 }
 
 fn lower_top_level_item(
@@ -259,9 +287,14 @@ fn lower_top_level_item(
 ) -> FrontendResult<()> {
     match item {
         Item::Fn(function) => {
-            let lowered =
-                factorio_ir::statement::Statement::FunctionDecl(lower_function(function, ctx)?);
-            if let factorio_ir::statement::Statement::FunctionDecl(ref func) = lowered
+            let mut lowered = lower_function(function, ctx)?;
+            apply_default_export(
+                &mut lowered,
+                &function.vis,
+                module_state.default_export.as_ref(),
+            );
+            let statement = factorio_ir::statement::Statement::FunctionDecl(lowered);
+            if let factorio_ir::statement::Statement::FunctionDecl(ref func) = statement
                 && func.event.is_some()
                 && module_state.stage != factorio_ir::stage::Stage::Control
             {
@@ -270,7 +303,7 @@ fn lower_top_level_item(
                 });
             }
             push_scoped_statement(
-                lowered,
+                statement,
                 &function.vis,
                 module_state.body,
                 module_state.symbols,
@@ -294,7 +327,13 @@ fn lower_top_level_item(
         Item::Struct(item_struct) => lower_struct_item(item_struct, module_state.structs)?,
         Item::Impl(item_impl) => lower_impl_item(item_impl, module_state.structs, ctx)?,
         Item::Use(use_item) => {
-            let fragments = lower_use(use_item, ctx.module_prefix)?;
+            let fragments = lower_use(
+                use_item,
+                ctx.module_prefix,
+                ctx.bindings,
+                &mut ctx.remote_locals,
+                &mut ctx.remote_fn_locals,
+            )?;
             // Populate the bare-import rename map so that path expressions like
             // `adjacent_blacklist::check` get rewritten to `ms_adjacent_blacklist.check`.
             // We only do this for bare module imports (item == None), NOT for item
@@ -318,7 +357,24 @@ fn lower_top_level_item(
                 .submodules
                 .push(submodule_path(module_name, &item_mod.ident.to_string()));
         }
-        Item::Mod(_) => {}
+        Item::Mod(item_mod) => {
+            let Some(export) = item_mod
+                .attrs
+                .iter()
+                .find_map(attrs::parse_factorio_export_attribute)
+            else {
+                return Ok(());
+            };
+            let Some((_, items)) = &item_mod.content else {
+                return Ok(());
+            };
+            let previous = module_state.default_export.take();
+            module_state.default_export = Some(export);
+            for nested in items {
+                lower_top_level_item(nested, module_name, module_state, ctx)?;
+            }
+            module_state.default_export = previous;
+        }
         Item::Macro(mac) if is_known_macro(&mac.mac, "mod_settings") => {
             let expanded = mod_settings::expand(mac.mac.tokens.clone())?;
             for item in &expanded {
@@ -431,6 +487,24 @@ fn push_scoped_statement(
             statement,
         }),
         _ => body.push(statement),
+    }
+}
+
+/// Inherit module-level `#[factorio_rs::export]` onto public functions that lack
+/// their own export attribute.
+fn apply_default_export(
+    function: &mut factorio_ir::function::Function,
+    visibility: &Visibility,
+    default_export: Option<&factorio_ir::function::ExportMeta>,
+) {
+    if function.export.is_some() {
+        return;
+    }
+    if !matches!(visibility, Visibility::Public(_)) {
+        return;
+    }
+    if let Some(export) = default_export {
+        function.export = Some(export.clone());
     }
 }
 

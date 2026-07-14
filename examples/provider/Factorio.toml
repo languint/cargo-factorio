@@ -1,0 +1,7 @@
+source = "src"
+output_dir = "dist"
+
+[mod]
+title = "provider"
+description = "Example Factorio mod that publishes a typed API crate"
+factorio_version = "2.0"

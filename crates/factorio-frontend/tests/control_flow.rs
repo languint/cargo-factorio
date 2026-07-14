@@ -149,7 +149,9 @@ pub fn handle(value: Option<i32>) {
     );
     assert_eq!(
         none_then,
-        &vec![Statement::Return(Some(Expression::Literal(Literal::Int(0))))]
+        &vec![Statement::Return(Some(Expression::Literal(Literal::Int(
+            0
+        ))))]
     );
 }
 

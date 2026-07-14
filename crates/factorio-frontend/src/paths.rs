@@ -49,8 +49,29 @@ pub fn require_local_name(module_path: &str) -> String {
 /// Splits a crate-relative path into a dotted module path and remaining item segments.
 #[allow(clippy::indexing_slicing)]
 pub fn split_crate_path(segments: &[String]) -> (String, Vec<String>) {
+    split_crate_path_inner(segments, false)
+}
+
+/// Like [`split_crate_path`], but treats the final segment as an item (function/const)
+/// when used as a call callee - so `shared::api::greet` becomes module `shared.api`
+/// + item `greet` even though `greet` is lowercase.
+#[allow(clippy::indexing_slicing)]
+pub fn split_crate_path_for_call(segments: &[String]) -> (String, Vec<String>) {
+    split_crate_path_inner(segments, true)
+}
+
+#[allow(clippy::indexing_slicing)]
+fn split_crate_path_inner(segments: &[String], last_is_item: bool) -> (String, Vec<String>) {
     if segments.is_empty() {
         return (String::new(), Vec::new());
+    }
+
+    if last_is_item && segments.len() >= 2 {
+        let module_parts = &segments[..segments.len() - 1];
+        // Still split module parts on uppercase type boundaries for `Foo::bar` style.
+        let (module_path, mut mid_items) = split_crate_path_inner(module_parts, false);
+        mid_items.push(segments[segments.len() - 1].clone());
+        return (module_path, mid_items);
     }
 
     let mut module_parts = Vec::new();

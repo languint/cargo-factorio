@@ -14,8 +14,17 @@ const CARGO_TOML: &str = r#"
 [package]
 name = "test-mod"
 version = "0.1.0"
+edition = "2024"
 authors = ["test@example.com"]
+
+[lib]
+path = "src/lib.rs"
 "#;
+
+const LIB_RS: &str = r"
+mod control;
+mod shared;
+";
 
 const PLAYER_RS: &str = r"
 mod health;
@@ -63,6 +72,13 @@ fn write_nested_module_project(project_root: &Path) {
     std::fs::write(project_root.join("Cargo.toml"), CARGO_TOML).unwrap();
     std::fs::create_dir_all(project_root.join("src/control")).unwrap();
     std::fs::create_dir_all(project_root.join("src/shared/player")).unwrap();
+    std::fs::write(project_root.join("src/lib.rs"), LIB_RS).unwrap();
+    std::fs::write(
+        project_root.join("src/control/mod.rs"),
+        "mod on_singleplayer_init;\n",
+    )
+    .unwrap();
+    std::fs::write(project_root.join("src/shared/mod.rs"), "pub mod player;\n").unwrap();
     std::fs::write(
         project_root.join("src/control/on_singleplayer_init.rs"),
         ON_SINGLEPLAYER_INIT_RS,

@@ -1,9 +1,14 @@
 mod common;
 
+use std::collections::{BTreeMap, BTreeSet};
+
 use common::{must_ok, must_ok_parse};
 use factorio_codegen::LuaGenerator;
-use factorio_frontend::parse_module;
-use factorio_ir::module::{ImportedItem, ModuleImport};
+use factorio_frontend::{FactorioBinding, ParseOptions, parse_module, parse_module_with_options};
+use factorio_ir::{
+    lint::LintConfig,
+    module::{ImportedItem, ModuleImport},
+};
 
 #[test]
 fn parses_crate_item_use() {
@@ -26,6 +31,8 @@ pub fn on_init() {
                 name: "MyPlayer".to_string(),
                 local: "MyPlayer".to_string(),
             }],
+            factorio_mod: None,
+            module_root: None,
         }]
     );
 }
@@ -128,4 +135,197 @@ pub fn on_init() {
     assert_eq!(module.imports[0].local, "shared_player");
     assert!(lua.contains("local shared_player = require(\"__mod__/lua/shared/player\")"));
     assert!(lua.contains("local player = shared_player.MyPlayer.new()"));
+}
+
+#[test]
+fn lowers_binding_crate_use_to_foreign_require() {
+    let source = r"
+use provider_api::shared::api;
+
+pub fn on_init() {
+    api::greet();
+}
+";
+
+    let mut bindings = BTreeMap::new();
+    bindings.insert(
+        "provider_api".to_string(),
+        FactorioBinding {
+            crate_name: "provider_api".to_string(),
+            mod_name: "provider".to_string(),
+            dependencies: vec!["provider >= 0.1.0".to_string()],
+            module_root: "lua".to_string(),
+            interface: None,
+            remote_fns: BTreeSet::new(),
+        },
+    );
+
+    let lints = LintConfig::allow_all();
+    let mut diagnostics = Vec::new();
+    let module = must_ok_parse(parse_module_with_options(
+        source,
+        "control.on_init",
+        &ParseOptions::new(&lints).with_bindings(&bindings),
+        &mut diagnostics,
+    ));
+    let lua = must_ok(LuaGenerator::with_mod_name("consumer").generate_module(&module));
+
+    assert_eq!(module.imports.len(), 1);
+    assert_eq!(module.imports[0].module, "shared.api");
+    assert_eq!(module.imports[0].factorio_mod.as_deref(), Some("provider"));
+    assert!(lua.contains("local api = require(\"__provider__/lua/shared/api\")"));
+    assert!(lua.contains("api.greet()"));
+}
+
+#[test]
+fn lowers_inline_binding_path_to_foreign_require() {
+    let source = r"
+pub fn on_init() {
+    let _v = provider_api::shared::api::VERSION;
+}
+";
+
+    let mut bindings = BTreeMap::new();
+    bindings.insert(
+        "provider_api".to_string(),
+        FactorioBinding {
+            crate_name: "provider_api".to_string(),
+            mod_name: "provider".to_string(),
+            dependencies: vec!["provider >= 0.1.0".to_string()],
+            module_root: "lua".to_string(),
+            interface: None,
+            remote_fns: BTreeSet::new(),
+        },
+    );
+
+    let lints = LintConfig::allow_all();
+    let mut diagnostics = Vec::new();
+    let module = must_ok_parse(parse_module_with_options(
+        source,
+        "control.on_init",
+        &ParseOptions::new(&lints).with_bindings(&bindings),
+        &mut diagnostics,
+    ));
+    let lua = must_ok(LuaGenerator::with_mod_name("consumer").generate_module(&module));
+
+    assert!(lua.contains("require(\"__provider__/lua/shared/api\")"));
+    assert!(lua.contains("shared_api.VERSION"));
+}
+
+#[test]
+fn lowers_remote_binding_call() {
+    let source = r#"
+use provider_api::remote;
+
+pub fn on_init() {
+    remote::greet("hi");
+}
+"#;
+
+    let mut bindings = BTreeMap::new();
+    bindings.insert(
+        "provider_api".to_string(),
+        FactorioBinding {
+            crate_name: "provider_api".to_string(),
+            mod_name: "provider".to_string(),
+            dependencies: vec!["provider >= 0.1.0".to_string()],
+            module_root: "lua".to_string(),
+            interface: Some("provider".to_string()),
+            remote_fns: BTreeSet::from(["greet".to_string()]),
+        },
+    );
+
+    let lints = LintConfig::allow_all();
+    let mut diagnostics = Vec::new();
+    let module = must_ok_parse(parse_module_with_options(
+        source,
+        "control.on_init",
+        &ParseOptions::new(&lints).with_bindings(&bindings),
+        &mut diagnostics,
+    ));
+    let lua = must_ok(LuaGenerator::with_mod_name("consumer").generate_module(&module));
+
+    assert!(
+        lua.contains("remote.call(\"provider\", \"greet\", \"hi\")"),
+        "generated lua:\n{lua}"
+    );
+    assert!(!lua.contains("require(\"__provider__/lua/remote\")"));
+}
+
+#[test]
+fn lowers_flat_root_remote_call() {
+    let source = r#"
+pub fn on_init() {
+    provider_api::greet("hi");
+}
+"#;
+
+    let mut bindings = BTreeMap::new();
+    bindings.insert(
+        "provider_api".to_string(),
+        FactorioBinding {
+            crate_name: "provider_api".to_string(),
+            mod_name: "provider".to_string(),
+            dependencies: vec!["provider >= 0.1.0".to_string()],
+            module_root: "lua".to_string(),
+            interface: Some("provider".to_string()),
+            remote_fns: BTreeSet::from(["greet".to_string()]),
+        },
+    );
+
+    let lints = LintConfig::allow_all();
+    let mut diagnostics = Vec::new();
+    let module = must_ok_parse(parse_module_with_options(
+        source,
+        "control.on_init",
+        &ParseOptions::new(&lints).with_bindings(&bindings),
+        &mut diagnostics,
+    ));
+    let lua = must_ok(LuaGenerator::with_mod_name("consumer").generate_module(&module));
+
+    assert!(
+        lua.contains("remote.call(\"provider\", \"greet\", \"hi\")"),
+        "generated lua:\n{lua}"
+    );
+    assert!(module.imports.is_empty(), "flat remotes must not require");
+}
+
+#[test]
+fn lowers_imported_root_remote_fn() {
+    let source = r#"
+use provider_api::greet;
+
+pub fn on_init() {
+    greet("hi");
+}
+"#;
+
+    let mut bindings = BTreeMap::new();
+    bindings.insert(
+        "provider_api".to_string(),
+        FactorioBinding {
+            crate_name: "provider_api".to_string(),
+            mod_name: "provider".to_string(),
+            dependencies: vec!["provider >= 0.1.0".to_string()],
+            module_root: "lua".to_string(),
+            interface: Some("provider".to_string()),
+            remote_fns: BTreeSet::from(["greet".to_string()]),
+        },
+    );
+
+    let lints = LintConfig::allow_all();
+    let mut diagnostics = Vec::new();
+    let module = must_ok_parse(parse_module_with_options(
+        source,
+        "control.on_init",
+        &ParseOptions::new(&lints).with_bindings(&bindings),
+        &mut diagnostics,
+    ));
+    let lua = must_ok(LuaGenerator::with_mod_name("consumer").generate_module(&module));
+
+    assert!(
+        lua.contains("remote.call(\"provider\", \"greet\", \"hi\")"),
+        "generated lua:\n{lua}"
+    );
+    assert!(module.imports.is_empty());
 }

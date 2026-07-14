@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Factorio mod dependencies: `[mod].dependencies` in `Factorio.toml`, merged with
+  deps from Cargo crates that publish `[package.metadata.factorio]`.
+- Publishable Rust binding crates: typed stubs map `use other_crate::...` to
+  foreign `__mod__/...` requires for type-safe cross-mod APIs.
+- `#[factorio_rs::export]`: control-stage functions register Factorio
+  `remote.add_interface`; shared exports stay requireable and prune-rooted.
+  Applied to a `mod`, exports every `pub fn` inside. Supports bare
+  `interface` and `interface = "name"`.
+- Provider builds write `.factorio-rs/exports.json`; consumers use
+  `factorio-rs add` to materialize ephemeral stubs named after the mod
+  (`use provider::fn`) under `target/factorio-rs/bindings/` (no committed `api/`).
+
 ## [0.1.3] - 2026-07-13
 
 ### Added

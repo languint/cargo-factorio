@@ -220,6 +220,60 @@ pub fn shared(_args: TokenStream, input: TokenStream) -> TokenStream {
     input
 }
 
+/// Publishes a function (or every `pub fn` in a module) as part of this mod's
+/// cross-mod API.
+///
+/// Control-stage exports are registered with Factorio `remote.add_interface`.
+/// Shared-stage exports remain requireable module functions and are included in
+/// the generated `api/` stub crate.
+///
+/// Optional remote interface:
+/// - `#[factorio_rs::export(interface)]` - remote using the mod name
+/// - `#[factorio_rs::export(interface = "my_iface")]` - remote on a custom name
+///
+/// On a `mod` item, every public function inside inherits the export without
+/// needing a per-fn attribute.
+#[proc_macro_attribute]
+pub fn export(args: TokenStream, input: TokenStream) -> TokenStream {
+    if !args.is_empty() {
+        let _ = parse_macro_input!(args as ExportAttributeArgs);
+    }
+    input
+}
+
+struct ExportAttributeArgs {
+    #[allow(dead_code)]
+    /// `None` = bare `#[export]` or `#[export(interface)]` (use mod-name default).
+    /// `Some` = `#[export(interface = "name")]`.
+    interface: Option<Option<LitStr>>,
+}
+
+impl Parse for ExportAttributeArgs {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        if input.is_empty() {
+            return Ok(Self { interface: None });
+        }
+        let keyword: syn::Ident = input.parse()?;
+        if keyword != "interface" {
+            return Err(syn::Error::new(
+                keyword.span(),
+                "expected `interface` or `interface = \"...\"`",
+            ));
+        }
+        if input.peek(Token![=]) {
+            input.parse::<Token![=]>()?;
+            Ok(Self {
+                interface: Some(Some(input.parse()?)),
+            })
+        } else {
+            // Bare `interface` - explicit remote using the mod-name default.
+            Ok(Self {
+                interface: Some(None),
+            })
+        }
+    }
+}
+
 /// Declares a settings-stage module from a block of items.
 #[proc_macro]
 pub fn settings_mod(input: TokenStream) -> TokenStream {

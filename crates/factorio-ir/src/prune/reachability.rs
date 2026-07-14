@@ -39,6 +39,15 @@ pub fn compute_reachability(graph: &ModuleGraph<'_>) -> HashMap<String, ModuleRe
                         ItemKey::Function(function.name.clone()),
                     );
                 }
+                // Cross-mod API exports must survive prune even if unused in-mod.
+                Statement::FunctionDecl(function) if function.export.is_some() => {
+                    enqueue_item(
+                        &mut reachability,
+                        &mut pending,
+                        &module.name,
+                        ItemKey::Function(function.name.clone()),
+                    );
+                }
                 // Public functions and structs in settings/data modules are stage
                 // entry points - they are exported and used by Factorio at load time.
                 Statement::FunctionDecl(function) if module.stage.has_side_effect_entry() => {

@@ -75,6 +75,59 @@ pub fn parse_factorio_event_attribute_args(attr: &Attribute) -> Option<EventAttr
     }
 }
 
+/// Parses optional `#[factorio_rs::export]` / `#[factorio_rs::export(interface = "...")]`.
+pub fn parse_factorio_export_attribute(
+    attr: &Attribute,
+) -> Option<factorio_ir::function::ExportMeta> {
+    let path = attr.path();
+    if !is_factorio_path_segment(path, "export") {
+        return None;
+    }
+
+    match &attr.meta {
+        Meta::Path(_) => Some(factorio_ir::function::ExportMeta { interface: None }),
+        Meta::List(meta_list) => {
+            let args = syn::parse2::<ExportAttributeArgs>(meta_list.tokens.clone()).ok()?;
+            // Bare `interface` and omitted interface both mean "use mod name".
+            let interface = args.interface.flatten();
+            Some(factorio_ir::function::ExportMeta { interface })
+        }
+        Meta::NameValue(_) => None,
+    }
+}
+
+struct ExportAttributeArgs {
+    /// `None` for bare `#[export(interface)]` (default interface name at emit).
+    /// `Some(name)` for `#[export(interface = "name")]`.
+    interface: Option<Option<String>>,
+}
+
+impl Parse for ExportAttributeArgs {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        if input.is_empty() {
+            return Ok(Self { interface: None });
+        }
+        let keyword: syn::Ident = input.parse()?;
+        if keyword != "interface" {
+            return Err(syn::Error::new(
+                keyword.span(),
+                "expected `interface` or `interface = \"...\"`",
+            ));
+        }
+        if input.peek(Token![=]) {
+            input.parse::<Token![=]>()?;
+            let lit: syn::LitStr = input.parse()?;
+            Ok(Self {
+                interface: Some(Some(lit.value())),
+            })
+        } else {
+            Ok(Self {
+                interface: Some(None),
+            })
+        }
+    }
+}
+
 /// Parses `#[factorio_rs::control]`, `#[factorio_rs::shared]`, or `#[factorio_rs::data]`.
 pub fn extract_factorio_stage(attrs: &[Attribute]) -> Option<Stage> {
     attrs.iter().find_map(parse_factorio_stage_attribute)

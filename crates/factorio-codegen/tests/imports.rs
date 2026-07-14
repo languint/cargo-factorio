@@ -24,6 +24,8 @@ fn generates_require_statements() {
                 name: "MyPlayer".to_string(),
                 local: "MyPlayer".to_string(),
             }],
+            factorio_mod: None,
+            module_root: None,
         }],
         submodules: vec![],
         locales: vec![],
@@ -37,6 +39,7 @@ fn generates_require_statements() {
                 debug: None,
                 event: None,
                 event_filter: None,
+                export: None,
             }),
         }],
     };
@@ -58,4 +61,53 @@ fn generates_require_statements() {
             "return onInit\n",
         )
     );
+}
+
+#[test]
+fn generates_foreign_require_statements() {
+    let module = Module {
+        name: "on_init".to_string(),
+        stage: Stage::Control,
+        body: Block { statements: vec![] },
+        imports: vec![ModuleImport {
+            module: "shared.api".to_string(),
+            local: "shared_api".to_string(),
+            items: vec![ImportedItem {
+                name: "greet".to_string(),
+                local: "greet".to_string(),
+            }],
+            factorio_mod: Some("provider".to_string()),
+            module_root: Some("lua".to_string()),
+        }],
+        submodules: vec![],
+        locales: vec![],
+        symbols: vec![],
+    };
+
+    let output = must_ok(LuaGenerator::with_mod_name("consumer").generate_module(&module));
+
+    assert!(output.contains("local shared_api = require(\"__provider__/lua/shared/api\")"));
+    assert!(output.contains("local greet = shared_api.greet"));
+}
+
+#[test]
+fn generates_foreign_require_with_empty_module_root() {
+    let module = Module {
+        name: "on_init".to_string(),
+        stage: Stage::Control,
+        body: Block { statements: vec![] },
+        imports: vec![ModuleImport {
+            module: "gui".to_string(),
+            local: "gui".to_string(),
+            items: vec![],
+            factorio_mod: Some("flib".to_string()),
+            module_root: Some(String::new()),
+        }],
+        submodules: vec![],
+        locales: vec![],
+        symbols: vec![],
+    };
+
+    let output = must_ok(LuaGenerator::with_mod_name("consumer").generate_module(&module));
+    assert!(output.contains("local gui = require(\"__flib__/gui\")"));
 }

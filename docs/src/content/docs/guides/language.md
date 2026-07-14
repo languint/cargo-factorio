@@ -20,7 +20,8 @@ stand in for structs, arrays, and maps.
 | `fn`                        | Private -> `local function`; `pub` -> `module.name` (see below) |
 | `struct` + inherent `impl`  | Fields, methods, associated `const`s                             |
 | `const`                     | Becomes a local (or exported) binding                            |
-| `use crate::...`            | Other crates are ignored; only `crate::` paths become `require`s |
+| `use crate::...`            | Binding crates with `[package.metadata.factorio]` also lower; see [Sharing code between mods](dependencies/). `crate::` paths become `require`s |
+| `#[factorio_rs::export]`      | Publishes a fn via remote (control) or require (shared); see [Sharing code between mods](dependencies/) |
 | `mod name;`                 | Declares a submodule file                                        |
 | `mod_settings!` / `locale!` | Expanded / collected at transpile time                           |
 | Doc comments                | Emitted as Lua comments when debug comments are on               |
@@ -131,8 +132,8 @@ value.
 | Literals                            | `i64`/`f64`/string/`bool`                                      |
 | `None`                              | -> `nil`                                                       |
 | `Some(x)` / `Option::Some(x)`       | -> `x` (for typed `Option` stub params)                        |
-| `Ok(v)` / `Err(e)`                  | -> `{ ok = v }` / `{ err = e }` — [Option and Result](option-and-result/) |
-| `expr?`                             | Result early-return — [Option and Result](option-and-result/) |
+| `Ok(v)` / `Err(e)`                  | -> `{ ok = v }` / `{ err = e }` - [Option and Result](option-and-result/) |
+| `expr?`                             | Result early-return - [Option and Result](option-and-result/) |
 | Paths / fields / calls / methods    | Including `crate::` (auto-require)                             |
 | Named struct literals               | -> Lua tables                                                  |
 | `[a, b]`                            | -> `{ a, b }`                                                  |
@@ -282,7 +283,7 @@ or fails the build with a lint code. Full reference: [Lints](lints/).
 
 | Trap | What happens | Fix |
 | --- | --- | --- |
-| `.unwrap()` / `.expect(...)` | Stripped; no nil/Err check | `if let` / `?` / `ok_or` — [Option and Result](option-and-result/) |
+| `.unwrap()` / `.expect(...)` | Stripped; no nil/Err check | `if let` / `?` / `ok_or` - [Option and Result](option-and-result/) |
 | `if opt { ... }` on an Option | `Some(false)` skipped | `if let Some(...)` or `is_some()` |
 | `arr[i]` with variable `i` | Not +1 for Lua | Use a 1-based index, or literal indices |
 | `{:.2}` / other format specs | Ignored output | Use `{}` / `{:?}` only |

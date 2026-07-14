@@ -42,6 +42,7 @@ prune_dead_code = true
 
 const GITIGNORE: &str = r"/target
 /dist
+/.factorio-rs/
 /*.zip
 ";
 

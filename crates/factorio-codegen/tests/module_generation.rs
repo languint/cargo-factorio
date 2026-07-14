@@ -32,6 +32,7 @@ fn generates_module_with_private_helper_and_exported_handler() {
                 debug: None,
                 event: None,
                 event_filter: None,
+                export: None,
             })],
         },
         imports: vec![],
@@ -58,6 +59,7 @@ fn generates_module_with_private_helper_and_exported_handler() {
                 debug: None,
                 event: None,
                 event_filter: None,
+                export: None,
             }),
         }],
     };
@@ -101,6 +103,7 @@ fn omits_unreachable_private_helper_when_pruned() {
                 debug: None,
                 event: None,
                 event_filter: None,
+                export: None,
             })],
         },
         imports: vec![],
@@ -127,6 +130,7 @@ fn omits_unreachable_private_helper_when_pruned() {
                 debug: None,
                 event: Some("on_init".to_string()),
                 event_filter: None,
+                export: None,
             }),
         }],
     };
@@ -169,6 +173,7 @@ fn qualifies_exported_function_identifiers_used_as_values() {
                     debug: None,
                     event: None,
                     event_filter: None,
+                    export: None,
                 }),
             },
             Symbol {
@@ -190,6 +195,7 @@ fn qualifies_exported_function_identifiers_used_as_values() {
                     debug: None,
                     event: Some("on_init".to_string()),
                     event_filter: None,
+                    export: None,
                 }),
             },
         ],

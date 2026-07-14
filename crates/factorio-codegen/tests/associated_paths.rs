@@ -58,6 +58,7 @@ fn rewrites_associated_paths_inside_struct_methods() {
                     debug: None,
                     event: None,
                     event_filter: None,
+                    export: None,
                 }],
                 doc: None,
                 debug: None,

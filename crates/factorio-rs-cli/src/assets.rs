@@ -55,6 +55,9 @@ mod tests {
                 description: None,
                 factorio_version: Some("2.0".to_string()),
                 thumbnail: thumbnail.map(str::to_string),
+                dependencies: Vec::new(),
+                emit_api: false,
+                api_dir: "api".to_string(),
             },
             profiles: BTreeMap::default(),
             lints: crate::config::lints::LintsConfig::default(),
@@ -94,8 +97,8 @@ mod tests {
         let output = root.join("dist");
         std::fs::create_dir_all(&output).unwrap();
 
-        let err = copy_thumbnail(root, &output, &config_with_thumbnail(Some("missing.png")))
-            .unwrap_err();
+        let err =
+            copy_thumbnail(root, &output, &config_with_thumbnail(Some("missing.png"))).unwrap_err();
         assert!(matches!(err, CliError::NotFound { .. }));
     }
 
@@ -108,10 +111,13 @@ mod tests {
         std::fs::create_dir_all(&output).unwrap();
         std::fs::write(root.join("assets/thumb.png"), b"png").unwrap();
 
-        let copied =
-            copy_thumbnail(root, &output, &config_with_thumbnail(Some("assets/thumb.png")))
-                .unwrap()
-                .unwrap();
+        let copied = copy_thumbnail(
+            root,
+            &output,
+            &config_with_thumbnail(Some("assets/thumb.png")),
+        )
+        .unwrap()
+        .unwrap();
         assert_eq!(copied, output.join("thumbnail.png"));
         assert_eq!(std::fs::read(copied).unwrap(), b"png");
     }

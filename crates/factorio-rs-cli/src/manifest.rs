@@ -21,6 +21,31 @@ pub struct EventRegistration {
     pub filter: Option<factorio_ir::expression::Expression>,
 }
 
+/// A control-stage function published via `#[factorio_rs::export]` for `remote.call`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RemoteExport {
+    pub module: String,
+    pub function: String,
+    pub interface: String,
+    pub params: Vec<(String, Option<String>)>,
+}
+
+/// A shared-stage (or other requireable) export for the generated API stub crate.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedExport {
+    pub module: String,
+    pub function: String,
+    pub params: Vec<(String, Option<String>)>,
+}
+
+/// A public shared-stage const included in the generated API stub crate.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedConst {
+    pub module: String,
+    pub name: String,
+    pub source_type: Option<String>,
+}
+
 pub fn collect_event_registrations(module: &Module) -> Vec<EventRegistration> {
     if module.stage != Stage::Control {
         return Vec::new();
@@ -39,6 +64,95 @@ pub fn collect_event_registrations(module: &Module) -> Vec<EventRegistration> {
                 handler: function.name.clone(),
                 event: event_name.clone(),
                 filter: function.event_filter.clone(),
+            })
+        })
+        .collect()
+}
+
+/// Collect control-stage `#[factorio_rs::export]` functions (skips event handlers).
+pub fn collect_remote_exports(module: &Module, default_interface: &str) -> Vec<RemoteExport> {
+    if module.stage != Stage::Control {
+        return Vec::new();
+    }
+
+    module
+        .symbols
+        .iter()
+        .filter_map(|symbol| {
+            let Statement::FunctionDecl(function) = &symbol.statement else {
+                return None;
+            };
+            if function.event.is_some() {
+                return None;
+            }
+            let export = function.export.as_ref()?;
+            Some(RemoteExport {
+                module: module.name.clone(),
+                function: function.name.clone(),
+                interface: export
+                    .interface
+                    .clone()
+                    .unwrap_or_else(|| default_interface.to_string()),
+                params: function
+                    .params
+                    .iter()
+                    .map(|param| (param.name.clone(), param.source_type.clone()))
+                    .collect(),
+            })
+        })
+        .collect()
+}
+
+/// Collect shared-stage exports for require-based API stubs.
+pub fn collect_shared_exports(module: &Module) -> Vec<SharedExport> {
+    if module.stage != Stage::Shared {
+        return Vec::new();
+    }
+
+    module
+        .symbols
+        .iter()
+        .filter_map(|symbol| {
+            let Statement::FunctionDecl(function) = &symbol.statement else {
+                return None;
+            };
+            if function.export.is_none() {
+                return None;
+            }
+            Some(SharedExport {
+                module: module.name.clone(),
+                function: function.name.clone(),
+                params: function
+                    .params
+                    .iter()
+                    .map(|param| (param.name.clone(), param.source_type.clone()))
+                    .collect(),
+            })
+        })
+        .collect()
+}
+
+/// Collect public shared-stage consts for the generated API stub crate.
+pub fn collect_shared_consts(module: &Module) -> Vec<SharedConst> {
+    if module.stage != Stage::Shared {
+        return Vec::new();
+    }
+
+    module
+        .symbols
+        .iter()
+        .filter(|symbol| symbol.scope == factorio_ir::scope::Scope::Public)
+        .filter_map(|symbol| {
+            let Statement::VariableDecl {
+                name, source_type, ..
+            } = &symbol.statement
+            else {
+                return None;
+            };
+            Some(SharedConst {
+                module: module.name.clone(),
+                name: name.clone(),
+                source_type: source_type.clone(),
             })
         })
         .collect()
@@ -133,28 +247,28 @@ pub fn generate_stage_entry_lua(
 pub fn generate_control_lua(
     mod_name: &str,
     events: &[EventRegistration],
+    remote_exports: &[RemoteExport],
     module_prefix: &str,
     profile: &str,
 ) -> String {
     let mut output = generated_header(profile);
-    if events.is_empty() {
-        output.push_str("-- No event handlers registered.\n");
+    if events.is_empty() && remote_exports.is_empty() {
+        output.push_str("-- No event handlers or remote exports registered.\n");
         return output;
     }
 
-    // Emit one `require` per distinct module, then all its event registrations.
     let generator = LuaGenerator::new();
     let mut emitted_requires: Vec<String> = Vec::new();
 
     for event in events {
-        let lua_module_path = prefixed_lua_path(&event.module, module_prefix);
-        let require_path = format!("__{mod_name}__/lua/{lua_module_path}");
+        emit_module_require(
+            &mut output,
+            &mut emitted_requires,
+            mod_name,
+            &event.module,
+            module_prefix,
+        );
         let table_name = module_lua_identifier(&event.module);
-
-        if !emitted_requires.contains(&event.module) {
-            let _ = writeln!(output, "local {table_name} = require(\"{require_path}\")");
-            emitted_requires.push(event.module.clone());
-        }
 
         let _ = writeln!(
             output,
@@ -171,7 +285,53 @@ pub fn generate_control_lua(
         output.push('\n');
     }
 
+    let mut by_interface: std::collections::BTreeMap<String, Vec<&RemoteExport>> =
+        std::collections::BTreeMap::new();
+    for export in remote_exports {
+        emit_module_require(
+            &mut output,
+            &mut emitted_requires,
+            mod_name,
+            &export.module,
+            module_prefix,
+        );
+        by_interface
+            .entry(export.interface.clone())
+            .or_default()
+            .push(export);
+    }
+
+    for (interface, exports) in by_interface {
+        let _ = writeln!(output, "remote.add_interface(\"{interface}\", {{");
+        for export in exports {
+            let table_name = module_lua_identifier(&export.module);
+            let _ = writeln!(
+                output,
+                "\t{} = function(...)\n\t\treturn {table_name}.{}(...)\n\tend,",
+                export.function, export.function
+            );
+        }
+        let _ = writeln!(output, "}})\n");
+    }
+
     output
+}
+
+fn emit_module_require(
+    output: &mut String,
+    emitted: &mut Vec<String>,
+    mod_name: &str,
+    module: &str,
+    module_prefix: &str,
+) {
+    if emitted.contains(&module.to_string()) {
+        return;
+    }
+    let lua_module_path = prefixed_lua_path(module, module_prefix);
+    let require_path = format!("__{mod_name}__/lua/{lua_module_path}");
+    let table_name = module_lua_identifier(module);
+    let _ = writeln!(output, "local {table_name} = require(\"{require_path}\")");
+    emitted.push(module.to_string());
 }
 
 /// Convert a dotted module name like `"shared.control"` to a `/`-separated Lua
@@ -203,21 +363,81 @@ struct InfoJson<'a> {
     description: Option<&'a str>,
 }
 
-pub fn generate_info_json(package: &CargoPackage, mod_config: &ModConfig) -> CliResult<String> {
+pub fn generate_info_json(
+    package: &CargoPackage,
+    mod_config: &ModConfig,
+    binding_dependencies: &[String],
+) -> CliResult<String> {
     let author = package.author_label();
     let factorio_version = mod_config.factorio_version.as_deref().unwrap_or("2.0");
-    let base_dependency = format!("base >= {factorio_version}");
+    let dependencies = merge_dependencies(
+        factorio_version,
+        &mod_config.dependencies,
+        binding_dependencies,
+    );
     let info = InfoJson {
         name: &package.name,
         version: &package.version,
         title: mod_config.title.as_deref().unwrap_or(&package.name),
         author: author.as_str(),
         factorio_version,
-        dependencies: vec![base_dependency],
+        dependencies,
         description: mod_config.description.as_deref(),
     };
 
     serde_json::to_string_pretty(&info).map_err(|source| CliError::InfoJsonSerialize { source })
+}
+
+/// Merge Factorio.toml deps (highest priority), binding-crate deps, and a default
+/// `base >= {factorio_version}` when `base` is not already listed.
+#[must_use]
+pub fn merge_dependencies(
+    factorio_version: &str,
+    from_toml: &[String],
+    from_bindings: &[String],
+) -> Vec<String> {
+    let mut seen = std::collections::BTreeSet::<String>::new();
+    let mut out = Vec::new();
+
+    for dep in from_toml.iter().chain(from_bindings.iter()) {
+        let key = dependency_mod_name(dep);
+        if key.is_empty() || !seen.insert(key) {
+            continue;
+        }
+        out.push(dep.clone());
+    }
+
+    if !seen.contains("base") {
+        out.insert(0, format!("base >= {factorio_version}"));
+    }
+
+    out
+}
+
+/// Extract the Factorio mod name from a dependency string for deduplication.
+#[must_use]
+pub fn dependency_mod_name(dep: &str) -> String {
+    let trimmed = dep.trim();
+    let without_prefix = if let Some(rest) = trimmed.strip_prefix("(?)") {
+        rest.trim_start()
+    } else if let Some(rest) = trimmed.strip_prefix(['?', '!', '~', '+']) {
+        rest.trim_start()
+    } else {
+        trimmed
+    };
+
+    let token = without_prefix
+        .split_whitespace()
+        .next()
+        .unwrap_or(without_prefix);
+
+    for op in [">=", "<=", "==", "=", ">", "<"] {
+        if let Some(idx) = token.find(op) {
+            return token[..idx].trim().to_string();
+        }
+    }
+
+    token.to_string()
 }
 
 pub struct StageModules {
@@ -256,14 +476,22 @@ pub fn write_mod_manifests(
     package: &CargoPackage,
     config: &Config,
     events: &[EventRegistration],
+    remote_exports: &[RemoteExport],
     stage_modules: &StageModules,
     profile: &str,
+    binding_dependencies: &[String],
 ) -> CliResult<()> {
     let module_prefix = config.emit.lua_module_prefix.as_deref().unwrap_or("");
-    let info_json = generate_info_json(package, &config.r#mod)?;
+    let info_json = generate_info_json(package, &config.r#mod, binding_dependencies)?;
     write_file(output_dir, "info.json", &info_json)?;
 
-    let control_lua = generate_control_lua(&package.name, events, module_prefix, profile);
+    let control_lua = generate_control_lua(
+        &package.name,
+        events,
+        remote_exports,
+        module_prefix,
+        profile,
+    );
     write_file(output_dir, "control.lua", &control_lua)?;
 
     for stage in Stage::SIDE_EFFECT_STAGES {
@@ -305,8 +533,10 @@ mod tests {
 
     use super::{
         StageModule, StageModules, collect_event_registrations, collect_stage_module,
-        generate_control_lua, generate_stage_entry_lua, write_mod_manifests,
+        dependency_mod_name, generate_control_lua, generate_info_json, generate_stage_entry_lua,
+        merge_dependencies, write_mod_manifests,
     };
+    use crate::{cargo_manifest::CargoPackage, config::ModConfig};
 
     fn make_control_module(name: &str, event: &str) -> Module {
         Module {
@@ -326,6 +556,7 @@ mod tests {
                     debug: None,
                     event: Some(event.to_string()),
                     event_filter: None,
+                    export: None,
                 }),
             }],
         }
@@ -347,7 +578,7 @@ mod tests {
     fn generates_control_lua_with_event_handler() {
         let module = make_control_module("control.on_singleplayer_init", "on_singleplayer_init");
         let events = collect_event_registrations(&module);
-        let lua = generate_control_lua("hello_world", &events, "", "debug");
+        let lua = generate_control_lua("hello_world", &events, &[], "", "debug");
 
         assert!(lua.contains("require(\"__hello_world__/lua/control/on_singleplayer_init\")"));
         assert!(
@@ -390,12 +621,13 @@ mod tests {
                             ],
                         }],
                     }),
+                    export: None,
                 }),
             }],
         };
 
         let events = collect_event_registrations(&module);
-        let lua = generate_control_lua("hello_world", &events, "", "debug");
+        let lua = generate_control_lua("hello_world", &events, &[], "", "debug");
 
         assert!(lua.contains("require(\"__hello_world__/lua/control/on_built_entity\")"));
         assert!(lua.contains("script.on_event(defines.events.on_built_entity, function(event)"));
@@ -557,8 +789,17 @@ mod tests {
             },
         );
 
-        write_mod_manifests(dir.path(), &package, &config, &[], &stage_modules, "debug")
-            .expect("write manifests");
+        write_mod_manifests(
+            dir.path(),
+            &package,
+            &config,
+            &[],
+            &[],
+            &stage_modules,
+            "debug",
+            &[],
+        )
+        .expect("write manifests");
 
         assert!(dir.path().join("settings.lua").is_file());
         assert!(dir.path().join("settings-updates.lua").is_file());
@@ -637,5 +878,74 @@ mod tests {
         );
         assert!(entry_lua.contains("-- Profile: release"));
         assert!(entry_lua.contains("settings.register()"));
+    }
+
+    #[test]
+    fn dependency_mod_name_strips_prefixes_and_versions() {
+        assert_eq!(dependency_mod_name("base >= 2.0"), "base");
+        assert_eq!(dependency_mod_name("? space-age"), "space-age");
+        assert_eq!(dependency_mod_name("(?) quality"), "quality");
+        assert_eq!(dependency_mod_name("! bad-mod"), "bad-mod");
+        assert_eq!(dependency_mod_name("~ unordered"), "unordered");
+        assert_eq!(dependency_mod_name("+ recommended"), "recommended");
+        assert_eq!(dependency_mod_name("bobores>=0.13.1"), "bobores");
+        assert_eq!(dependency_mod_name("  flib >= 0.14.0  "), "flib");
+    }
+
+    #[test]
+    fn merge_dependencies_toml_wins_and_adds_base() {
+        let merged = merge_dependencies(
+            "2.0",
+            &["? space-age".to_string(), "flib >= 0.15".to_string()],
+            &["flib >= 0.14".to_string(), "provider >= 0.1.0".to_string()],
+        );
+        assert_eq!(
+            merged,
+            vec![
+                "base >= 2.0".to_string(),
+                "? space-age".to_string(),
+                "flib >= 0.15".to_string(),
+                "provider >= 0.1.0".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn merge_dependencies_respects_explicit_base() {
+        let merged = merge_dependencies(
+            "2.0",
+            &["base >= 2.0.60".to_string()],
+            &["provider >= 0.1.0".to_string()],
+        );
+        assert_eq!(
+            merged,
+            vec![
+                "base >= 2.0.60".to_string(),
+                "provider >= 0.1.0".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn generate_info_json_includes_toml_dependencies() {
+        let package = CargoPackage {
+            name: "demo".to_string(),
+            version: "0.1.0".to_string(),
+            authors: Some(vec!["test".to_string()]),
+        };
+        let mod_config = ModConfig {
+            title: Some("Demo".to_string()),
+            description: None,
+            factorio_version: Some("2.0".to_string()),
+            thumbnail: None,
+            dependencies: vec!["! conflict-mod".to_string()],
+            emit_api: false,
+            api_dir: "api".to_string(),
+        };
+        let json = generate_info_json(&package, &mod_config, &["flib >= 0.14".to_string()])
+            .expect("info.json");
+        assert!(json.contains("\"base >= 2.0\""));
+        assert!(json.contains("\"! conflict-mod\""));
+        assert!(json.contains("\"flib >= 0.14\""));
     }
 }

@@ -61,6 +61,7 @@ fn generates_binary_ops_and_conditionals() {
                 debug: None,
                 event: None,
                 event_filter: None,
+                export: None,
             }),
         }],
     };

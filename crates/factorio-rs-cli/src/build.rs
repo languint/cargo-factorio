@@ -8,13 +8,14 @@ use factorio_frontend::{
 use factorio_ir::{module::Module, prune::prune_modules};
 
 use crate::{
-    assets,
+    api_crate, assets, bindings,
     cargo_manifest::CargoPackage,
     config::Config,
     error::{CliError, CliResult},
     locale,
     manifest::{
-        StageModules, collect_event_registrations, collect_stage_module, write_mod_manifests,
+        StageModules, collect_event_registrations, collect_remote_exports, collect_shared_consts,
+        collect_shared_exports, collect_stage_module, write_mod_manifests,
     },
 };
 
@@ -52,10 +53,17 @@ pub fn build(project_root: &Path, options: &BuildOptions) -> CliResult<Vec<PathB
     }
 
     let package = CargoPackage::load(project_root)?;
+    // Refresh ephemeral binding stubs from registered libraries before metadata.
+    let refreshed = api_crate::refresh_registered_bindings(project_root)?;
+    let bindings = bindings::discover_bindings(project_root)?;
+    let binding_dependencies: Vec<String> = bindings
+        .values()
+        .flat_map(|binding| binding.dependencies.iter().cloned())
+        .collect();
     let source_dir = project_root.join(&config.source);
     let output_dir = project_root.join(&config.output_dir);
     let lua_dir = output_dir.join("lua");
-
+    let mut outputs = refreshed;
     if !source_dir.is_dir() {
         return Err(CliError::NotFound { path: source_dir });
     }
@@ -73,8 +81,10 @@ pub fn build(project_root: &Path, options: &BuildOptions) -> CliResult<Vec<PathB
 
     let lint_config = config.lints.resolve()?;
 
-    let mut outputs = Vec::new();
     let mut event_registrations = Vec::new();
+    let mut remote_exports = Vec::new();
+    let mut shared_exports = Vec::new();
+    let mut shared_consts = Vec::new();
     let mut stage_modules = StageModules::new();
     let mut discovered_modules = Vec::new();
     let mut failed = false;
@@ -88,8 +98,9 @@ pub fn build(project_root: &Path, options: &BuildOptions) -> CliResult<Vec<PathB
         let filename = display_filename(&source_path);
 
         let lua_module_prefix_early = config.emit.lua_module_prefix.as_deref().unwrap_or("");
-        let parse_options =
-            ParseOptions::new(&lint_config).with_prefix(lua_module_prefix_early);
+        let parse_options = ParseOptions::new(&lint_config)
+            .with_prefix(lua_module_prefix_early)
+            .with_bindings(&bindings);
         for module_spec in discovered {
             let mut file_diagnostics = Vec::new();
             match parse_discovered_module_with_options(
@@ -150,6 +161,9 @@ pub fn build(project_root: &Path, options: &BuildOptions) -> CliResult<Vec<PathB
             &profile.name,
         )?;
         event_registrations.extend(collect_event_registrations(module));
+        remote_exports.extend(collect_remote_exports(module, &package.name));
+        shared_exports.extend(collect_shared_exports(module));
+        shared_consts.extend(collect_shared_consts(module));
         if module.stage.has_side_effect_entry()
             && let Some(stage_module) = collect_stage_module(module, module.stage)
         {
@@ -163,12 +177,23 @@ pub fn build(project_root: &Path, options: &BuildOptions) -> CliResult<Vec<PathB
         &package,
         &config,
         &event_registrations,
+        &remote_exports,
         &stage_modules,
         &profile.name,
+        &binding_dependencies,
     )?;
     outputs.push(output_dir.join("control.lua"));
     outputs.push(output_dir.join("info.json"));
 
+    if let Some(manifest_path) = api_crate::write_exports_manifest(
+        project_root,
+        &package,
+        &remote_exports,
+        &shared_exports,
+        &shared_consts,
+    )? {
+        outputs.push(manifest_path);
+    }
     let locale_files: Vec<_> = discovered_modules
         .iter()
         .flat_map(|(_, module)| module.locales.iter().cloned())

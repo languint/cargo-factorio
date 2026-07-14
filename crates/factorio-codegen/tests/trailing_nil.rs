@@ -46,6 +46,7 @@ fn omit_trailing_nil_args_from_calls() {
                 debug: None,
                 event: None,
                 event_filter: None,
+                export: None,
             }),
         }],
     };
@@ -137,23 +138,19 @@ fn generates_closure_and_option_map() {
     let lua = LuaGenerator::new().generate_expression(&map);
     assert!(lua.contains("x ~= nil"), "{lua}");
     assert!(lua.contains("function(n) return n + 1 end"), "{lua}");
-    assert!(lua.contains("(function(n) return n + 1 end)(x)") || lua.contains("return (function"), "{lua}");
+    assert!(
+        lua.contains("(function(n) return n + 1 end)(x)") || lua.contains("return (function"),
+        "{lua}"
+    );
 }
-
 
 #[test]
 fn omits_nil_fields_from_struct_literals() {
     let expr = Expression::StructLiteral {
         struct_name: Some("PrintSettings".to_string()),
         fields: vec![
-            (
-                "color".to_string(),
-                Expression::Identifier("c".to_string()),
-            ),
-            (
-                "skip".to_string(),
-                Expression::Literal(Literal::Nil),
-            ),
+            ("color".to_string(), Expression::Identifier("c".to_string())),
+            ("skip".to_string(), Expression::Literal(Literal::Nil)),
         ],
     };
     let lua = LuaGenerator::new().generate_expression(&expr);

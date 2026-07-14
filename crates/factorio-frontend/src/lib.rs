@@ -1,11 +1,13 @@
 //! Parse a small subset of Rust source code into [`factorio_ir`].
 
+mod bindings;
 mod discovery;
 mod error;
 mod lower;
 mod paths;
 mod report;
 
+pub use bindings::{BindingRegistry, FactorioBinding};
 pub use discovery::{DiscoveredModule, discover_modules};
 pub use error::{FrontendError, FrontendResult};
 pub use lower::{

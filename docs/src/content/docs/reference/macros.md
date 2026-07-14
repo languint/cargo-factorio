@@ -35,6 +35,20 @@ pub fn on_singleplayer_init() {}
 pub fn on_built_entity(event: OnBuiltEntityEvent) {}
 ```
 
+## `#[factorio_rs::export]`
+
+Publishes a function as a cross-mod API. Control-stage exports become Factorio
+`remote` interfaces; shared exports are requireable and included in the
+export catalog for consumers. See [Sharing code between mods](../guides/dependencies/).
+
+```rust
+#[factorio_rs::export]
+pub fn greet(name: &str) {}
+
+#[factorio_rs::export(interface = "my_iface")]
+pub fn ping() {}
+```
+
 ## `mod_settings!`
 
 See [Mod settings](../guides/mod-settings/).

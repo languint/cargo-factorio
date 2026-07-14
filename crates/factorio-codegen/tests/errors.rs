@@ -30,6 +30,7 @@ fn rejects_exported_local_functions() {
                 debug: None,
                 event: None,
                 event_filter: None,
+                export: None,
             }),
         }],
     };

@@ -53,6 +53,7 @@ fn generates_format_concat_for_println() {
                 debug: None,
                 event: None,
                 event_filter: None,
+                export: None,
             }),
         }],
     };

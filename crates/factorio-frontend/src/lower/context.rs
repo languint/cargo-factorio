@@ -3,8 +3,9 @@ use std::collections::HashMap;
 use factorio_ir::lint::{Diagnostic, LintConfig, LintId, LintLevel};
 
 use crate::{
+    bindings::BindingRegistry,
     error::{FrontendError, FrontendResult},
-    paths::{require_local_name, split_crate_path},
+    paths::{require_local_name, split_crate_path, split_crate_path_for_call},
 };
 
 use super::imports::ImportFragment;
@@ -14,11 +15,17 @@ pub struct LowerContext<'a> {
     /// Prefix prepended to every generated module local name to avoid shadowing
     /// Factorio built-in globals (e.g. `"ms"` -> `settings` becomes `ms_settings`).
     pub module_prefix: &'a str,
+    /// Binding crates that map Rust `use` paths to foreign Factorio mod requires.
+    pub bindings: &'a BindingRegistry,
     /// Maps bare module local names -> prefixed names for rewriting path expressions
     /// of the form `module_name::item` that reference bare-imported modules.
     /// Only populated for bare module imports (`use crate::foo`), NOT item imports
     /// (`use crate::foo::Bar`) - this keeps Factorio globals like `settings` safe.
     pub bare_import_renames: HashMap<String, String>,
+    /// Local name for a remote stub module (`remote`) -> Factorio interface name.
+    pub remote_locals: HashMap<String, String>,
+    /// Bare-imported remote function locals (`use binding::greet`) → `(interface, fn)`.
+    pub remote_fn_locals: HashMap<String, (String, String)>,
     /// Binding name -> Rust type key (last path segment, `Option`/`&` peeled) for
     /// compile-time `{:?}` Debug format selection.
     pub binding_types: HashMap<String, String>,
@@ -103,12 +110,17 @@ impl LowerContext<'_> {
         }
     }
 
-    fn register_crate_module(&mut self, module: &str) {
-        if self
-            .imports
-            .iter()
-            .any(|fragment| fragment.module == module)
-        {
+    fn register_crate_module(
+        &mut self,
+        module: &str,
+        factorio_mod: Option<String>,
+        module_root: Option<String>,
+    ) {
+        if self.imports.iter().any(|fragment| {
+            fragment.module == module
+                && fragment.factorio_mod == factorio_mod
+                && fragment.module_root == module_root
+        }) {
             return;
         }
 
@@ -116,30 +128,134 @@ impl LowerContext<'_> {
             module: module.to_string(),
             require_local: self.prefixed_local(module),
             item: None,
+            factorio_mod,
+            module_root,
         });
     }
 
     pub fn normalize_crate_path(&mut self, segments: &mut Vec<String>) -> FrontendResult<()> {
-        if segments.first().map(String::as_str) != Some("crate") {
+        self.normalize_crate_path_inner(segments, false)
+    }
+
+    /// Like [`Self::normalize_crate_path`] for call callees (last segment is the fn name).
+    pub fn normalize_crate_path_for_call(
+        &mut self,
+        segments: &mut Vec<String>,
+    ) -> FrontendResult<()> {
+        self.normalize_crate_path_inner(segments, true)
+    }
+
+    /// If `segments` is a remote stub call (`provider_api::greet`,
+    /// `provider_api::remote::greet`, `remote::greet` after `use ...::remote`, or
+    /// a bare `greet` after `use ...::greet`), return `(interface, fn)`.
+    pub fn resolve_remote_call(&self, segments: &[String]) -> Option<(String, String)> {
+        if segments.len() == 1
+            && let Some((interface, fn_name)) = self.remote_fn_locals.get(&segments[0])
+        {
+            return Some((interface.clone(), fn_name.clone()));
+        }
+        if segments.len() == 2
+            && let Some(interface) = self.remote_locals.get(&segments[0])
+        {
+            return Some((interface.clone(), segments[1].clone()));
+        }
+        if segments.len() == 2
+            && let Some(binding) = self.bindings.get(&segments[0])
+            && let Some(interface) = binding.interface.as_ref()
+            && binding.remote_fns.contains(&segments[1])
+        {
+            return Some((interface.clone(), segments[1].clone()));
+        }
+        if segments.len() >= 3
+            && let Some(binding) = self.bindings.get(&segments[0])
+            && let Some(interface) = binding.interface.as_ref()
+            && segments[1] == "remote"
+        {
+            return Some((interface.clone(), segments[2].clone()));
+        }
+        None
+    }
+
+    fn normalize_crate_path_inner(
+        &mut self,
+        segments: &mut Vec<String>,
+        for_call: bool,
+    ) -> FrontendResult<()> {
+        let Some(first) = segments.first().map(String::as_str) else {
             return Ok(());
+        };
+
+        // `remote::greet` after `use provider_api::remote`
+        if for_call && segments.len() == 2 && self.remote_locals.contains_key(first) {
+            return Ok(());
+        }
+
+        // `provider_api::greet` when `greet` is listed in `remote_fns`
+        if for_call
+            && segments.len() == 2
+            && let Some(binding) = self.bindings.get(first)
+            && binding.remote_fns.contains(&segments[1])
+        {
+            return Ok(());
+        }
+
+        let binding = if first == "crate" {
+            None
+        } else if let Some(binding) = self.bindings.get(first) {
+            Some(binding.clone())
+        } else {
+            return Ok(());
+        };
+
+        let (factorio_mod, module_root) = match &binding {
+            None => (None, None),
+            Some(binding) => (
+                Some(binding.mod_name.clone()),
+                Some(binding.module_root.clone()),
+            ),
+        };
+
+        // `provider_api::remote::greet` - no require; track remote local if bare use.
+        if let Some(binding) = &binding
+            && binding.interface.is_some()
+            && segments.get(1).map(String::as_str) == Some("remote")
+        {
+            if segments.len() == 2 {
+                // bare `use provider_api::remote` handled in imports; path value unused
+                *segments = vec!["remote".to_string()];
+                return Ok(());
+            }
+            if for_call && segments.len() >= 3 {
+                // Leave segments for resolve_remote_call (`crate, remote, fn`).
+                return Ok(());
+            }
         }
 
         segments.remove(0);
         if segments.is_empty() {
             return Err(FrontendError::UnsupportedExpression {
-                location: factorio_ir::span::SourceLoc::default().with_note("crate"),
+                location: factorio_ir::span::SourceLoc::default().with_note(
+                    if factorio_mod.is_some() {
+                        "binding crate"
+                    } else {
+                        "crate"
+                    },
+                ),
             });
         }
 
-        let (module_path, rest) = split_crate_path(segments);
+        let (module_path, rest) = if for_call {
+            split_crate_path_for_call(segments)
+        } else {
+            split_crate_path(segments)
+        };
         if module_path.is_empty() {
             return Err(FrontendError::UnsupportedExpression {
-                location: factorio_ir::span::SourceLoc::default()
-                    .with_note(segments.join("::")),
+                location: factorio_ir::span::SourceLoc::default().with_note(segments.join("::")),
             });
         }
 
-        self.register_crate_module(&module_path);
+        self.register_crate_module(&module_path, factorio_mod, module_root);
 
         let local = self.prefixed_local(&module_path);
         *segments = if rest.is_empty() {

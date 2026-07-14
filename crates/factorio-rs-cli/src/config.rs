@@ -35,6 +35,24 @@ pub struct ModConfig {
     pub description: Option<String>,
     pub factorio_version: Option<String>,
     pub thumbnail: Option<String>,
+    /// Extra Factorio dependency strings for `info.json` (`? mod`, `! conflict`, ...).
+    /// Merged with deps from Cargo binding crates; this list wins on duplicate mod names.
+    #[serde(default)]
+    pub dependencies: Vec<String>,
+    /// Deprecated: ignored. Exports are written to `.factorio-rs/exports.json`.
+    #[serde(default = "default_emit_api")]
+    pub emit_api: bool,
+    /// Deprecated: ignored. Consumers materialize stubs under `target/factorio-rs/bindings/`.
+    #[serde(default = "default_api_dir")]
+    pub api_dir: String,
+}
+
+fn default_emit_api() -> bool {
+    false
+}
+
+fn default_api_dir() -> String {
+    "api".to_string()
 }
 
 impl Default for ModConfig {
@@ -44,6 +62,9 @@ impl Default for ModConfig {
             description: None,
             factorio_version: Some("2.0".to_string()),
             thumbnail: None,
+            dependencies: Vec::new(),
+            emit_api: false,
+            api_dir: default_api_dir(),
         }
     }
 }

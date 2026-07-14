@@ -1,0 +1,4 @@
+/dist/
+/target/
+/.factorio-rs/*
+!/.factorio-rs/libraries.json

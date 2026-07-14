@@ -105,37 +105,31 @@ impl FrontendError {
             Self::Syn(message) => format!("failed to parse Rust source: {message}"),
             Self::UnsupportedItem { item, .. } => format!("unsupported item `{item}`"),
             Self::UnsupportedStatement { .. } => "unsupported statement".to_string(),
-            Self::UnsupportedExpression { location } => location
-                .note
-                .as_ref()
-                .map_or_else(|| "unsupported expression".to_string(), |n| {
-                    format!("unsupported expression ({n})")
-                }),
+            Self::UnsupportedExpression { location } => location.note.as_ref().map_or_else(
+                || "unsupported expression".to_string(),
+                |n| format!("unsupported expression ({n})"),
+            ),
             Self::UnsupportedType { ty, .. } => format!("unsupported type `{ty}`"),
             Self::UnsupportedOperator { .. } => "unsupported operator".to_string(),
-            Self::ExpectedIdentifierPattern { .. } => {
-                "expected an identifier pattern".to_string()
-            }
+            Self::ExpectedIdentifierPattern { .. } => "expected an identifier pattern".to_string(),
             Self::ExpectedIdentifierAssignmentTarget { .. } => {
                 "expected an identifier assignment target".to_string()
             }
-            Self::MissingLetInitializer { .. } => {
-                "let binding requires an initializer".to_string()
-            }
+            Self::MissingLetInitializer { .. } => "let binding requires an initializer".to_string(),
             Self::UnsupportedMacro { name, .. } => format!("unsupported macro `{name}`"),
             Self::FormatArgumentMismatch {
                 template,
                 expected,
                 found,
                 ..
-            } => format!(
-                "format string `{template}` expects {expected} argument(s), got {found}"
-            ),
+            } => format!("format string `{template}` expects {expected} argument(s), got {found}"),
             Self::InvalidModuleStage { module } => format!(
                 "module `{module}` must be marked with a Factorio stage attribute or live under a stage path"
             ),
             Self::EventOutsideControlStage { module } => {
-                format!("event handlers are only allowed in control-stage modules, found in `{module}`")
+                format!(
+                    "event handlers are only allowed in control-stage modules, found in `{module}`"
+                )
             }
             Self::InvalidEventFilter { .. } => "invalid event filter".to_string(),
             Self::UnsupportedEventFilterMethod { method, .. } => {
