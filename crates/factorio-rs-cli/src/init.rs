@@ -30,6 +30,10 @@ factorio_version = "2.0"
 # format_spec = "allow"
 # variable_index = "deny"
 # identification_ctor = "deny"
+# option_if = "deny"
+# ambiguous_try = "deny"
+# ambiguous_method = "deny"
+# skipped_mod = "deny"
 
 [profiles.debug]
 debug_level = 1

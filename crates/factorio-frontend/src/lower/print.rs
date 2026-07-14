@@ -426,10 +426,10 @@ fn debug_uses_json(type_key: Option<&str>) -> bool {
     match key {
         "table" => true,
         "string" | "number" | "boolean" | "nil" | "str" | "String" | "bool" | "char" | "LuaAny"
-        | "LuaFunction" | "LuaStorage" | "Serpent" | "LocalisedString" => false,
-        "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16" | "u32" | "u64" | "u128"
-        | "usize" | "f32" | "f64" | "uint8" | "uint16" | "uint32" | "uint64" | "uint" | "int8"
-        | "int16" | "int32" | "int64" | "int" | "float" | "double" | "MapTick" | "Tick"
+        | "LuaFunction" | "LuaStorage" | "Serpent" | "LocalisedString" | "i8" | "i16" | "i32"
+        | "i64" | "i128" | "isize" | "u8" | "u16" | "u32" | "u64" | "u128" | "usize" | "f32"
+        | "f64" | "uint8" | "uint16" | "uint32" | "uint64" | "uint" | "int8" | "int16"
+        | "int32" | "int64" | "int" | "float" | "double" | "MapTick" | "Tick"
         | "ItemStackIndex" | "ItemCountType" => false,
         other if factorio_api::debug_types::is_userdata_class(other) => false,
         // Event data structs, concepts, and other plain Lua tables.
@@ -490,7 +490,7 @@ impl FormatPiece {
 /// Specs supported for Debug formatting; anything else is silently ignored today.
 fn ignored_format_spec(spec: Option<&str>) -> Option<String> {
     match spec {
-        None | Some("?") | Some("#?") => None,
+        None | Some("?" | "#?") => None,
         Some(other) => Some(other.to_string()),
     }
 }
@@ -503,7 +503,9 @@ fn parse_format_pieces(template: &str) -> Vec<(FormatPiece, Option<std::ops::Ran
     let mut i = 0;
 
     while i < template.len() {
-        let ch = template[i..].chars().next().expect("valid char boundary");
+        let Some(ch) = template[i..].chars().next() else {
+            break;
+        };
         let ch_len = ch.len_utf8();
         match ch {
             '{' => {
@@ -525,7 +527,9 @@ fn parse_format_pieces(template: &str) -> Vec<(FormatPiece, Option<std::ops::Ran
                 let contents_start = i;
                 let mut closed = false;
                 while i < template.len() {
-                    let c = template[i..].chars().next().expect("valid char boundary");
+                    let Some(c) = template[i..].chars().next() else {
+                        break;
+                    };
                     if c == '}' {
                         let contents = &template[contents_start..i];
                         i += c.len_utf8();
@@ -576,7 +580,7 @@ fn parse_format_placeholder(contents: &str) -> FormatPiece {
         None => (contents, None),
     };
     // `:?` / `:#?` -> JSON or tostring chosen at compile time.
-    let debug = matches!(spec, Some("?") | Some("#?"));
+    let debug = matches!(spec, Some("?" | "#?"));
     let ignored_spec = ignored_format_spec(spec);
 
     if name.is_empty() {

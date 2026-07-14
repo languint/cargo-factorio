@@ -24,8 +24,9 @@ apply transpile lints - **without** writing `output_dir`.
 | Flag | Description |
 | --- | --- |
 | `--manifest-path <PATH>` | Project directory or `Factorio.toml` |
-| `--profile <NAME>` | Default: `debug` |
 | `--skip-typecheck` | Skip `cargo check`; only validate lowering / lints |
+
+Lint levels come from `[lints]` in `Factorio.toml` (not from build profiles).
 
 ### `factorio-rs build`
 

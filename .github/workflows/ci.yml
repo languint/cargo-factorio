@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Workspace tests
+        run: cargo test --workspace
+
+  examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build CLI
+        run: cargo build -p factorio-rs-cli
+
+      - name: Check examples
+        run: |
+          set -euo pipefail
+          BIN=./target/debug/factorio-rs
+          for example in hello_world locale_test tracing_test provider mandatory_spaghetti; do
+            echo "::group::factorio-rs check examples/${example}"
+            "$BIN" check --manifest-path "examples/${example}"
+            echo "::endgroup::"
+          done
+          echo "::group::factorio-rs build examples/provider"
+          "$BIN" build --manifest-path examples/provider
+          echo "::endgroup::"
+          echo "::group::factorio-rs check examples/consumer"
+          "$BIN" check --manifest-path examples/consumer
+          echo "::endgroup::"

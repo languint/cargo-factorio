@@ -86,6 +86,7 @@ pub fn ensure_factorio_exports(project_root: &Path) -> CliResult<()> {
             })
             .collect();
         write_api_reexports(project_root, &remotes)?;
+        let _ = ensure_lib_rs_wires_factorio_exports(project_root)?;
         return Ok(());
     }
 
@@ -94,6 +95,7 @@ pub fn ensure_factorio_exports(project_root: &Path) -> CliResult<()> {
         return Ok(());
     }
     write_api_reexports(project_root, &[])?;
+    let _ = ensure_lib_rs_wires_factorio_exports(project_root)?;
     Ok(())
 }
 
@@ -102,14 +104,15 @@ fn lib_rs_references_factorio_exports(project_root: &Path) -> CliResult<bool> {
     if !lib.exists() {
         return Ok(false);
     }
-    let contents = std::fs::read_to_string(&lib).map_err(|source| CliError::ReadFile {
-        path: lib,
-        source,
-    })?;
+    let contents =
+        std::fs::read_to_string(&lib).map_err(|source| CliError::ReadFile { path: lib, source })?;
     Ok(contents.contains("factorio_exports"))
 }
 
 /// Write exports into Cargo metadata + `src/factorio_exports.rs` (+ optional JSON).
+///
+/// Also wires `mod factorio_exports; pub use factorio_exports::*;` into `src/lib.rs`
+/// when missing so dependents can resolve crate-root remotes without manual boilerplate.
 ///
 /// # Errors
 /// Returns I/O or TOML edit errors.
@@ -131,19 +134,78 @@ pub fn publish_exports(
     write_cargo_factorio_metadata(project_root, &manifest)?;
     outputs.push(project_root.join("Cargo.toml"));
     outputs.push(write_api_reexports(project_root, remote_exports)?);
+    if ensure_lib_rs_wires_factorio_exports(project_root)? {
+        outputs.push(project_root.join("src/lib.rs"));
+    }
 
     Ok(outputs)
 }
 
-/// Load export metadata from a library's `Cargo.toml`, falling back to exports.json.
+/// Load export metadata, preferring richer `.factorio-rs/exports.json` when present.
+///
+/// Cargo metadata only stores remote function *names*; the JSON catalog keeps
+/// params and shared exports/consts. Prefer JSON when it has strictly more detail.
 ///
 /// # Errors
 /// Returns when neither source is available or parse fails.
 pub fn load_library_exports(lib_root: &Path) -> CliResult<ExportsManifest> {
-    if let Some(manifest) = load_exports_from_cargo_toml(lib_root)? {
-        return Ok(manifest);
+    let cargo = load_exports_from_cargo_toml(lib_root)?;
+    let json = match load_exports_manifest(lib_root) {
+        Ok(manifest) => Some(manifest),
+        Err(CliError::ExportsManifestMissing { .. }) => None,
+        Err(err) => return Err(err),
+    };
+    match (cargo, json) {
+        (Some(cargo_manifest), Some(json_manifest))
+            if exports_json_is_richer(&json_manifest, &cargo_manifest) =>
+        {
+            Ok(json_manifest)
+        }
+        (Some(cargo_manifest), _) => Ok(cargo_manifest),
+        (None, Some(json_manifest)) => Ok(json_manifest),
+        (None, None) => Err(CliError::ExportsManifestMissing {
+            path: lib_root.join(EXPORTS_MANIFEST_REL),
+        }),
     }
-    load_exports_manifest(lib_root)
+}
+
+fn exports_json_is_richer(json: &ExportsManifest, cargo: &ExportsManifest) -> bool {
+    if json.shared_fns.len() > cargo.shared_fns.len()
+        || json.shared_consts.len() > cargo.shared_consts.len()
+    {
+        return true;
+    }
+    let json_has_params = json.remotes.iter().any(|remote| !remote.params.is_empty());
+    let cargo_lacks_params = cargo.remotes.iter().all(|remote| remote.params.is_empty());
+    json_has_params && cargo_lacks_params
+}
+
+/// Append `mod factorio_exports; pub use factorio_exports::*;` to `lib.rs` when absent.
+///
+/// Returns `true` when the file was modified.
+fn ensure_lib_rs_wires_factorio_exports(project_root: &Path) -> CliResult<bool> {
+    let lib = project_root.join("src/lib.rs");
+    if !lib.exists() {
+        return Ok(false);
+    }
+    let contents = std::fs::read_to_string(&lib).map_err(|source| CliError::ReadFile {
+        path: lib.clone(),
+        source,
+    })?;
+    if contents.contains("factorio_exports") {
+        return Ok(false);
+    }
+    let mut updated = contents;
+    if !updated.ends_with('\n') {
+        updated.push('\n');
+    }
+    updated.push_str(
+        "\n// Generated wiring for Cargo dependents (crate-root remotes).\n\
+         mod factorio_exports;\n\
+         pub use factorio_exports::*;\n",
+    );
+    std::fs::write(&lib, updated).map_err(|source| CliError::WriteFile { path: lib, source })?;
+    Ok(true)
 }
 
 /// Load `.factorio-rs/exports.json`.
@@ -390,8 +452,7 @@ fn build_manifest(
 ) -> ExportsManifest {
     let interface = remote_exports
         .first()
-        .map(|export| export.interface.clone())
-        .unwrap_or_else(|| package.name.clone());
+        .map_or_else(|| package.name.clone(), |export| export.interface.clone());
 
     ExportsManifest {
         mod_name: package.name.clone(),
@@ -527,8 +588,15 @@ path = "src/lib.rs"
         let reexports = std::fs::read_to_string(provider.join("src/factorio_exports.rs")).unwrap();
         assert!(reexports.contains("pub use crate::control::add;"));
 
+        let lib_rs = std::fs::read_to_string(provider.join("src/lib.rs")).unwrap();
+        assert!(lib_rs.contains("mod factorio_exports;"));
+        assert!(lib_rs.contains("pub use factorio_exports::*;"));
+
         let loaded = load_library_exports(&provider).unwrap();
         assert_eq!(loaded.mod_name, "provider");
         assert!(loaded.remotes.iter().any(|r| r.function == "add"));
+        // Prefer richer exports.json (params) over lossy Cargo remote_fns names.
+        let add = loaded.remotes.iter().find(|r| r.function == "add").unwrap();
+        assert_eq!(add.params.len(), 2);
     }
 }

@@ -36,7 +36,7 @@ pub struct ModConfig {
     pub factorio_version: Option<String>,
     pub thumbnail: Option<String>,
     /// Extra Factorio dependency strings for `info.json` (`? mod`, `! conflict`, ...).
-    /// Merged with deps from Cargo binding crates; this list wins on duplicate mod names.
+    /// Merged with deps from Cargo crates that publish `[package.metadata.factorio]`.
     #[serde(default)]
     pub dependencies: Vec<String>,
     /// Deprecated: ignored. Exports are written to `.factorio-rs/exports.json`.
@@ -47,7 +47,7 @@ pub struct ModConfig {
     pub api_dir: String,
 }
 
-fn default_emit_api() -> bool {
+const fn default_emit_api() -> bool {
     false
 }
 

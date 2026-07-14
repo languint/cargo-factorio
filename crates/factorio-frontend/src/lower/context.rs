@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use factorio_ir::lint::{Diagnostic, LintConfig, LintId, LintLevel};
 
@@ -29,6 +29,8 @@ pub struct LowerContext<'a> {
     /// Binding name -> Rust type key (last path segment, `Option`/`&` peeled) for
     /// compile-time `{:?}` Debug format selection.
     pub binding_types: HashMap<String, String>,
+    /// Locals annotated as `Option<_>` (kept even though [`Self::binding_types`] peels Option).
+    pub option_bindings: HashSet<String>,
     /// Lint levels from `Factorio.toml` `[lints]` (defaults deny).
     pub lints: &'a LintConfig,
     /// Collected warn/deny diagnostics (allow is skipped). Deny no longer aborts
@@ -43,10 +45,13 @@ pub struct LowerContext<'a> {
 }
 
 impl LowerContext<'_> {
-    /// Emit a lint at `loc`, or return `Ok(())` when the lint is allowed.
+    /// Emit a lint at `loc` (no-op when the lint is allowed).
     ///
     /// Warn and deny both append to [`Self::diagnostics`]. Callers (and the CLI)
     /// decide whether deny findings fail the build after all files are processed.
+    ///
+    /// Returns `Ok` always so call sites can use `?` uniformly with other lowers.
+    #[allow(clippy::unnecessary_wraps)]
     pub fn emit_lint(
         &mut self,
         id: LintId,
@@ -66,9 +71,25 @@ impl LowerContext<'_> {
         self.binding_types.insert(name.into(), type_key.into());
     }
 
+    pub fn bind_option(&mut self, name: impl Into<String>) {
+        self.option_bindings.insert(name.into());
+    }
+
     #[must_use]
     pub fn binding_type(&self, name: &str) -> Option<&str> {
         self.binding_types.get(name).map(String::as_str)
+    }
+
+    /// Surface type for `?` / `if` / method discrimination (`Option` or `Result`).
+    #[must_use]
+    pub fn binding_surface_type(&self, name: &str) -> Option<&str> {
+        if self.option_bindings.contains(name) {
+            return Some("Option");
+        }
+        match self.binding_type(name) {
+            Some("Result") => Some("Result"),
+            _ => None,
+        }
     }
 
     /// Snapshot length before lowering an expression that may emit `?` hoists.
@@ -207,13 +228,12 @@ impl LowerContext<'_> {
             return Ok(());
         };
 
-        let (factorio_mod, module_root) = match &binding {
-            None => (None, None),
-            Some(binding) => (
+        let (factorio_mod, module_root) = binding.as_ref().map_or((None, None), |binding| {
+            (
                 Some(binding.mod_name.clone()),
                 Some(binding.module_root.clone()),
-            ),
-        };
+            )
+        });
 
         // `provider_api::remote::greet` - no require; track remote local if bare use.
         if let Some(binding) = &binding

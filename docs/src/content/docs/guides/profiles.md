@@ -30,8 +30,10 @@ Init templates and examples usually set release to `debug_level = 0` explicitly.
 | --- | --- |
 | `build`, `install` | `debug` |
 | `package` | `release` |
+| `check` | _(no profile; lints come from `[lints]`)_ |
 
-Override with `--profile <name>` and/or `--debug-level N`.
+Override emit profiles with `--profile <name>` and/or `--debug-level N` on
+`build` / `package` / `install`.
 
 ## What pruning keeps
 

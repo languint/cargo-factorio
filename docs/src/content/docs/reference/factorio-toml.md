@@ -22,7 +22,7 @@ Written into `info.json` (and related packaging):
 | `description` | Optional description |
 | `factorio_version` | Factorio version string (default `"2.0"`); also used for a default `base` dependency |
 | `thumbnail` | Optional path to an image copied to `thumbnail.png` in the mod output |
-| `dependencies` | Extra Factorio dependency strings (`"? space-age"`, `"! conflict"`, ...). Merged with deps from binding crates; this list wins on duplicate mod names. See [Sharing code between mods](../guides/dependencies/). |
+| `dependencies` | Extra Factorio dependency strings (`"? space-age"`, `"! conflict"`, ...). Merged with deps from Cargo crates that publish `[package.metadata.factorio]`; this list wins on duplicate mod names. See [Sharing code between mods](../guides/dependencies/). |
 | `emit_api` | **Deprecated / ignored.** Exports are written to `.factorio-rs/exports.json`. |
 | `api_dir` | **Deprecated / ignored.** Exports are published onto the library’s own Cargo package. |
 
@@ -70,6 +70,10 @@ Unspecified lints use their defaults (`deny`, except `format_spec` -> `warn`).
 | `format_spec` | `E0003` | warn | Non-`?` format specs (e.g. `{:.2}`) are ignored when lowering |
 | `variable_index` | `E0004` | deny | Non-literal indices are not shifted for Lua's 1-based tables |
 | `identification_ctor` | `E0005` | deny | Identification enum constructors are not lowered; use `.into()` |
+| `option_if` | `E0006` | deny | Plain `if option` uses Lua truthiness |
+| `ambiguous_try` | `E0007` | deny | `?` on an untyped local (assumes Result) |
+| `ambiguous_method` | `E0008` | deny | Overlapping Option/Result method on an untyped local |
+| `skipped_mod` | `E0009` | deny | Inline `mod` without `#[factorio_rs::export]` is skipped |
 
 ```toml
 [lints]

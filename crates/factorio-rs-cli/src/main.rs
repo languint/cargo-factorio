@@ -48,7 +48,8 @@ fn run_init(args: &InitArgs) -> anyhow::Result<()> {
 
 fn run_check(args: &CheckArgs) -> anyhow::Result<()> {
     let project_root = project_root(args.manifest_path.as_deref())?;
-    let options = BuildOptions::new(&args.profile).with_skip_typecheck(args.skip_typecheck);
+    // Profile does not affect check (no emit/prune); keep default for BuildOptions shape.
+    let options = BuildOptions::new("debug").with_skip_typecheck(args.skip_typecheck);
     build::check(&project_root, &options)?;
     println!("Check passed");
     Ok(())

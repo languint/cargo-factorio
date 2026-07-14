@@ -92,7 +92,8 @@ pub fn discover_bindings(project_root: &Path) -> CliResult<BindingRegistry> {
         return Ok(BTreeMap::new());
     };
 
-    let manifest_canon = std::fs::canonicalize(&manifest_path).unwrap_or(manifest_path.clone());
+    let manifest_canon =
+        std::fs::canonicalize(&manifest_path).unwrap_or_else(|_| manifest_path.clone());
     let root_package = metadata.packages.iter().find(|package| {
         let package_manifest = Path::new(&package.manifest_path);
         package_manifest == manifest_path
@@ -154,8 +155,10 @@ fn rust_crate_name(package: &MetadataPackage) -> String {
                 .iter()
                 .any(|kind| kind == "lib" || kind == "rlib" || kind == "dylib" || kind == "cdylib")
         })
-        .map(|target| target.name.clone())
-        .unwrap_or_else(|| package.name.replace('-', "_"))
+        .map_or_else(
+            || package.name.replace('-', "_"),
+            |target| target.name.clone(),
+        )
 }
 
 fn parse_factorio_metadata(

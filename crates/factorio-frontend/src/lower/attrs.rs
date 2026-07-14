@@ -89,17 +89,18 @@ pub fn parse_factorio_export_attribute(
         Meta::List(meta_list) => {
             let args = syn::parse2::<ExportAttributeArgs>(meta_list.tokens.clone()).ok()?;
             // Bare `interface` and omitted interface both mean "use mod name".
-            let interface = args.interface.flatten();
-            Some(factorio_ir::function::ExportMeta { interface })
+            Some(factorio_ir::function::ExportMeta {
+                interface: args.interface,
+            })
         }
         Meta::NameValue(_) => None,
     }
 }
 
 struct ExportAttributeArgs {
-    /// `None` for bare `#[export(interface)]` (default interface name at emit).
+    /// `None` for bare `#[export]` / `#[export(interface)]` (default at emit).
     /// `Some(name)` for `#[export(interface = "name")]`.
-    interface: Option<Option<String>>,
+    interface: Option<String>,
 }
 
 impl Parse for ExportAttributeArgs {
@@ -118,12 +119,10 @@ impl Parse for ExportAttributeArgs {
             input.parse::<Token![=]>()?;
             let lit: syn::LitStr = input.parse()?;
             Ok(Self {
-                interface: Some(Some(lit.value())),
+                interface: Some(lit.value()),
             })
         } else {
-            Ok(Self {
-                interface: Some(None),
-            })
+            Ok(Self { interface: None })
         }
     }
 }

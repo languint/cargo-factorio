@@ -140,7 +140,7 @@ fn finalize_own_mod_binding(
 
     Ok(Some(fragment_from_parts(
         module_path,
-        item_segments,
+        &item_segments,
         binding.rename,
         module_prefix,
         None,
@@ -201,7 +201,7 @@ fn finalize_foreign_binding(
 
     Ok(Some(fragment_from_parts(
         module_path,
-        item_segments,
+        &item_segments,
         binding.rename,
         module_prefix,
         Some(factorio_binding.mod_name.clone()),
@@ -211,7 +211,7 @@ fn finalize_foreign_binding(
 
 fn fragment_from_parts(
     module_path: String,
-    item_segments: Vec<String>,
+    item_segments: &[String],
     rename: Option<String>,
     module_prefix: &str,
     factorio_mod: Option<String>,
@@ -221,8 +221,7 @@ fn fragment_from_parts(
         let default_local = module_path
             .rsplit('.')
             .next()
-            .map(str::to_string)
-            .unwrap_or_else(|| require_local_name(&module_path));
+            .map_or_else(|| require_local_name(&module_path), str::to_string);
         let prefixed_local = apply_prefix(&default_local, module_prefix);
         return Ok(ImportFragment {
             module: module_path,

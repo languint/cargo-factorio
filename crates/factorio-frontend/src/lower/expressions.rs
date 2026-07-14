@@ -12,6 +12,10 @@ use super::serde_json::{
     classify_serde_json_fn, lower_serde_json_fn, unsupported_serde_json_fn_error,
 };
 
+/// Option/Result methods that share names; need a typed local to pick the right lower.
+const OVERLAPPING_OPTION_RESULT_METHODS: &[&str] =
+    &["map", "and_then", "unwrap_or", "unwrap_or_else", "or_else"];
+
 #[allow(clippy::missing_const_for_fn)]
 fn expr_kind_name(expression: &Expr) -> &'static str {
     match expression {
@@ -118,12 +122,25 @@ pub fn lower_expression(
     }
 }
 
-/// Lower `expr?` for `Result`: hoist early-return on `.err`, yield `.ok`.
+/// Lower `expr?`: Result (`.err` early-return) or Option (`nil` early-return).
+///
+/// Typed `Option` bindings use nil early-return. Everything else (including
+/// call results) uses Result semantics. Untyped local bindings get
+/// [`LintId::AmbiguousTry`].
 fn lower_try_expression(
     try_expr: &syn::ExprTry,
     ctx: &mut LowerContext<'_>,
     self_type: Option<&str>,
 ) -> FrontendResult<factorio_ir::expression::Expression> {
+    let option_try = expr_type_key(&try_expr.expr, ctx).is_some_and(|key| key == "Option");
+    if is_untyped_local_path(&try_expr.expr, ctx) {
+        ctx.emit_lint(
+            factorio_ir::lint::LintId::AmbiguousTry,
+            "`?` on an untyped local assumes `Result` (`.err` / `.ok`); annotate as `Result`/`Option` or use `.ok_or(...)?`",
+            location(try_expr),
+        )?;
+    }
+
     let inner = lower_expression(&try_expr.expr, ctx, self_type)?;
     let tmp = ctx.alloc_try_tmp();
     ctx.try_hoists
@@ -133,6 +150,21 @@ fn lower_try_expression(
             source_type: None,
             value: inner,
         });
+
+    if option_try {
+        ctx.try_hoists
+            .push(factorio_ir::statement::Statement::Conditional {
+                condition: eq_nil(factorio_ir::expression::Expression::Identifier(tmp.clone())),
+                then_block: vec![factorio_ir::statement::Statement::Return(Some(
+                    factorio_ir::expression::Expression::Literal(
+                        factorio_ir::literal::Literal::Nil,
+                    ),
+                ))],
+                else_block: vec![],
+            });
+        return Ok(factorio_ir::expression::Expression::Identifier(tmp));
+    }
+
     ctx.try_hoists
         .push(factorio_ir::statement::Statement::Conditional {
             condition: ne_nil(factorio_ir::expression::Expression::FieldAccess {
@@ -150,6 +182,32 @@ fn lower_try_expression(
     })
 }
 
+fn expr_type_key<'a>(expr: &'a Expr, ctx: &'a LowerContext<'_>) -> Option<&'a str> {
+    match expr {
+        Expr::Path(path) if path.path.segments.len() == 1 => {
+            ctx.binding_surface_type(&path.path.segments[0].ident.to_string())
+        }
+        Expr::Paren(paren) => expr_type_key(&paren.expr, ctx),
+        Expr::Reference(reference) => expr_type_key(&reference.expr, ctx),
+        Expr::Try(try_expr) => expr_type_key(&try_expr.expr, ctx),
+        _ => None,
+    }
+}
+
+/// A bare local path with no `Option`/`Result` surface type.
+fn is_untyped_local_path(expr: &Expr, ctx: &LowerContext<'_>) -> bool {
+    match expr {
+        Expr::Path(path) if path.path.segments.len() == 1 => {
+            let name = path.path.segments[0].ident.to_string();
+            ctx.binding_surface_type(&name).is_none()
+        }
+        Expr::Paren(paren) => is_untyped_local_path(&paren.expr, ctx),
+        Expr::Reference(reference) => is_untyped_local_path(&reference.expr, ctx),
+        _ => false,
+    }
+}
+
+#[allow(clippy::too_many_lines)]
 fn lower_call_expression(
     call: &syn::ExprCall,
     ctx: &mut LowerContext<'_>,
@@ -236,6 +294,9 @@ fn lower_call_expression(
             ),
             location(call),
         )?;
+        return Ok(factorio_ir::expression::Expression::Literal(
+            factorio_ir::literal::Literal::Nil,
+        ));
     }
 
     if let Expr::Path(path) = call.func.as_ref() {
@@ -477,6 +538,18 @@ fn lower_method_call(
         return Ok(expr);
     }
 
+    if OVERLAPPING_OPTION_RESULT_METHODS.contains(&method.as_str())
+        && is_untyped_local_path(&call.receiver, ctx)
+    {
+        ctx.emit_lint(
+            factorio_ir::lint::LintId::AmbiguousMethod,
+            format!(
+                "`.{method}()` on an untyped local could be Option or Result; annotate the binding"
+            ),
+            location(call),
+        )?;
+    }
+
     if let Some(expr) = lower_option_method(call, ctx, self_type)? {
         return Ok(expr);
     }
@@ -495,14 +568,7 @@ fn lower_method_call(
 }
 
 fn receiver_is_result(receiver: &Expr, ctx: &LowerContext<'_>) -> bool {
-    match receiver {
-        Expr::Path(path) if path.path.segments.len() == 1 => ctx
-            .binding_type(&path.path.segments[0].ident.to_string())
-            .is_some_and(|key| key == "Result"),
-        Expr::Paren(paren) => receiver_is_result(&paren.expr, ctx),
-        Expr::Reference(reference) => receiver_is_result(&reference.expr, ctx),
-        _ => false,
-    }
+    expr_type_key(receiver, ctx).is_some_and(|key| key == "Result")
 }
 
 fn result_ok_field(
@@ -553,7 +619,7 @@ fn result_err_wrap(
     }
 }
 
-fn receiver_is_trivial(expr: &factorio_ir::expression::Expression) -> bool {
+const fn receiver_is_trivial(expr: &factorio_ir::expression::Expression) -> bool {
     matches!(
         expr,
         factorio_ir::expression::Expression::Identifier(_)
@@ -712,6 +778,7 @@ fn lower_result_method(
 }
 
 /// Nil-aware Option helpers. Returns `Ok(None)` when the method is not an Option special.
+#[allow(clippy::too_many_lines)]
 fn lower_option_method(
     call: &syn::ExprMethodCall,
     ctx: &mut LowerContext<'_>,
@@ -870,6 +937,13 @@ fn lower_if_expr(
     ctx: &mut LowerContext<'_>,
     self_type: Option<&str>,
 ) -> FrontendResult<factorio_ir::expression::Expression> {
+    if expr_type_key(&if_expr.cond, ctx) == Some("Option") {
+        ctx.emit_lint(
+            factorio_ir::lint::LintId::OptionIf,
+            "`if option { ... }` uses Lua truthiness (`Some(false)` / `Some(0)` are skipped); use `if let Some(...)` or `.is_some()`",
+            location(&if_expr.cond),
+        )?;
+    }
     let condition = lower_expression(&if_expr.cond, ctx, self_type)?;
     let else_branch =
         if_expr

@@ -7,7 +7,10 @@ use super::{
     expressions::{lower_assignment_target, lower_expression},
     functions::lower_function,
     print::infer_debug_type_key,
-    types::{infer_type_from_expression, inferred_source_type, lower_binding, rust_type_key},
+    types::{
+        infer_type_from_expression, inferred_source_type, is_option_type, lower_binding,
+        rust_type_key,
+    },
     util::{item_name, location},
 };
 
@@ -100,6 +103,9 @@ fn lower_statement(
             if let syn::Pat::Type(pat_type) = &local.pat {
                 if let Some(key) = rust_type_key(&pat_type.ty) {
                     ctx.bind_type(name.clone(), key);
+                }
+                if is_option_type(&pat_type.ty) {
+                    ctx.bind_option(name.clone());
                 }
             } else if let Some(key) = infer_debug_type_key(&value, ctx) {
                 ctx.bind_type(name.clone(), key);
@@ -390,6 +396,13 @@ fn lower_if_expression(
     }
 
     // Plain `if cond` (no `let` bindings in the condition).
+    if cond_is_option_binding(if_expression.cond.as_ref(), ctx) {
+        ctx.emit_lint(
+            factorio_ir::lint::LintId::OptionIf,
+            "`if option { ... }` uses Lua truthiness (`Some(false)` / `Some(0)` are skipped); use `if let Some(...)` or `.is_some()`",
+            location(&if_expression.cond),
+        )?;
+    }
     let (mut stmts, condition) = lower_expr(&if_expression.cond, ctx, self_type)?;
     stmts.push(factorio_ir::statement::Statement::Conditional {
         condition,
@@ -397,6 +410,17 @@ fn lower_if_expression(
         else_block,
     });
     Ok(stmts)
+}
+
+fn cond_is_option_binding(cond: &Expr, ctx: &LowerContext<'_>) -> bool {
+    match cond {
+        Expr::Path(path) if path.path.segments.len() == 1 => ctx
+            .binding_surface_type(&path.path.segments[0].ident.to_string())
+            .is_some_and(|key| key == "Option"),
+        Expr::Paren(paren) => cond_is_option_binding(&paren.expr, ctx),
+        Expr::Reference(reference) => cond_is_option_binding(&reference.expr, ctx),
+        _ => false,
+    }
 }
 
 enum CondClause<'a> {

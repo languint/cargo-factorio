@@ -47,21 +47,21 @@ factorio_rs::control_mod! {
     }
 
     pub fn greet(command: CustomCommandData) {
-        if let Some(player_index) = command.player_index {
-            if let Some(player) = game.get_player(player_index.into()) {
-                if let Some(parameter) = command.parameter {
-                    if parameter == "1" {
-                        player.print([GREETINGS[0], player.name()], None);
-                    } else if parameter == "2" {
-                        player.print([GREETINGS[1], player.name()], None);
-                    } else if parameter == "3" {
-                        player.print([GREETINGS[2], player.name()], None);
-                    } else {
-                        player.print(["greetings.usage"], None);
-                    }
+        if let Some(player_index) = command.player_index
+            && let Some(player) = game.get_player(player_index.into())
+        {
+            if let Some(parameter) = command.parameter {
+                if parameter == "1" {
+                    player.print([GREETINGS[0], player.name()], None);
+                } else if parameter == "2" {
+                    player.print([GREETINGS[1], player.name()], None);
+                } else if parameter == "3" {
+                    player.print([GREETINGS[2], player.name()], None);
                 } else {
                     player.print(["greetings.usage"], None);
                 }
+            } else {
+                player.print(["greetings.usage"], None);
             }
         }
     }

@@ -45,7 +45,7 @@ pub fn add(consumer_root: &Path, lib_path: &Path) -> CliResult<AddResult> {
 
     let cargo_dep_added = ensure_cargo_dependency(consumer_root, &package_name, &lib_rel)?;
     let factorio_deps_added =
-        ensure_factorio_dependencies(consumer_root, &[manifest.dependency.clone()])?;
+        ensure_factorio_dependencies(consumer_root, std::slice::from_ref(&manifest.dependency))?;
 
     Ok(AddResult {
         crate_name: package_name,

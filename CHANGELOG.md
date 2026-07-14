@@ -11,19 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Factorio mod dependencies: `[mod].dependencies` in `Factorio.toml`, merged with
   deps from Cargo crates that publish `[package.metadata.factorio]`.
-- Publishable Rust binding crates: typed stubs map `use other_crate::...` to
-  foreign `__mod__/...` requires for type-safe cross-mod APIs.
 - `#[factorio_rs::export]`: control-stage functions register Factorio
   `remote.add_interface`; shared exports stay requireable and prune-rooted.
   Applied to a `mod`, exports every `pub fn` inside. Supports bare
   `interface` and `interface = "name"`.
 - Provider builds publish exports onto the library crate itself
-  (`[package.metadata.factorio]` + `src/factorio_exports.rs`). Consumers depend
-  with Cargo (`cargo add --path` / `factorio-rs add`); call `provider::fn` with
-  normal path/crates.io deps (no separate stub crate).
+  (`[package.metadata.factorio]` + `src/factorio_exports.rs`, and auto-wire
+  `mod factorio_exports` in `lib.rs`). Consumers depend with Cargo
+  (`cargo add --path` / `factorio-rs add`); call `provider::fn` with normal
+  path/crates.io deps (no separate stub crate). Prefer richer
+  `.factorio-rs/exports.json` when loading export catalogs.
 - Real typechecking: `factorio-rs check` and `build`/`package`/`install` run
   `cargo check` against Factorio API stubs (methods, arity, types) before
   lowering. `--skip-typecheck` escapes that step.
+- Safety lints: `option_if` (E0006), `ambiguous_try` (E0007),
+  `ambiguous_method` (E0008), `skipped_mod` (E0009). Typed `Option` `?`
+  lowers as nil early-return; expression-closure `?` hoists stay in the
+  closure. Identification constructors no longer emit bogus Lua calls.
+- CI: workspace tests + `factorio-rs check`/`build` on example mods.
 
 ## [0.1.3] - 2026-07-13
 

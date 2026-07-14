@@ -135,8 +135,19 @@ ambiguous with Ok under the `.err == nil` test.
 
 ### `?` (try operator)
 
-`expr?` is for **Result**. It hoists an early return before the statement that
-uses the value:
+On a typed **`Option`** binding, `opt?` early-returns `nil` and yields the value.
+On **`Result`** (typed bindings or call results), `expr?` early-returns the Err
+table and yields `.ok`. Untyped locals assume Result and fire lint
+`ambiguous_try` (`E0007`). Prefer `.ok_or(...)?` when bridging Option → Result.
+
+```rust
+fn take(opt: Option<i32>) -> Option<i32> {
+    let n = opt?; // nil early-return
+    Some(n + 1)
+}
+```
+
+Result example:
 
 ```rust
 fn try_place_entity(params: LuaSurfaceCreateEntityParams) -> Result<(), String> {

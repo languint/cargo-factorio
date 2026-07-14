@@ -48,10 +48,6 @@ pub struct CheckArgs {
     #[arg(long, value_name = "PATH")]
     pub manifest_path: Option<PathBuf>,
 
-    /// Transpile profile from `Factorio.toml` (affects lint resolution path only).
-    #[arg(long, value_name = "NAME", default_value = "debug")]
-    pub profile: String,
-
     /// Skip `cargo check` and only validate lowering / lints.
     #[arg(long)]
     pub skip_typecheck: bool,

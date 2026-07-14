@@ -58,6 +58,7 @@ fn generates_while_continue_and_break() {
                 debug: None,
                 event: None,
                 event_filter: None,
+                export: None,
             }),
         }],
     };

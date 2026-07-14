@@ -30,7 +30,7 @@ pub struct RemoteExport {
     pub params: Vec<(String, Option<String>)>,
 }
 
-/// A shared-stage (or other requireable) export for the generated API stub crate.
+/// A shared-stage (or other requireable) export for dependents / catalogs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SharedExport {
     pub module: String,
@@ -38,7 +38,7 @@ pub struct SharedExport {
     pub params: Vec<(String, Option<String>)>,
 }
 
-/// A public shared-stage const included in the generated API stub crate.
+/// A public shared-stage const included in the export catalog.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SharedConst {
     pub module: String,
@@ -103,7 +103,7 @@ pub fn collect_remote_exports(module: &Module, default_interface: &str) -> Vec<R
         .collect()
 }
 
-/// Collect shared-stage exports for require-based API stubs.
+/// Collect shared-stage exports for require-based cross-mod APIs.
 pub fn collect_shared_exports(module: &Module) -> Vec<SharedExport> {
     if module.stage != Stage::Shared {
         return Vec::new();
@@ -116,9 +116,7 @@ pub fn collect_shared_exports(module: &Module) -> Vec<SharedExport> {
             let Statement::FunctionDecl(function) = &symbol.statement else {
                 return None;
             };
-            if function.export.is_none() {
-                return None;
-            }
+            function.export.as_ref()?;
             Some(SharedExport {
                 module: module.name.clone(),
                 function: function.name.clone(),
@@ -132,7 +130,7 @@ pub fn collect_shared_exports(module: &Module) -> Vec<SharedExport> {
         .collect()
 }
 
-/// Collect public shared-stage consts for the generated API stub crate.
+/// Collect public shared-stage consts for the export catalog.
 pub fn collect_shared_consts(module: &Module) -> Vec<SharedConst> {
     if module.stage != Stage::Shared {
         return Vec::new();
@@ -418,13 +416,14 @@ pub fn merge_dependencies(
 #[must_use]
 pub fn dependency_mod_name(dep: &str) -> String {
     let trimmed = dep.trim();
-    let without_prefix = if let Some(rest) = trimmed.strip_prefix("(?)") {
-        rest.trim_start()
-    } else if let Some(rest) = trimmed.strip_prefix(['?', '!', '~', '+']) {
-        rest.trim_start()
-    } else {
-        trimmed
-    };
+    let without_prefix = trimmed.strip_prefix("(?)").map_or_else(
+        || {
+            trimmed
+                .strip_prefix(['?', '!', '~', '+'])
+                .map_or(trimmed, str::trim_start)
+        },
+        str::trim_start,
+    );
 
     let token = without_prefix
         .split_whitespace()
@@ -471,6 +470,7 @@ impl Default for StageModules {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn write_mod_manifests(
     output_dir: &Path,
     package: &CargoPackage,

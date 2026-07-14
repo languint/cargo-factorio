@@ -74,7 +74,7 @@ pub enum CliError {
     #[error("failed to serialize info.json")]
     InfoJsonSerialize { source: serde_json::Error },
 
-    #[error("failed to resolve Factorio binding crates: {message}")]
+    #[error("failed to resolve Factorio Cargo metadata: {message}")]
     CargoMetadata { message: String },
 
     #[error("failed to write zip archive `{path}`")]

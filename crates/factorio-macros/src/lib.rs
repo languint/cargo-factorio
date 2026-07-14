@@ -241,11 +241,18 @@ pub fn export(args: TokenStream, input: TokenStream) -> TokenStream {
     input
 }
 
+/// Parsed `#[export(...)]` interface argument (validation-only today).
+#[allow(dead_code)]
+enum ExportInterfaceArg {
+    /// `#[export(interface)]` — remote using the mod-name default.
+    Default,
+    /// `#[export(interface = "name")]`.
+    Named(LitStr),
+}
+
 struct ExportAttributeArgs {
     #[allow(dead_code)]
-    /// `None` = bare `#[export]` or `#[export(interface)]` (use mod-name default).
-    /// `Some` = `#[export(interface = "name")]`.
-    interface: Option<Option<LitStr>>,
+    interface: Option<ExportInterfaceArg>,
 }
 
 impl Parse for ExportAttributeArgs {
@@ -263,12 +270,11 @@ impl Parse for ExportAttributeArgs {
         if input.peek(Token![=]) {
             input.parse::<Token![=]>()?;
             Ok(Self {
-                interface: Some(Some(input.parse()?)),
+                interface: Some(ExportInterfaceArg::Named(input.parse()?)),
             })
         } else {
-            // Bare `interface` - explicit remote using the mod-name default.
             Ok(Self {
-                interface: Some(None),
+                interface: Some(ExportInterfaceArg::Default),
             })
         }
     }

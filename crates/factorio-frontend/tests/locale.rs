@@ -1,4 +1,10 @@
-#![allow(clippy::unwrap_used)]
+#![allow(
+    clippy::expect_used,
+    clippy::literal_string_with_formatting_args,
+    clippy::needless_raw_string_hashes,
+    clippy::panic,
+    clippy::unwrap_used
+)]
 
 use factorio_frontend::parse_module;
 use factorio_ir::locale::{LocaleEntry, LocaleFile};

@@ -19,6 +19,14 @@ pub enum LintId {
     VariableIndex,
     /// Identification enum constructors (e.g. `ForceID::Name(...)`) are not lowered; use `.into()`.
     IdentificationCtor,
+    /// Plain `if option` uses Lua truthiness (`Some(false)` is skipped).
+    OptionIf,
+    /// `?` on a value whose type is unknown; lowering assumes Result (`.err` / `.ok`).
+    AmbiguousTry,
+    /// Overlapping Option/Result method (`.map`, …) without a typed binding.
+    AmbiguousMethod,
+    /// Nested inline `mod` without `#[factorio_rs::export]` is skipped when lowering.
+    SkippedMod,
 }
 
 impl LintId {
@@ -31,6 +39,10 @@ impl LintId {
             Self::FormatSpec => "format_spec",
             Self::VariableIndex => "variable_index",
             Self::IdentificationCtor => "identification_ctor",
+            Self::OptionIf => "option_if",
+            Self::AmbiguousTry => "ambiguous_try",
+            Self::AmbiguousMethod => "ambiguous_method",
+            Self::SkippedMod => "skipped_mod",
         }
     }
 
@@ -43,6 +55,10 @@ impl LintId {
             Self::FormatSpec => "E0003",
             Self::VariableIndex => "E0004",
             Self::IdentificationCtor => "E0005",
+            Self::OptionIf => "E0006",
+            Self::AmbiguousTry => "E0007",
+            Self::AmbiguousMethod => "E0008",
+            Self::SkippedMod => "E0009",
         }
     }
 
@@ -55,9 +71,14 @@ impl LintId {
     pub const fn default_level(self) -> LintLevel {
         match self {
             Self::FormatSpec => LintLevel::Warn,
-            Self::Unwrap | Self::Expect | Self::VariableIndex | Self::IdentificationCtor => {
-                LintLevel::Deny
-            }
+            Self::Unwrap
+            | Self::Expect
+            | Self::VariableIndex
+            | Self::IdentificationCtor
+            | Self::OptionIf
+            | Self::AmbiguousTry
+            | Self::AmbiguousMethod
+            | Self::SkippedMod => LintLevel::Deny,
         }
     }
 
@@ -75,6 +96,18 @@ impl LintId {
             Self::IdentificationCtor => {
                 "pass a payload with `.into()` instead, e.g. `force.into()` or `\"enemy\".into()`"
             }
+            Self::OptionIf => {
+                "use `if let Some(x) = opt` or `opt.is_some()` (Lua truthiness skips `Some(false)`)"
+            }
+            Self::AmbiguousTry => {
+                "annotate as `Result` / `Option`, or convert with `.ok_or(...)?` for Options"
+            }
+            Self::AmbiguousMethod => {
+                "bind with an explicit `Result` / `Option` type so the correct helper is chosen"
+            }
+            Self::SkippedMod => {
+                "add `#[factorio_rs::export]` on the inline mod, or move items to a file module"
+            }
         }
     }
 
@@ -87,6 +120,10 @@ impl LintId {
             Self::FormatSpec,
             Self::VariableIndex,
             Self::IdentificationCtor,
+            Self::OptionIf,
+            Self::AmbiguousTry,
+            Self::AmbiguousMethod,
+            Self::SkippedMod,
         ]
     }
 
@@ -297,5 +334,9 @@ mod tests {
         assert_eq!(LintId::FormatSpec.code(), "E0003");
         assert_eq!(LintId::VariableIndex.code(), "E0004");
         assert_eq!(LintId::IdentificationCtor.code(), "E0005");
+        assert_eq!(LintId::OptionIf.code(), "E0006");
+        assert_eq!(LintId::AmbiguousTry.code(), "E0007");
+        assert_eq!(LintId::AmbiguousMethod.code(), "E0008");
+        assert_eq!(LintId::SkippedMod.code(), "E0009");
     }
 }

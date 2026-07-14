@@ -69,6 +69,10 @@ No Lua is written in that case.
 | `format_spec` | `E0003` | warn | Format specs other than `:?` / `#?` |
 | `variable_index` | `E0004` | deny | Non-literal `expr[index]` |
 | `identification_ctor` | `E0005` | deny | `ForceID::Name(...)`-style constructors |
+| `option_if` | `E0006` | deny | Plain `if option_binding` (Lua truthiness) |
+| `ambiguous_try` | `E0007` | deny | `?` on an untyped local |
+| `ambiguous_method` | `E0008` | deny | `.map` / overlapping helpers on an untyped local |
+| `skipped_mod` | `E0009` | deny | Inline `mod` without `#[factorio_rs::export]` |
 
 ### `unwrap` (`E0001`) / `expect` (`E0002`)
 
@@ -139,6 +143,23 @@ force: Some(source.force().into()),
 ```
 
 See [API types](api-types/) for Identification / `IndexOrName` details.
+
+### `option_if` (`E0006`)
+
+`if opt { ... }` when `opt` is an `Option` binding uses Lua truthiness, so
+`Some(false)` / `Some(0)` skip the branch. Prefer `if let Some(...)` or
+`.is_some()`.
+
+### `ambiguous_try` (`E0007`) / `ambiguous_method` (`E0008`)
+
+`?` and helpers like `.map` / `.and_then` need to know Option vs Result. Typed
+`Option` / `Result` bindings are fine (`Option` `?` early-returns `nil`).
+Untyped locals get these denies - annotate the binding or use `.ok_or(...)?`.
+
+### `skipped_mod` (`E0009`)
+
+An inline `mod { ... }` without `#[factorio_rs::export]` is not lowered (contents
+are dropped). Export the mod or move items into a file module.
 
 ## Configuring defaults
 

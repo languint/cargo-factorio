@@ -69,9 +69,13 @@ impl<'a> ParseOptions<'a> {
         if let Some(bindings) = self.bindings {
             return bindings;
         }
-        static EMPTY: std::sync::OnceLock<crate::BindingRegistry> = std::sync::OnceLock::new();
-        EMPTY.get_or_init(crate::BindingRegistry::new)
+        empty_binding_registry()
     }
+}
+
+fn empty_binding_registry() -> &'static crate::BindingRegistry {
+    static EMPTY: std::sync::OnceLock<crate::BindingRegistry> = std::sync::OnceLock::new();
+    EMPTY.get_or_init(crate::BindingRegistry::new)
 }
 
 /// Parse Rust source into a [`factorio_ir::module::Module`].
@@ -199,6 +203,7 @@ pub fn parse_discovered_module_with_options(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn lower_items(
     items: &[Item],
     module_name: &str,
@@ -224,6 +229,7 @@ fn lower_items(
         remote_locals: std::collections::HashMap::new(),
         remote_fn_locals: std::collections::HashMap::new(),
         binding_types: std::collections::HashMap::new(),
+        option_bindings: std::collections::HashSet::new(),
         lints,
         diagnostics,
         try_hoists: Vec::new(),
@@ -279,6 +285,7 @@ struct ModuleLowerState<'a> {
     default_export: Option<factorio_ir::function::ExportMeta>,
 }
 
+#[allow(clippy::too_many_lines)]
 fn lower_top_level_item(
     item: &Item,
     module_name: &str,
@@ -363,6 +370,14 @@ fn lower_top_level_item(
                 .iter()
                 .find_map(attrs::parse_factorio_export_attribute)
             else {
+                ctx.emit_lint(
+                    factorio_ir::lint::LintId::SkippedMod,
+                    format!(
+                        "inline `mod {}` is skipped when lowering; add `#[factorio_rs::export]` or use a file module",
+                        item_mod.ident
+                    ),
+                    util::location(item_mod),
+                )?;
                 return Ok(());
             };
             let Some((_, items)) = &item_mod.content else {

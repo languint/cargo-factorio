@@ -1,3 +1,10 @@
+#![allow(
+    clippy::expect_used,
+    clippy::literal_string_with_formatting_args,
+    clippy::needless_raw_string_hashes,
+    clippy::panic,
+    clippy::unwrap_used
+)]
 mod common;
 
 use common::must_ok_parse;

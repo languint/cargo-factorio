@@ -10,8 +10,8 @@ use super::{
     metadata::{extract_doc_comments, function_header_comment},
     statements::lower_block,
     types::{
-        lower_binding_pattern, lower_type, receiver_source_string, return_type_string,
-        rust_type_key, type_source_string,
+        is_option_type, lower_binding_pattern, lower_type, receiver_source_string,
+        return_type_string, rust_type_key, type_source_string,
     },
     util::location,
 };
@@ -50,21 +50,36 @@ pub fn lower_closure(
     }
 
     let binding_snapshot = ctx.binding_types.clone();
+    let option_snapshot = ctx.option_bindings.clone();
     let mut params = Vec::new();
     for pat in &closure.inputs {
         params.push(closure_param_name(pat, closure)?);
+    }
+    // Typed closure params: `|x: Result<...>|` / `|x: Option<...>|`
+    for pat in &closure.inputs {
+        if let Pat::Type(PatType { pat, ty, .. }) = pat {
+            let name = closure_param_name(pat, closure)?;
+            if let Some(key) = rust_type_key(ty) {
+                ctx.bind_type(name.clone(), key);
+            }
+            if is_option_type(ty) {
+                ctx.bind_option(name);
+            }
+        }
     }
 
     let body = match closure.body.as_ref() {
         Expr::Block(block) => lower_block(&block.block, ctx, self_type)?,
         expr => {
+            let mark = ctx.try_hoist_mark();
             let value = lower_expression(expr, ctx, self_type)?;
-            factorio_ir::block::Block {
-                statements: vec![factorio_ir::statement::Statement::Return(Some(value))],
-            }
+            let mut statements = ctx.take_try_hoists_from(mark);
+            statements.push(factorio_ir::statement::Statement::Return(Some(value)));
+            factorio_ir::block::Block { statements }
         }
     };
     ctx.binding_types = binding_snapshot;
+    ctx.option_bindings = option_snapshot;
 
     Ok(factorio_ir::expression::Expression::Closure { params, body })
 }
@@ -90,9 +105,11 @@ fn lower_function_parts(
         .iter()
         .find_map(parse_factorio_export_attribute);
     let binding_snapshot = ctx.binding_types.clone();
+    let option_snapshot = ctx.option_bindings.clone();
     let params = lower_parameters(&function.sig, ctx)?;
     let body = lower_block(&function.block, ctx, self_type)?;
     ctx.binding_types = binding_snapshot;
+    ctx.option_bindings = option_snapshot;
     Ok(factorio_ir::function::Function {
         name: function.sig.ident.to_string(),
         params,
@@ -134,6 +151,9 @@ fn lower_parameter(
             let r#type = lower_type(ty)?;
             if let Some(key) = rust_type_key(ty) {
                 ctx.bind_type(name.clone(), key);
+            }
+            if is_option_type(ty) {
+                ctx.bind_option(name.clone());
             }
 
             Ok(factorio_ir::function::Parameter {

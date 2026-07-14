@@ -120,6 +120,20 @@ pub fn rust_type_key(ty: &Type) -> Option<String> {
     }
 }
 
+/// `true` when `ty` is `Option<_>` (references peeled).
+#[must_use]
+pub fn is_option_type(ty: &Type) -> bool {
+    match ty {
+        Type::Reference(reference) => is_option_type(&reference.elem),
+        Type::Path(path) => path
+            .path
+            .segments
+            .last()
+            .is_some_and(|segment| segment.ident == "Option"),
+        _ => false,
+    }
+}
+
 pub fn type_source_string(ty: &Type) -> String {
     match ty {
         Type::Path(path) => path

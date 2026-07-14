@@ -1,4 +1,4 @@
-//! Factorio binding crates: typed stubs that map to foreign mod `require`s.
+//! Factorio library deps: map Rust paths to foreign mod `require`s / remotes.
 
 use std::collections::{BTreeMap, BTreeSet};
 

@@ -50,10 +50,7 @@ fn write_cargo_header(
     code: Option<&str>,
     message: &str,
 ) -> io::Result<()> {
-    let tag = match code {
-        Some(code) => format!("{kind}[{code}]"),
-        None => kind.to_string(),
-    };
+    let tag = code.map_or_else(|| kind.to_string(), |code| format!("{kind}[{code}]"));
     writeln!(
         writer,
         "{}: {}",
@@ -69,7 +66,7 @@ struct SkipFirstLine<W> {
 }
 
 impl<W: Write> SkipFirstLine<W> {
-    fn new(inner: W) -> Self {
+    const fn new(inner: W) -> Self {
         Self {
             inner,
             seen_newline: false,
@@ -88,7 +85,7 @@ impl<W: Write> Write for SkipFirstLine<W> {
         if let Some(idx) = self.pending.iter().position(|&b| b == b'\n') {
             self.seen_newline = true;
             let rest = self.pending.split_off(idx + 1);
-            self.pending.truncate(0);
+            Vec::clear(&mut self.pending);
             if !rest.is_empty() {
                 self.inner.write_all(&rest)?;
             }
@@ -98,12 +95,16 @@ impl<W: Write> Write for SkipFirstLine<W> {
 
     fn flush(&mut self) -> io::Result<()> {
         if !self.seen_newline && !self.pending.is_empty() {
-            self.pending.truncate(0);
+            Vec::clear(&mut self.pending);
         }
         self.inner.flush()
     }
 }
 
+/// Write a transpile lint diagnostic in rustc/Cargo style.
+///
+/// # Errors
+/// Returns when writing to `writer` fails.
 pub fn write_diagnostic(
     mut writer: impl Write,
     filename: &str,
@@ -164,6 +165,10 @@ fn write_cargo_footer(
     }
 }
 
+/// Write a frontend error in rustc/Cargo style.
+///
+/// # Errors
+/// Returns when writing to `writer` fails.
 pub fn write_frontend_error(
     mut writer: impl Write,
     filename: &str,
@@ -201,10 +206,18 @@ pub fn write_frontend_error(
     )
 }
 
+/// Print a transpile lint diagnostic to stderr.
+///
+/// # Errors
+/// Returns when writing to stderr fails.
 pub fn eprint_diagnostic(filename: &str, source: &str, diagnostic: &Diagnostic) -> io::Result<()> {
     write_diagnostic(io::stderr(), filename, source, diagnostic)
 }
 
+/// Print a frontend error to stderr.
+///
+/// # Errors
+/// Returns when writing to stderr fails.
 pub fn eprint_frontend_error(
     filename: &str,
     source: &str,
@@ -276,20 +289,22 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::literal_string_with_formatting_args, clippy::expect_used)]
     fn formats_format_spec_with_carets_on_placeholder() {
-        let source = "fn f(n: f64) {\n    println!(\"at {y:.2}\");\n}\n";
-        let start = source.find("{y:.2}").expect("placeholder");
+        let placeholder = "{".to_owned() + "y:.2}";
+        let source = format!("fn f(n: f64) {{\n    println!(\"at {placeholder}\");\n}}\n");
+        let start = source.find(&placeholder).expect("placeholder");
         let diagnostic = Diagnostic::new(
             LintId::FormatSpec,
             LintLevel::Deny,
             "format spec `:.2` is ignored when lowering (only `:?` / `:#?` are supported)",
-            SourceLoc::new(SourceSpan::new(start, start + "{y:.2}".len())),
+            SourceLoc::new(SourceSpan::new(start, start + placeholder.len())),
         );
         let mut buf = Vec::new();
-        write_diagnostic(&mut buf, "control.rs", source, &diagnostic).expect("write");
+        write_diagnostic(&mut buf, "control.rs", &source, &diagnostic).expect("write");
         let plain = strip_ansi(&String::from_utf8(buf).expect("utf8"));
         assert!(
-            plain.contains("{y:.2}"),
+            plain.contains(&placeholder),
             "missing placeholder snippet:\n{plain}"
         );
 
@@ -299,7 +314,7 @@ mod tests {
             .expect("caret underline line");
         let mark_len = underline.chars().filter(|c| matches!(c, '^' | '|')).count();
         assert!(
-            mark_len >= "{y:.2}".len(),
+            mark_len >= placeholder.len(),
             "underline should cover the placeholder, got:\n{plain}"
         );
     }

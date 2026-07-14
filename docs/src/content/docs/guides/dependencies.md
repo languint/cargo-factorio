@@ -10,11 +10,11 @@ crate: `provider::greet("hi")`.
 ```bash
 # In the library mod
 factorio-rs build
-# writes [package.metadata.factorio] + src/factorio_exports.rs
+# writes [package.metadata.factorio] + src/factorio_exports.rs (+ lib.rs wiring)
 
-# In the dependent mod - either:
+# In the dependent mod (preferred: also merges Factorio.toml deps):
 factorio-rs add ../provider
-# or:
+# or Cargo-only (you must add the Factorio dep yourself):
 cargo add --path ../provider
 
 factorio-rs build
@@ -27,8 +27,7 @@ Working tree: [provider / consumer example](../examples/dependencies/).
 Only items marked with `#[factorio_rs::export]` are visible to other mods. Plain
 `pub` stays private to your transpile (not a Cargo API by itself).
 
-Use **`pub mod`** for stage modules you want dependents to see, and keep control
-exports re-exported at the crate root (done automatically on build):
+Use **`pub mod`** for stage modules you want dependents to see:
 
 ```rust
 pub mod shared;
@@ -40,9 +39,6 @@ pub mod control {
         println!("hello, {name}");
     }
 }
-
-mod factorio_exports; // generated
-pub use factorio_exports::*;
 ```
 
 You can also put `#[factorio_rs::export]` on a whole `mod` to export every `pub fn`
@@ -54,7 +50,8 @@ After `factorio-rs build`, factorio-rs:
 - Keeps shared exports loadable via Lua `require`
 - Writes `[package.metadata.factorio]` on **your** `Cargo.toml` (so Cargo dependents
   are discovered)
-- Regenerates `src/factorio_exports.rs` (`pub use` of control remotes at crate root)
+- Regenerates `src/factorio_exports.rs` and wires
+  `mod factorio_exports; pub use factorio_exports::*;` into `lib.rs` when missing
 
 ### Control vs shared
 
@@ -128,5 +125,5 @@ libraries.
 | Problem | Fix |
 | --- | --- |
 | `library exports missing` / no metadata | Run `factorio-rs build` in the library first |
-| `provider::greet` not found | Ensure `pub mod control`, rebuild library (regenerates `factorio_exports.rs`), and `mod factorio_exports; pub use factorio_exports::*;` in `lib.rs` |
+| `provider::greet` not found | Ensure `pub mod control`, rebuild the library (regenerates/wires `factorio_exports`) |
 | Call doesn’t update after changing exports | Rebuild the library, then rebuild the dependent |

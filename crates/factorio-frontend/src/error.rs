@@ -75,7 +75,7 @@ impl From<syn::Error> for FrontendError {
 impl FrontendError {
     /// Primary source location when this error points into a file.
     #[must_use]
-    pub fn location(&self) -> Option<&SourceLoc> {
+    pub const fn location(&self) -> Option<&SourceLoc> {
         match self {
             Self::UnsupportedItem { location, .. }
             | Self::UnsupportedStatement { location }
