@@ -28,6 +28,28 @@ fn default_output_dir() -> String {
     "dist".to_string()
 }
 
+/// A project path to copy into the mod output (`dist/`).
+///
+/// Bare strings keep the same relative path in the mod. Tables remap
+/// `from` -> `to` (e.g. `assets/graphics` -> `graphics`).
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(untagged)]
+pub enum AssetEntry {
+    Path(String),
+    Map { from: String, to: String },
+}
+
+impl AssetEntry {
+    /// Source path and destination path relative to project root / mod output.
+    #[must_use]
+    pub fn paths(&self) -> (&str, &str) {
+        match self {
+            Self::Path(path) => (path, path),
+            Self::Map { from, to } => (from, to),
+        }
+    }
+}
+
 /// Metadata written to generated `info.json`.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct ModConfig {
@@ -35,6 +57,9 @@ pub struct ModConfig {
     pub description: Option<String>,
     pub factorio_version: Option<String>,
     pub thumbnail: Option<String>,
+    /// Project files/directories copied into the mod output (graphics, sounds, ...).
+    #[serde(default)]
+    pub assets: Vec<AssetEntry>,
     /// Extra Factorio dependency strings for `info.json` (`? mod`, `! conflict`, ...).
     /// Merged with deps from Cargo crates that publish `[package.metadata.factorio]`.
     #[serde(default)]
@@ -62,6 +87,7 @@ impl Default for ModConfig {
             description: None,
             factorio_version: Some("2.0".to_string()),
             thumbnail: None,
+            assets: Vec::new(),
             dependencies: Vec::new(),
             emit_api: false,
             api_dir: default_api_dir(),

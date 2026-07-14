@@ -165,6 +165,7 @@ pub fn build(project_root: &Path, options: &BuildOptions) -> CliResult<Vec<PathB
     if let Some(thumbnail) = assets::copy_thumbnail(project_root, &output_dir, &config)? {
         outputs.push(thumbnail);
     }
+    outputs.extend(assets::copy_assets(project_root, &output_dir, &config)?);
 
     Ok(outputs)
 }

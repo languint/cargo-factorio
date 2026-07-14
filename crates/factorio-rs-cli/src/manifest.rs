@@ -938,6 +938,7 @@ mod tests {
             description: None,
             factorio_version: Some("2.0".to_string()),
             thumbnail: None,
+            assets: Vec::new(),
             dependencies: vec!["! conflict-mod".to_string()],
             emit_api: false,
             api_dir: "api".to_string(),

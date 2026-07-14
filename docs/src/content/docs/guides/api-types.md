@@ -113,7 +113,7 @@ Schema `global_objects` become prelude statics: `game`, `script`, `commands`,
 Factorio also documents auxiliaries that are not in `global_objects`. The stubs
 include:
 
-- `storage` (`LuaStorage`) - persistent mod-local table
+- `storage` (`LuaStorage`) - persistent mod-local table (survives events + save/load)
 - `serpent` - table pretty-printer (`block` / `line` / `dump`)
 - `math` / `string` / `table` - standard Lua libraries
 
@@ -121,6 +121,10 @@ include:
 let x = math.floor(position.x);
 let label = string.format_1("tick %d", game.tick().into());
 table.insert(list, value);
+
+// Persist mod state (not Rust `static` / `LazyLock` — those are unsupported)
+storage.set("counter", 0_u32);
+let counter = storage["counter"];
 ```
 
 Overloads that need distinct Rust names (`random_int`, `format_2`, `insert_at`,

@@ -38,6 +38,9 @@ pub enum CliError {
     #[error("could not find `{path}`")]
     NotFound { path: PathBuf },
 
+    #[error("invalid asset path: {message}")]
+    InvalidAsset { message: String },
+
     #[error(
         "library exports missing at `{path}`; run `factorio-rs build` in the library project first \
          (writes `[package.metadata.factorio]` and `src/factorio_exports.rs`)"

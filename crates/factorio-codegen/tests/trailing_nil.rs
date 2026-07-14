@@ -73,6 +73,20 @@ fn keeps_non_trailing_nil_args() {
 }
 
 #[test]
+fn storage_set_lowers_to_index_assignment() {
+    let expr = Expression::MethodCall {
+        receiver: Box::new(Expression::Identifier("storage".to_string())),
+        method: "set".to_string(),
+        args: vec![
+            Expression::Literal(Literal::String("counter".to_string())),
+            Expression::Literal(Literal::Int(1)),
+        ],
+    };
+    let lua = LuaGenerator::new().generate_expression(&expr);
+    assert_eq!(lua, "storage[\"counter\"] = 1");
+}
+
+#[test]
 fn generates_safe_if_expression() {
     let expr = Expression::If {
         condition: Box::new(Expression::Identifier("cond".to_string())),

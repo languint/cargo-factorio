@@ -22,6 +22,7 @@ Written into `info.json` (and related packaging):
 | `description` | Optional description |
 | `factorio_version` | Factorio version string (default `"2.0"`); also used for a default `base` dependency |
 | `thumbnail` | Optional path to an image copied to `thumbnail.png` in the mod output |
+| `assets` | Files/directories copied into the mod output (graphics, sounds, ...). See [Assets](#assets). |
 | `dependencies` | Extra Factorio dependency strings (`"? space-age"`, `"! conflict"`, ...). Merged with deps from Cargo crates that publish `[package.metadata.factorio]`; this list wins on duplicate mod names. See [Sharing code between mods](../guides/dependencies/). |
 | `emit_api` | **Deprecated / ignored.** Exports are written to `.factorio-rs/exports.json`. |
 | `api_dir` | **Deprecated / ignored.** Exports are published onto the library’s own Cargo package. |
@@ -40,6 +41,36 @@ thumbnail = "assets/thumbnail.png"
 ```
 
 If `thumbnail` is set and the file is missing, the build fails.
+
+### Assets
+
+Extra mod files (sprites, sounds, icons, ...) are copied from the project into
+`output_dir` on each build. List paths under `[mod].assets`:
+
+```toml
+[mod]
+# Keep the same relative path in the mod (dist/graphics/...)
+assets = ["graphics", "sounds"]
+
+# Or remap when sources live under assets/
+assets = [
+  { from = "assets/graphics", to = "graphics" },
+  { from = "assets/sounds", to = "sounds" },
+  { from = "assets/extra.png", to = "graphics/extra.png" },
+]
+```
+
+Rules:
+
+- Paths are relative to the project root; every listed source must exist.
+- Directories are copied recursively; files copy to the destination path.
+- Destinations must stay inside the mod output (no `..` or absolute paths).
+- Destinations must not collide with generated layout: `info.json`, stage entry
+  Lua (`control.lua`, `data*.lua`, `settings*.lua`), `lua/`, `locale/`, or
+  `thumbnail.png` (use `[mod].thumbnail` for the portal thumbnail).
+
+Reference packaged files in data-stage code with Factorio paths such as
+`"__my_mod__/graphics/icon.png"` (replace `my_mod` with your Cargo package name).
 
 ## `[emit]`
 
@@ -97,6 +128,9 @@ title = "My Mod"
 description = "Does things"
 factorio_version = "2.0"
 thumbnail = "thumbnail.png"
+assets = [
+  { from = "assets/graphics", to = "graphics" },
+]
 dependencies = ["? space-age"]
 
 [emit]

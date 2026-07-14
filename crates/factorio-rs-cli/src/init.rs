@@ -5,7 +5,7 @@ use crate::{
     error::{CliError, CliResult},
 };
 
-const FACTORIO_SDK_VERSION: &str = "0.1.3";
+const FACTORIO_SDK_VERSION: &str = "0.1.4";
 
 const LIB_RS: &str = r#"factorio_rs::control_mod! {
     #[factorio_rs::event(OnSingleplayerInit)]
@@ -88,7 +88,7 @@ fn cargo_toml_template(package_name: &str) -> String {
     format!(
         r#"[package]
 name = "{package_name}"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 publish = false
 
@@ -164,6 +164,6 @@ mod tests {
     fn cargo_toml_includes_factorio_dependency() {
         let manifest = cargo_toml_template("my-mod");
         assert!(manifest.contains("name = \"my-mod\""));
-        assert!(manifest.contains("factorio-rs = \"0.1.3\""));
+        assert!(manifest.contains("factorio-rs = \"0.1.4\""));
     }
 }

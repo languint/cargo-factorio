@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-07-14
+
 ### Added
 
 - Factorio mod dependencies: `[mod].dependencies` in `Factorio.toml`, merged with
@@ -28,7 +30,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ambiguous_method` (E0008), `skipped_mod` (E0009). Typed `Option` `?`
   lowers as nil early-return; expression-closure `?` hoists stay in the
   closure. Identification constructors no longer emit bogus Lua calls.
+- Mod assets: `[mod].assets` copies graphics, sounds, and other files into the
+  mod output (path-preserving or `{ from, to }` remaps). Thumbnail packaging
+  unchanged.
+- Persistent `storage.set(key, value)` lowering to `storage[key] = value` for
+  mod-local state across events and save/load.
 - CI: workspace tests + `factorio-rs check`/`build` on example mods.
+
+### Fixed
+
+- String (and other non-integer) literal indexes no longer trigger the
+  `variable_index` (E0004) lint, so dictionary keys like `storage["counter"]`
+  typecheck cleanly.
 
 ## [0.1.3] - 2026-07-13
 
@@ -76,7 +89,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `mod_settings!`, `locale!`, events and filters, build profiles, dead-code prune.
 - `format!` / `println!`, thumbnails, documentation site.
 
-[Unreleased]: https://github.com/languint/factorio-rs/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/languint/factorio-rs/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/languint/factorio-rs/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/languint/factorio-rs/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/languint/factorio-rs/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/languint/factorio-rs/releases/tag/v0.1.1

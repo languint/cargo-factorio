@@ -88,9 +88,16 @@ pub fn lower_expression(
         Expr::Index(index) => {
             let base = lower_expression(&index.expr, ctx, self_type)?;
             let key = lower_expression(&index.index, ctx, self_type)?;
+            // Int literals are shifted (`0` -> `1`). String (and other) literals are
+            // unshifted dictionary keys. Only non-literal indexes need the lint.
             if !matches!(
                 key,
-                factorio_ir::expression::Expression::Literal(factorio_ir::literal::Literal::Int(_))
+                factorio_ir::expression::Expression::Literal(
+                    factorio_ir::literal::Literal::Int(_)
+                        | factorio_ir::literal::Literal::String(_)
+                        | factorio_ir::literal::Literal::Float(_)
+                        | factorio_ir::literal::Literal::Bool(_)
+                )
             ) {
                 ctx.emit_lint(
                     factorio_ir::lint::LintId::VariableIndex,
@@ -1016,6 +1023,29 @@ pub fn lower_assignment_target(
     match expression {
         Expr::Path(path) => lower_path_expression(path, ctx, self_type),
         Expr::Field(field) => lower_field_expression(field, ctx, self_type),
+        Expr::Index(index) => {
+            let base = lower_expression(&index.expr, ctx, self_type)?;
+            let key = lower_expression(&index.index, ctx, self_type)?;
+            if !matches!(
+                key,
+                factorio_ir::expression::Expression::Literal(
+                    factorio_ir::literal::Literal::Int(_)
+                        | factorio_ir::literal::Literal::String(_)
+                        | factorio_ir::literal::Literal::Float(_)
+                        | factorio_ir::literal::Literal::Bool(_)
+                )
+            ) {
+                ctx.emit_lint(
+                    factorio_ir::lint::LintId::VariableIndex,
+                    "non-literal index is not shifted for Lua's 1-based tables (literals are `n -> n+1`; variables are passed through)",
+                    location(index),
+                )?;
+            }
+            Ok(factorio_ir::expression::Expression::Index {
+                base: Box::new(base),
+                key: Box::new(key),
+            })
+        }
         _ => Err(FrontendError::ExpectedIdentifierAssignmentTarget {
             location: location(expression),
         }),

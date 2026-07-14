@@ -29,6 +29,15 @@ impl LuaStorage {
     pub const fn new() -> Self {
         Self
     }
+
+    /// Persist a value in Factorio's mod-local `storage` table.
+    ///
+    /// Lowers to `storage[key] = value`. Prefer this over Rust `static` /
+    /// `LazyLock` (unsupported) for state that must survive events and save/load.
+    ///
+    /// Read values back with indexing: `storage["key"]`.
+    #[allow(unused_variables)]
+    pub fn set<V>(&self, key: &str, value: V) {}
 }
 
 impl From<LuaStorage> for LuaAny {

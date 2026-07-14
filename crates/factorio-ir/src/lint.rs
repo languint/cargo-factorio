@@ -23,7 +23,7 @@ pub enum LintId {
     OptionIf,
     /// `?` on a value whose type is unknown; lowering assumes Result (`.err` / `.ok`).
     AmbiguousTry,
-    /// Overlapping Option/Result method (`.map`, …) without a typed binding.
+    /// Overlapping Option/Result method (`.map`, ...) without a typed binding.
     AmbiguousMethod,
     /// Nested inline `mod` without `#[factorio_rs::export]` is skipped when lowering.
     SkippedMod,

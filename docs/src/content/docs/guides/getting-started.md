@@ -90,6 +90,8 @@ folder inside.
 
 Place an optional `thumbnail.png` in the project root (or set
 `[mod].thumbnail`) so it is copied into the mod for the Factorio mod portal.
+List graphics, sounds, and other files under `[mod].assets` so they are packaged
+into the mod output (see [Factorio.toml](../../reference/factorio-toml/#assets)).
 
 ## Next steps
 

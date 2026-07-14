@@ -177,6 +177,14 @@ impl LuaGenerator {
             return format!("{receiver}[{key}].value");
         }
 
+        // `storage.set(key, value)` -> `storage[key] = value` (Factorio persistent table).
+        if method == "set" && args.len() == 2 && is_storage_receiver(receiver) {
+            let receiver = self.generate_expression(receiver);
+            let key = self.generate_expression(&args[0]);
+            let value = self.generate_expression(&args[1]);
+            return format!("{receiver}[{key}] = {value}");
+        }
+
         if method == "len" && args.is_empty() {
             let receiver = self.generate_expression(receiver);
             return format!("#{receiver}");
@@ -333,6 +341,16 @@ impl LuaGenerator {
             temp.output.pop();
         }
         temp.output
+    }
+}
+
+fn is_storage_receiver(receiver: &Expression) -> bool {
+    match receiver {
+        Expression::Identifier(name) => name == "storage",
+        Expression::QualifiedPath { segments } => {
+            segments.last().is_some_and(|name| name == "storage")
+        }
+        _ => false,
     }
 }
 

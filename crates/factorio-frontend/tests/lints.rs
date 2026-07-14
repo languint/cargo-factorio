@@ -148,6 +148,30 @@ pub fn f(items: LuaAny, i: usize) -> LuaAny {
 }
 
 #[test]
+fn string_literal_index_does_not_lint_variable_index() {
+    let source = r#"
+pub fn f(items: LuaAny) -> LuaAny {
+    items["counter"]
+}
+"#;
+    let lints = LintConfig::default();
+    let mut diagnostics = Vec::new();
+    parse_module_with_options(
+        source,
+        "control",
+        &ParseOptions::new(&lints),
+        &mut diagnostics,
+    )
+    .expect("string keys should lower");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|d| d.id != LintId::VariableIndex),
+        "string literal indexes should not emit variable_index, got {diagnostics:?}"
+    );
+}
+
+#[test]
 fn deny_identification_ctor_collects_diagnostic() {
     let source = r#"
 pub fn f() {
