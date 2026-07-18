@@ -1,6 +1,6 @@
 [package]
 name = "provider"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 publish = false
 description = "Auto-generated factorio-rs API stubs for `provider`"
@@ -10,7 +10,7 @@ path = "src/lib.rs"
 
 [package.metadata.factorio]
 mod_name = "provider"
-dependencies = ["provider >= 0.1.4"]
+dependencies = ["provider >= 0.1.5"]
 module_root = "lua"
 interface = "provider"
 remote_fns = ["greet"]
