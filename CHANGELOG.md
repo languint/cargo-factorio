@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - README: value prop, Lua vs factorio-rs comparison, pipeline, docs/examples.
+- CLI look and feel: Cargo-style status lines (aligned verbs, color via yansi),
+  quieter build summary (`Finished transpile [profile] → dist/ (N files) in ...`
+  instead of dumping every generated path), cargo-test-shaped reports, and no
+  duplicate `error:` after diagnostics already printed.
 ## [0.1.5] - 2026-07-18
 
 ### Added

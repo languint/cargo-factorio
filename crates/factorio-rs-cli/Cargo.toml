@@ -35,6 +35,7 @@ thiserror.workspace = true
 toml.workspace = true
 toml_edit = "0.25.12"
 walkdir = "2.5.0"
+yansi.workspace = true
 zip = { version = "2.2.2", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]

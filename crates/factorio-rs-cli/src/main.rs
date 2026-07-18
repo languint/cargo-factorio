@@ -13,17 +13,31 @@ mod manifest;
 mod open;
 mod paths;
 mod progress;
+mod status;
+
+use std::process::ExitCode;
+use std::time::Instant;
 
 use cli::{
     AddArgs, BuildArgs, CheckArgs, Cli, Command, InitArgs, InstallArgs, PackageArgs, TestArgs,
 };
 use commands::build::BuildOptions;
 use commands::test::TestOptions;
-use error::project_root;
+use error::{CliError, project_root};
+use status::Status;
 
-fn main() -> anyhow::Result<()> {
-    let cli = Cli::try_parse()?;
+fn main() -> ExitCode {
+    let cli = Cli::parse();
+    match run(cli) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            report_error(&err);
+            ExitCode::FAILURE
+        }
+    }
+}
 
+fn run(cli: Cli) -> Result<(), CliError> {
     match cli.command {
         Command::Init(args) => run_init(&args),
         Command::Check(args) => run_check(&args),
@@ -36,26 +50,50 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-fn run_init(args: &InitArgs) -> anyhow::Result<()> {
+fn report_error(err: &CliError) {
+    // Diagnostics / cargo / the test report already spoke for these.
+    if matches!(
+        err,
+        CliError::Reported | CliError::TypecheckFailed | CliError::TestsFailed
+    ) {
+        return;
+    }
+    status::status_err(Status::Error, err.to_string());
+}
+
+fn run_init(args: &InitArgs) -> Result<(), CliError> {
     let project_root = project_root(args.manifest_path.as_deref())?;
     commands::init::init(&project_root, args.name.as_deref())?;
-    println!(
-        "Initialized factorio-rs project at `{}`",
-        project_root.display()
+    status::status(
+        Status::Created,
+        format!(
+            "factorio-rs project at {}",
+            status::display_path(&project_root)
+        ),
     );
     Ok(())
 }
 
-fn run_check(args: &CheckArgs) -> anyhow::Result<()> {
+fn run_check(args: &CheckArgs) -> Result<(), CliError> {
     let project_root = project_root(args.manifest_path.as_deref())?;
+    let package = cargo_manifest::CargoPackage::load(&project_root).ok();
+    let name = package
+        .as_ref()
+        .map_or_else(|| "project".to_string(), |pkg| pkg.name.clone());
+    status::status(Status::Checking, format!("{name} (transpile)"));
+
+    let started = Instant::now();
     // Profile does not affect check (no emit/prune); keep default for BuildOptions shape.
     let options = BuildOptions::new("debug").with_skip_typecheck(args.skip_typecheck);
     commands::build::check(&project_root, &options)?;
-    println!("Check passed");
+    status::status(
+        Status::Finished,
+        format!("check in {}", status::format_elapsed(started.elapsed())),
+    );
     Ok(())
 }
 
-fn run_build(args: &BuildArgs) -> anyhow::Result<()> {
+fn run_build(args: &BuildArgs) -> Result<(), CliError> {
     let project_root = project_root(args.manifest_path.as_deref())?;
     let options = BuildOptions::new(&args.profile)
         .with_debug_level(args.debug_level)
@@ -64,45 +102,54 @@ fn run_build(args: &BuildArgs) -> anyhow::Result<()> {
 
     if args.package {
         let zip_path = commands::package::create_archive(&project_root)?;
-        println!("Packaged mod archive `{}`", zip_path.display());
+        status::status(
+            Status::Packaged,
+            format!("mod archive {}", status::display_path(&zip_path)),
+        );
     }
 
     Ok(())
 }
 
-fn run_package(args: &PackageArgs) -> anyhow::Result<()> {
+fn run_package(args: &PackageArgs) -> Result<(), CliError> {
     let project_root = project_root(args.manifest_path.as_deref())?;
     let options = BuildOptions::new(&args.profile)
         .with_debug_level(args.debug_level)
         .with_skip_typecheck(args.skip_typecheck);
     let zip_path = commands::package::package(&project_root, &options)?;
-    println!("Packaged mod archive `{}`", zip_path.display());
+    status::status(
+        Status::Packaged,
+        format!("mod archive {}", status::display_path(&zip_path)),
+    );
     Ok(())
 }
 
-fn run_install(args: &InstallArgs) -> anyhow::Result<()> {
+fn run_install(args: &InstallArgs) -> Result<(), CliError> {
     let project_root = project_root(args.manifest_path.as_deref())?;
     let options = BuildOptions::new(&args.profile)
         .with_debug_level(args.debug_level)
         .with_skip_typecheck(args.skip_typecheck);
     let dest = commands::install::install(&project_root, &options)?;
-    println!("Installed mod to `{}`", dest.display());
+    status::status(
+        Status::Installed,
+        format!("mod to {}", status::display_path(&dest)),
+    );
 
     if args.open {
         let target = open::open()?;
-        println!("Opened Factorio (`{}`)", target.display());
+        status::status(Status::Opened, format!("Factorio ({})", target.display()));
     }
 
     Ok(())
 }
 
-fn run_open() -> anyhow::Result<()> {
+fn run_open() -> Result<(), CliError> {
     let target = open::open()?;
-    println!("Opened Factorio (`{}`)", target.display());
+    status::status(Status::Opened, format!("Factorio ({})", target.display()));
     Ok(())
 }
 
-fn run_test(args: &TestArgs) -> anyhow::Result<()> {
+fn run_test(args: &TestArgs) -> Result<(), CliError> {
     let project_root = project_root(args.manifest_path.as_deref())?;
     let options = TestOptions {
         build: BuildOptions::new(&args.profile)
@@ -116,40 +163,58 @@ fn run_test(args: &TestArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_add(args: &AddArgs) -> anyhow::Result<()> {
+fn run_add(args: &AddArgs) -> Result<(), CliError> {
     let consumer_root = project_root(args.manifest_path.as_deref())?;
     let result = commands::add::add(&consumer_root, &args.path)?;
 
     if result.cargo_dep_added {
-        println!(
-            "Added `{}` = {{ path = \"{}\" }} to Cargo.toml",
-            result.crate_name,
-            result.dep_path.display()
+        status::status(
+            Status::Added,
+            format!(
+                "{} = {{ path = \"{}\" }} to Cargo.toml",
+                result.crate_name,
+                status::display_path(&result.dep_path)
+            ),
         );
     } else {
-        println!("`{}` already listed in Cargo.toml", result.crate_name);
+        status::status(
+            Status::Note,
+            format!("{} already listed in Cargo.toml", result.crate_name),
+        );
     }
 
     for dep in &result.factorio_deps_added {
-        println!("Added `{dep}` to Factorio.toml [mod].dependencies");
+        status::status(
+            Status::Added,
+            format!("{dep} to Factorio.toml [mod].dependencies"),
+        );
     }
     if result.factorio_deps_added.is_empty() {
-        println!("Factorio.toml dependencies already up to date");
+        status::status(
+            Status::Note,
+            "Factorio.toml dependencies already up to date",
+        );
     }
 
-    println!(
-        "Use `{}::...` - root remotes call `remote.call`; `{}::shared::...` requires modules.",
-        result.rust_crate, result.rust_crate
+    status::status(
+        Status::Note,
+        format!(
+            "use `{}::...` for remotes; `{}::shared::...` for requireable modules",
+            result.rust_crate, result.rust_crate
+        ),
     );
     if !result.remote_fns.is_empty() {
-        println!(
-            "Exports: {}",
-            result
-                .remote_fns
-                .iter()
-                .map(|name| format!("{}::{name}(...)", result.rust_crate))
-                .collect::<Vec<_>>()
-                .join(", ")
+        status::status(
+            Status::Note,
+            format!(
+                "exports: {}",
+                result
+                    .remote_fns
+                    .iter()
+                    .map(|name| format!("{}::{name}(...)", result.rust_crate))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         );
     }
 

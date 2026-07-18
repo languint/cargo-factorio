@@ -323,6 +323,7 @@ dependencies = [
  "toml",
  "toml_edit",
  "walkdir",
+ "yansi",
  "zip",
 ]
 

@@ -7,10 +7,19 @@ use std::io::IsTerminal;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use indicatif::{HumanDuration, MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
 
-/// Tracks build phases, draws a bottom-pinned line when stderr is a TTY, and
-/// prints timings above that line.
+use crate::status::{self, Status, format_elapsed};
+
+/// Summary printed when a build succeeds.
+#[derive(Debug, Clone)]
+pub struct BuildFinish {
+    pub profile: String,
+    /// Project-relative output directory (e.g. `dist`).
+    pub output_dir: String,
+    pub file_count: usize,
+}
+
 pub struct BuildProgress {
     multi: MultiProgress,
     /// Single bottom-pinned line (spinner and/or file bar).
@@ -32,7 +41,7 @@ impl BuildProgress {
     #[must_use]
     pub fn start() -> Self {
         // Pin to stdout so log lines and the bar share one stream (scroll above).
-        let enabled = std::io::stdout().is_terminal();
+        let enabled = stdout_progress_enabled();
         let multi = MultiProgress::with_draw_target(if enabled {
             ProgressDrawTarget::stdout()
         } else {
@@ -42,7 +51,7 @@ impl BuildProgress {
             let pb = multi.add(ProgressBar::new_spinner());
             pb.set_style(spinner_style());
             pb.enable_steady_tick(Duration::from_millis(80));
-            pb.set_message("Starting build…");
+            pb.set_message("Starting...");
             pb
         } else {
             ProgressBar::hidden()
@@ -75,7 +84,8 @@ impl BuildProgress {
         let name = name.into();
         if self.enabled {
             self.bar.set_style(spinner_style());
-            self.bar.set_message(format!("{name}…"));
+            self.bar
+                .set_message(format!("{}...", short_phase_label(&name)));
         }
         self.current = Some((name, Instant::now()));
     }
@@ -89,7 +99,7 @@ impl BuildProgress {
         self.bar.set_style(file_bar_style());
         self.bar.set_length(total);
         self.bar.set_position(0);
-        self.bar.set_message(label.to_string());
+        self.bar.set_message(short_phase_label(label).to_string());
         self.files_active = true;
     }
 
@@ -99,7 +109,7 @@ impl BuildProgress {
             return;
         }
         if self.files_active {
-            self.bar.set_message(truncate_msg(display.as_ref(), 28));
+            self.bar.set_message(truncate_msg(display.as_ref(), 32));
             self.bar.inc(1);
         } else {
             self.bar.set_message(display.as_ref().to_string());
@@ -135,35 +145,46 @@ impl BuildProgress {
         }
     }
 
-    /// Print timings above the bar, then clear the pinned line.
-    pub fn finish(mut self) {
+    /// Print a Finished summary (and optional phase timings), then clear the bar.
+    pub fn finish(mut self, summary: &BuildFinish) {
         self.clear_files_mode();
         self.finish_current();
 
         let total = self.total_started.elapsed();
-        if !self.phases.is_empty() {
-            let name_width = self
+        let color = status::color_stdout();
+        let files = if summary.file_count == 1 {
+            "1 file".to_string()
+        } else {
+            format!("{} files", summary.file_count)
+        };
+        let output = if summary.output_dir.ends_with('/') {
+            summary.output_dir.clone()
+        } else {
+            format!("{}/", summary.output_dir)
+        };
+        let message = format!(
+            "transpile [{}] → {output} ({files}) in {}",
+            summary.profile,
+            format_elapsed(total)
+        );
+        self.println(status::format_status(Status::Finished, message, color));
+
+        if self.phases.len() > 1 {
+            let timing = self
                 .phases
                 .iter()
-                .map(|phase| phase.name.len())
-                .max()
-                .unwrap_or(0)
-                .max("Total".len());
-
-            self.println("");
-            for phase in &self.phases {
-                self.println(format!(
-                    "  {:<width$}  {}",
-                    phase.name,
-                    format_duration(phase.duration),
-                    width = name_width
-                ));
-            }
-            self.println(format!(
-                "  {:<width$}  {}",
-                "Total",
-                format_duration(total),
-                width = name_width
+                .map(|phase| {
+                    format!(
+                        "{} {}",
+                        short_phase_label(&phase.name),
+                        format_elapsed(phase.duration)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            self.println(status::dim(
+                format!("{:width$}{timing}", "", width = STATUS_DETAIL_INDENT),
+                color,
             ));
         }
 
@@ -181,6 +202,23 @@ impl BuildProgress {
     }
 }
 
+const STATUS_DETAIL_INDENT: usize = 13; // aligns under status message column
+
+fn stdout_progress_enabled() -> bool {
+    std::io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none()
+}
+
+fn short_phase_label(name: &str) -> &str {
+    match name {
+        "Typecheck" => "Typechecking",
+        "Prepare" => "Preparing",
+        "Lower" => "Lowering",
+        "Emit" => "Emitting",
+        "Finalize" => "Finalizing",
+        other => other,
+    }
+}
+
 fn spinner_style() -> ProgressStyle {
     ProgressStyle::with_template("{spinner:.cyan} {msg}")
         .unwrap_or_else(|_| ProgressStyle::default_spinner())
@@ -188,7 +226,7 @@ fn spinner_style() -> ProgressStyle {
 
 #[allow(clippy::literal_string_with_formatting_args)]
 fn file_bar_style() -> ProgressStyle {
-    ProgressStyle::with_template("{spinner:.cyan} {msg:<28} [{bar:24.cyan/blue}] {pos}/{len}")
+    ProgressStyle::with_template("{spinner:.cyan} {msg:<32} [{bar:20.cyan/blue}] {pos}/{len}")
         .unwrap_or_else(|_| ProgressStyle::default_bar())
         .progress_chars("=>-")
 }
@@ -208,15 +246,5 @@ fn truncate_msg(msg: &str, width: usize) -> String {
     }
     let keep = width.saturating_sub(1);
     let truncated: String = msg.chars().take(keep).collect();
-    format!("{truncated}…")
-}
-
-fn format_duration(duration: Duration) -> String {
-    if duration.as_secs() == 0 && duration.subsec_millis() < 1 {
-        format!("{}µs", duration.as_micros())
-    } else if duration.as_secs() == 0 {
-        format!("{}ms", duration.as_millis())
-    } else {
-        HumanDuration(duration).to_string()
-    }
+    format!("{truncated}...")
 }

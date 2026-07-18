@@ -52,7 +52,7 @@ have a Factorio install; use `factorio-rs test` to run in-game `#[test]`s.
 ## Pipeline
 
 1. Typecheck with `cargo check` (API stubs + Cargo deps)
-2. Discover stage modules (`control`, `settings`, `data`, …)
+2. Discover stage modules (`control`, `settings`, `data`, ...)
 3. Lower Rust -> IR and apply transpile lints
 4. Optionally prune unreachable code
 5. Emit Lua under `output_dir` (default `dist/`)

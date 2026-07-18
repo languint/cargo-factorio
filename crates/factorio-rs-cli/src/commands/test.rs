@@ -1,5 +1,5 @@
 use std::fmt::Write;
-use std::io::{BufRead, BufReader, IsTerminal, Read, stdout};
+use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::mpsc;
@@ -18,6 +18,7 @@ use crate::{
     config::Config,
     error::{CliError, CliResult},
     paths::{FactorioLaunchTarget, find_factorio},
+    status::{self, Status},
 };
 
 const PROTOCOL_PREFIX: &str = "FACTORIO_RS_TEST";
@@ -107,9 +108,19 @@ pub fn run_tests(project_root: &Path, options: &TestOptions) -> CliResult<()> {
     let work_dir = project_root.join(".factorio-rs").join("test-run");
     prepare_work_dir(&work_dir, &output_dir, &package)?;
 
-    println!("running {} tests", tests.len());
+    status::status(
+        Status::Running,
+        format!(
+            "{} test{}",
+            tests.len(),
+            if tests.len() == 1 { "" } else { "s" }
+        ),
+    );
     if options.gui {
-        println!("gui mode: Factorio will stay open after the suite finishes");
+        status::status(
+            Status::Note,
+            "gui mode: Factorio will stay open after the suite finishes",
+        );
     }
     let outcome = launch_and_collect(
         &binary,
@@ -679,7 +690,7 @@ fn launch_and_collect(
     let outcome = read_protocol(&mut child, &results_path, Duration::from_secs(timeout_secs))?;
 
     if gui && outcome.suite_finished && !outcome.timed_out {
-        eprintln!("Suite finished - close Factorio to exit.");
+        status::status_err(Status::Note, "suite finished - close Factorio to exit");
         drop(stdin);
     } else {
         drop(stdin);
@@ -811,22 +822,10 @@ fn parse_protocol_line(line: &str, outcome: &mut SuiteOutcome) -> bool {
     }
 }
 
-fn use_color() -> bool {
-    stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none()
-}
-
-fn paint(enabled: bool, code: &str, text: &str) -> String {
-    if enabled {
-        format!("\x1b[{code}m{text}\x1b[0m")
-    } else {
-        text.to_string()
-    }
-}
-
 fn print_report(expected: &[factorio_frontend::FactorioTest], outcome: &SuiteOutcome) {
-    let color = use_color();
-    let ok_tag = paint(color, "32;1", "[OK]");
-    let fail_tag = paint(color, "31;1", "[FAIL]");
+    let color = status::color_stdout();
+    let ok_tag = status::paint_ok("ok", color);
+    let fail_tag = status::paint_fail("FAILED", color);
 
     for test in expected {
         let result = outcome
@@ -837,18 +836,18 @@ fn print_report(expected: &[factorio_frontend::FactorioTest], outcome: &SuiteOut
             Some(TestResult {
                 status: TestStatus::Ok,
                 ..
-            }) => println!("{ok_tag} {}", test.name),
+            }) => println!("test {} ... {ok_tag}", test.name),
             Some(TestResult {
                 status: TestStatus::Failed,
                 message,
                 ..
             }) => {
-                println!("{fail_tag} {}", test.name);
+                println!("test {} ... {fail_tag}", test.name);
                 if let Some(message) = message {
                     println!("       {message}");
                 }
             }
-            None => println!("{fail_tag} {} (no result)", test.name),
+            None => println!("test {} ... {fail_tag} (no result)", test.name),
         }
     }
 
@@ -858,10 +857,10 @@ fn print_report(expected: &[factorio_frontend::FactorioTest], outcome: &SuiteOut
         .filter(|result| result.status == TestStatus::Failed)
         .collect();
     if !failures.is_empty() {
-        println!("\n{}", paint(color, "31;1", "failures:"));
+        println!("\n{}", status::paint_fail("failures:", color));
         println!();
         for failure in failures {
-            println!("---- {} ----", paint(color, "31;1", &failure.name));
+            println!("---- {} ----", status::paint_fail(&failure.name, color));
             if let Some(message) = &failure.message {
                 println!("{message}");
             }
@@ -881,18 +880,18 @@ fn print_report(expected: &[factorio_frontend::FactorioTest], outcome: &SuiteOut
     let failed = outcome.failed + u32::try_from(missing).unwrap_or(u32::MAX);
     let passed = outcome.passed;
     let ok = failed == 0 && outcome.suite_finished && !outcome.timed_out;
-    let status = if ok {
-        paint(color, "32;1", "ok")
+    let status_word = if ok {
+        status::paint_ok("ok", color)
     } else {
-        paint(color, "31;1", "FAILED")
+        status::paint_fail("FAILED", color)
     };
-    let passed_s = paint(color, "32", &format!("{passed} passed"));
+    let passed_s = status::paint_ok(format!("{passed} passed"), color);
     let failed_s = if failed == 0 {
         format!("{failed} failed")
     } else {
-        paint(color, "31", &format!("{failed} failed"))
+        status::paint_fail(format!("{failed} failed"), color)
     };
-    println!("\ntest result: {status}. {passed_s}; {failed_s}; 0 ignored");
+    println!("\ntest result: {status_word}. {passed_s}; {failed_s}; 0 ignored");
 }
 
 #[cfg(test)]

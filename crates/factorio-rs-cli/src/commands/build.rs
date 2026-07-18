@@ -18,7 +18,7 @@ use crate::{
         StageModules, collect_event_registrations, collect_remote_exports, collect_shared_consts,
         collect_shared_exports, collect_stage_module, write_mod_manifests,
     },
-    progress::{self, BuildProgress},
+    progress::{self, BuildFinish, BuildProgress},
 };
 
 /// Options that select how a project is transpiled.
@@ -73,11 +73,8 @@ pub fn build(project_root: &Path, options: &BuildOptions) -> CliResult<Vec<PathB
 
     let result = build_with_progress(project_root, options, &mut progress);
     match result {
-        Ok(outputs) => {
-            for output in &outputs {
-                progress.println(format!("Generated `{}`", output.display()));
-            }
-            progress.finish();
+        Ok((outputs, finish)) => {
+            progress.finish(&finish);
             Ok(outputs)
         }
         Err(err) => {
@@ -87,11 +84,12 @@ pub fn build(project_root: &Path, options: &BuildOptions) -> CliResult<Vec<PathB
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn build_with_progress(
     project_root: &Path,
     options: &BuildOptions,
     progress: &mut BuildProgress,
-) -> CliResult<Vec<PathBuf>> {
+) -> CliResult<(Vec<PathBuf>, BuildFinish)> {
     if !options.skip_typecheck {
         progress.begin("Typecheck");
         typecheck::cargo_check(project_root)?;
@@ -199,7 +197,12 @@ fn build_with_progress(
     }
     outputs.extend(assets::copy_assets(project_root, &output_dir, &config)?);
 
-    Ok(outputs)
+    let finish = BuildFinish {
+        profile: profile.name,
+        output_dir: config.output_dir.clone(),
+        file_count: outputs.len(),
+    };
+    Ok((outputs, finish))
 }
 
 /// Discover, lower, and lint every source module (no disk writes).

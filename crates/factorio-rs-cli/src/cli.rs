@@ -25,7 +25,7 @@ pub enum Command {
 #[derive(Debug, Parser)]
 #[command(
     name = "factorio-rs",
-    about = "Transpile Rust into Lua for Factorio mods",
+    about = "Write Factorio mods in Rust - transpile to loadable Lua mods",
     version
 )]
 pub struct Cli {

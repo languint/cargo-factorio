@@ -235,7 +235,7 @@ sleep 30
         "factorio-rs test failed\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
     assert!(
-        stdout.contains("[OK] tests::smoke"),
+        stdout.contains("test tests::smoke ... ok"),
         "missing pass line in:\n{stdout}"
     );
     assert!(
