@@ -163,7 +163,7 @@ impl BuildProgress {
             format!("{}/", summary.output_dir)
         };
         let message = format!(
-            "transpile [{}] → {output} ({files}) in {}",
+            "transpile [{}] -> {output} ({files}) in {}",
             summary.profile,
             format_elapsed(total)
         );

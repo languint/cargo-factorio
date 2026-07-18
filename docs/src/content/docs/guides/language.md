@@ -1,12 +1,19 @@
 ---
-title: Language support
-description: What Rust syntax and patterns factorio-rs can transpile to Lua.
+title: Supported Rust
+description: Inventory of Rust syntax factorio-rs can transpile to Lua.
 ---
 
 factorio-rs does **not** implement a full Rust dialect. It lowers a Factorio-oriented subset of Rust into Lua. `factorio-rs check` / `build` run `cargo check` against the SDK stubs, then only accept constructs the frontend knows how to lower.
 
-This page is the inventory of that surface. For **`Option` / `Result` / `?`**
-in depth, see [Option and Result](option-and-result/).
+This page is the **inventory**. Prefer recipes and focused language pages when
+learning a feature:
+
+| Topic | Page |
+| --- | --- |
+| `Option` / `Result` / `?` | [Option and Result](option-and-result/) |
+| User `enum` + `match` | [Enums](../language/enums/) - [State machines](../recipes/state-machines/) |
+| `Vec`, ranges, `.map`/`.filter`/`.collect` | [Collections](../language/collections/) - [Filter entities](../recipes/filter-entities/) |
+| `type` aliases | [Type aliases](../language/type-aliases/) |
 
 Lua has no traits or borrow checker. Option-like values are usually
 **value or `nil`**; Results are tagged `{ ok }` / `{ err }` tables. Tables also
@@ -29,26 +36,8 @@ stand in for structs, arrays, and maps.
 
 **Not supported (yet):** `trait`, trait `impl`, `static`, tuple structs, unknown macros at item position.
 
-### Type aliases
-
-`type` aliases are transparent: the frontend substitutes the aliased type
-(including nested and generic aliases such as `type Opt<T> = Option<T>`) before
-binding-type / Option / `Vec` detection, then emits no Lua for the alias itself.
-Supported forms are plain and generic aliases without lifetimes, const params,
-bounds, or `where` clauses. Block-local `type` items work the same way.
-
-### Enums
-
-User-defined enums lower to tagged Lua tables. `Color::Red` is
-`{ tag = "Red" }`; `Msg::Move(x, y)` is
-`{ tag = "Move", _1 = x, _2 = y }`; and `Msg::Move { x, y }` is
-`{ tag = "Move", x = x, y = y }`. `match` supports the corresponding unit,
-tuple, and named-field patterns. Inherent enum methods share a table with unit
-variant constants, just like struct methods.
-
-This is distinct from Factorio API literal unions such as `GuiDirection`:
-those API values remain Lua strings, while your declared Rust enums use tagged
-tables.
+`type` aliases, enums, and collection iterators have dedicated pages (links in
+the table above).
 
 ### `pub fn` vs `fn`
 
@@ -69,7 +58,7 @@ pass to Factorio APIs; use `pub fn` when other modules need to call the function
 | `if` / `else` / `else if`                            |                                         |
 | `if let Some(x) = e` / `if let x = e`                | Binds `e`, then tests `x ~= nil`        |
 | Let chains (`a && let Some(x) = e && ...`)           | Nested locals + `if x ~= nil`           |
-| `for x in iter`                                      | `ipairs` for `Vec` / `.iter()`; else `pairs`; ranges → numeric `for` |
+| `for x in iter`                                      | `ipairs` for `Vec` / `.iter()`; else `pairs`; ranges -> numeric `for` |
 | `while cond { ... }`                                 | -> `while cond do ... end`              |
 | `loop { ... }`                                       | -> `while true do ... end`              |
 | `continue`                                           | -> labeled `goto` inside `for` / `while` / `loop` |
@@ -184,7 +173,7 @@ lints `unwrap` / `expect` (default **deny**; see [Lints](lints/)).
 
 | Rust                | Lua                               |
 | ------------------- | --------------------------------- |
-| `.get(key)`         | `recv[key].value` (mod settings)  |
+| `.get(key)`         | settings: `recv[key].value`; `storage.get`: `storage[key]` |
 | `.len()`            | `#recv`                           |
 | `.is_empty()`       | `#recv == 0`                      |
 | `.push(x)`          | `table.insert(recv, x)`           |
@@ -218,28 +207,8 @@ purpose so optional Factorio parameter tables stay sparse. Do not expect Rust de
 
 ## Collections
 
-```rust
-let mut list: Vec<MapPosition> = Vec::new();
-list.push(pos);
-for item in list {
-    // ...
-}
-```
-
-| Rust | Lua behaviour |
-| --- | --- |
-| `Vec::new()` | `{}` |
-| `push` / `len` / `is_empty` | `table.insert` / `#` / `# == 0` |
-| `for x in v` | `ipairs(v)` for bindings typed `Vec<_>`; otherwise unordered `pairs(v)` |
-| `for x in v.iter()` / `v.into_iter()` | ordered `ipairs(v)` |
-| `for i in start..end` | Lua numeric `for i = start, end - 1 do` |
-| `for i in start..=end` | Lua numeric `for i = start, end do` |
-
-The supported collecting iterator subset is range or `Vec` iteration followed by
-`.map(|x| ...)` and/or `.filter(|x| ...)`, ending in `.collect()` (including
-`.collect::<Vec<_>>()`). It lowers to an immediately invoked Lua function that
-builds and returns a table. Other adapters such as `enumerate`, `flat_map`, and
-`zip` are not supported.
+`Vec`, ranges, `ipairs` / `pairs`, and the `.map` / `.filter` / `.collect`
+subset: [Collections and iterators](../language/collections/).
 
 ## Types
 
@@ -342,11 +311,9 @@ still fails the build as unsupported syntax when known unsafe.
 
 ## See also
 
+- [Enums](../language/enums/) - [Collections](../language/collections/) - [Type aliases](../language/type-aliases/)
 - [Option and Result](option-and-result/) - nil, `{ ok }` / `{ err }`, `?`, methods
-- [mandatory_spaghetti](../examples/mandatory-spaghetti/) - settings, locale,
-  `Vec`, `for`, `while`, `loop`, `match`, `continue`, `break`, `..Default::default()`, let-chains
-- [locale_test](../examples/locale-test/) - console command + localized greetings
-- [hello_world](../examples/hello-world/) - events, filters, `println!`
-- [tracing_test](../examples/tracing-test/) - optional `tracing` feature
-- [API types](api-types/) - concepts, Identification enums, `LuaAny`
-- [Lints](lints/) - transpile safety diagnostics and `[lints]` config
+- [Recipes](../recipes/first-hour/) - first hour, storage, settings, iterators, ...
+- [mandatory_spaghetti](../examples/mandatory-spaghetti/) - larger control-stage tour
+- [hello_world](../examples/hello-world/) - Result, events, tests
+- [API types](api-types/) - [Lints](lints/)

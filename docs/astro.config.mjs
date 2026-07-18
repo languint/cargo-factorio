@@ -54,23 +54,70 @@ export default defineConfig({
           ],
         },
         {
-          label: "Guides",
+          label: "Recipes",
+          items: [
+            { label: "Overview", slug: "recipes" },
+            { label: "First hour", slug: "recipes/first-hour" },
+            { label: "Persist with storage", slug: "recipes/persist-storage" },
+            {
+              label: "Settings that change gameplay",
+              slug: "recipes/settings-gameplay",
+            },
+            {
+              label: "Filter entity lists",
+              slug: "recipes/filter-entities",
+            },
+            {
+              label: "State machines with enums",
+              slug: "recipes/state-machines",
+            },
+            {
+              label: "Package graphics",
+              slug: "recipes/package-graphics",
+            },
+            {
+              label: "Share an API between mods",
+              slug: "recipes/share-api",
+            },
+          ],
+        },
+        {
+          label: "Language",
+          items: [
+            { label: "Supported Rust", slug: "guides/language" },
+            { label: "Option and Result", slug: "guides/option-and-result" },
+            { label: "Enums", slug: "language/enums" },
+            {
+              label: "Collections and iterators",
+              slug: "language/collections",
+            },
+            { label: "Type aliases", slug: "language/type-aliases" },
+          ],
+        },
+        {
+          label: "Concepts",
           items: [
             { label: "Stages", slug: "guides/stages" },
-            { label: "Language support", slug: "guides/language" },
-            { label: "Option and Result", slug: "guides/option-and-result" },
-            { label: "Sharing code between mods", slug: "guides/dependencies" },
             { label: "API types", slug: "guides/api-types" },
+            { label: "Lints", slug: "guides/lints" },
+            { label: "Profiles", slug: "guides/profiles" },
+          ],
+        },
+        {
+          label: "Modding",
+          items: [
             { label: "Events and filters", slug: "guides/events" },
             { label: "Mod settings", slug: "guides/mod-settings" },
             { label: "Locale", slug: "guides/locale" },
-            { label: "Lints", slug: "guides/lints" },
-            { label: "Profiles", slug: "guides/profiles" },
+            {
+              label: "Sharing code between mods",
+              slug: "guides/dependencies",
+            },
             { label: "Testing", slug: "guides/testing" },
           ],
         },
         {
-          label: "Features",
+          label: "Optional features",
           items: [
             { label: "Tracing", slug: "guides/tracing" },
             { label: "Serde / JSON", slug: "guides/serde" },

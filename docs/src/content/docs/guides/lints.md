@@ -202,11 +202,11 @@ unwrap = "warn"
 | Hard error | unsupported macro, bad locale key, unsupported pattern | Stops that module; other modules still run; build fails at the end |
 
 Hard errors are not configurable via `[lints]`. Fix the source or use a
-supported construct (see [Language support](language/)).
+supported construct (see [Supported Rust](language/)).
 
 ## See also
 
 - [`[lints]` in Factorio.toml](../reference/factorio-toml/#lints) - config keys
-- [Language support](language/) - what lowers, and the safety trap table
+- [Supported Rust](language/) - what lowers, and the safety trap table
 - [Option and Result](option-and-result/) - nil / `{ ok }` / `{ err }` / `?`
 - [API types](api-types/) - Identification enums and `.into()`

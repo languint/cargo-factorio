@@ -284,7 +284,7 @@ can inspect leftover entities. Close the window to finish the CLI. Increase
 - There is no per-test Factorio restart / map reset.
 - Host-only crates and `std` APIs that are not lowered will not work inside
   tests (same rules as control-stage code). See
-  [Language support](language/).
+  [Supported Rust](language/).
 
 ## See also
 

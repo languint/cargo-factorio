@@ -96,10 +96,7 @@ into the mod output (see [Factorio.toml](../../reference/factorio-toml/#assets))
 
 ## Next steps
 
-- [Language support](language/) - what Rust syntax you can use
-- [Option and Result](option-and-result/) - nil / errors / `?`
-- [Testing](testing/) - `#[test]` simulations with `factorio-rs test`
-- [Lints](lints/) - transpile safety diagnostics (`E0001` ...)
-- [Stages](stages/) - control / settings / data / shared
-- [Events and filters](events/)
-- [hello_world](../examples/hello-world/) example
+1. [First hour](../recipes/first-hour/) - see a print in-game, then run `factorio-rs test`
+2. Pick a recipe: [storage](../recipes/persist-storage/), [settings](../recipes/settings-gameplay/), [enums](../recipes/state-machines/), [graphics](../recipes/package-graphics/)
+3. Deeper reading: [Supported Rust](language/), [Option and Result](option-and-result/), [Testing](testing/), [Stages](stages/)
+4. Example: [hello_world](../examples/hello-world/)

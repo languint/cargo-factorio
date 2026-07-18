@@ -4,8 +4,8 @@ description: How Factorio API stubs are typed, Identification enums, and when Lu
 ---
 
 factorio-rs generates Rust stubs from Factorio’s `runtime-api.json` so `cargo check`
-and the IDE can validate mod code. The stubs never run in Factorio - the CLI
-transpiles your sources to Lua - but their types drive the developer experience.
+and the IDE can validate mod code. The stubs never run in Factorio, the CLI
+transpiles your sources to Lua.
 
 ## Concepts and nested tables
 
@@ -103,7 +103,7 @@ Keep using `LuaAny` (or expect it) for truly open values:
 
 Prefer concrete concepts and Identification enums whenever the stubs expose
 them. Reaching for `.into()` should mean “this API accepts several Factorio
-shapes,” not “the type was erased.”
+shapes.”
 
 ## Globals
 
@@ -124,7 +124,7 @@ table.insert(list, value);
 
 // Persist mod state (not Rust `static` / `LazyLock` - those are unsupported)
 storage.set("counter", 0_u32);
-let counter = storage["counter"];
+let counter = storage.get::<u32>("counter").unwrap_or(0);
 ```
 
 Overloads that need distinct Rust names (`random_int`, `format_2`, `insert_at`,
@@ -143,7 +143,7 @@ Enable `factorio-rs` feature `serde`. Calls lower to `helpers.table_to_json` /
 
 ## See also
 
-- [Language support](language/)
+- [Supported Rust](language/)
 - [Option and Result](option-and-result/) - optional fields and fallible helpers
 - [mandatory_spaghetti](../examples/mandatory-spaghetti/) - typed filters and
   `ScriptRenderTarget`

@@ -11,6 +11,10 @@ hero:
     - text: Get started
       link: guides/getting-started/
       icon: right-arrow
+    - text: First hour
+      link: recipes/first-hour/
+      icon: right-arrow
+      variant: minimal
     - text: GitHub
       link: https://github.com/languint/factorio-rs
       icon: external
@@ -26,21 +30,26 @@ This project is in development. Expect breaking changes between releases.
 ## What you get
 
 <CardGrid>
-  <Card title="Rust authoring" icon="pencil">
-    Use familiar Rust syntax, crates.io packages, and `cargo check` for type
-    checking - including proc macros for events, settings, and locale.
+  <Card title="Typed Factorio APIs" icon="pencil">
+    Write a Factorio-oriented Rust subset. `cargo check` and rust-analyzer use
+    generated stubs; the CLI emits a normal Lua mod.
   </Card>
-  <Card title="Factorio Lua output" icon="document">
-    The CLI emits a normal Factorio mod directory (`info.json`, stage entry
-    files, `lua/`, optional `locale/`).
+  <Card title="In-game tests" icon="approve-check">
+    Author `#[test]` simulations and run them with
+    [`factorio-rs test`](guides/testing/) inside Factorio (headless by default).
   </Card>
-  <Card title="Install and run" icon="rocket">
-    Build into `dist/`, copy into your Factorio mods folder, and optionally
-    launch the game with `factorio-rs open`.
+  <Card title="Cross-mod APIs" icon="add-document">
+    Export functions with `#[factorio_rs::export]` and depend on other mods like
+    Cargo crates - see [Share an API](recipes/share-api/).
   </Card>
-  <Card title="Guides" icon="open-book">
-    See [Installation](installation/), [Getting started](guides/getting-started/),
-    [Language support](guides/language/), [Lints](guides/lints/), and the
-    [CLI reference](reference/cli/).
+  <Card title="Safety lints" icon="warning">
+    Transpile-time [lints](guides/lints/) catch Rust patterns that type-check
+    but nil-crash or miscompile in Lua.
   </Card>
 </CardGrid>
+
+## Where to go next
+
+1. [Installation](installation/) -> [Getting started](guides/getting-started/)
+2. [First hour](recipes/first-hour/) - build, install, first `factorio-rs test`
+3. More [recipes](recipes/) - [Supported Rust](guides/language/) - [CLI](reference/cli/)

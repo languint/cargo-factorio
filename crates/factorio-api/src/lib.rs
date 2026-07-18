@@ -30,12 +30,27 @@ impl LuaStorage {
         Self
     }
 
+    /// Read a value from Factorio's mod-local `storage` table.
+    ///
+    /// Lowers to `storage[key]`. Missing keys are Lua `nil` -> [`None`].
+    /// Prefer this over indexing when you want a typed optional read.
+    ///
+    /// ```ignore
+    /// storage.set("counter", 0_u32);
+    /// let n = storage.get::<u32>("counter").unwrap_or(0);
+    /// ```
+    #[allow(unused_variables)]
+    pub fn get<T>(&self, key: &str) -> Option<T> {
+        None
+    }
+
     /// Persist a value in Factorio's mod-local `storage` table.
     ///
     /// Lowers to `storage[key] = value`. Prefer this over Rust `static` /
     /// `LazyLock` (unsupported) for state that must survive events and save/load.
     ///
-    /// Read values back with indexing: `storage["key"]`.
+    /// Read values back with [`Self::get`] (typed [`Option`]) or indexing
+    /// (`storage["key"]` -> opaque [`LuaAny`]).
     #[allow(unused_variables)]
     pub fn set<V>(&self, key: &str, value: V) {}
 }

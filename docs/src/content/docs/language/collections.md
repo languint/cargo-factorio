@@ -1,0 +1,50 @@
+---
+title: Collections and iterators
+description: Vec, ranges, ipairs/pairs loops, and the supported map/filter/collect subset.
+---
+
+Language reference for collections. Recipe-style walkthrough:
+[Filter entity lists](../recipes/filter-entities/).
+
+## `Vec` and loops
+
+```rust
+let mut list: Vec<i64> = Vec::new();
+list.push(1);
+for item in list {
+    // ...
+}
+```
+
+| Rust | Lua behaviour |
+| --- | --- |
+| `Vec::new()` | `{}` |
+| `push` / `len` / `is_empty` | `table.insert` / `#` / `# == 0` |
+| `for x in v` | `ipairs(v)` when `v` is typed `Vec<_>`; else unordered `pairs(v)` |
+| `for x in v.iter()` / `v.into_iter()` | ordered `ipairs(v)` |
+| `for i in start..end` | numeric `for i = start, end - 1 do` |
+| `for i in start..=end` | numeric `for i = start, end do` |
+
+## map / filter / collect
+
+Supported: range or `Vec` iteration, then `.map(|x| ...)` and/or
+`.filter(|x| ...)`, ending in `.collect()` / `.collect::<Vec<_>>()`.
+
+```rust
+let mapped = (0..n).map(|i| i + 1).collect::<Vec<_>>();
+let both = values
+    .iter()
+    .map(|i| i + 1)
+    .filter(|i| *i > 1)
+    .collect::<Vec<_>>();
+```
+
+Lowers to an immediately invoked Lua function that builds a table.
+
+**Not supported:** `enumerate`, `flat_map`, `zip`, standing `.iter()` without
+collect, and arbitrary `Iterator` trait objects.
+
+## Related
+
+- [Type aliases](type-aliases/) - `type Entities = Vec<_>` still detects `ipairs`
+- [Supported Rust](../guides/language/) - full inventory

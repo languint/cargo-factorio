@@ -89,7 +89,7 @@ See [Profiles](../guides/profiles/).
 
 ## `[lints]`
 
-Transpile-time safety checks. Full guide: [Lints](../guides/lints/).
+Transpile-time safety checks. See [Lints](../guides/lints/).
 
 Each key is a lint **identifier**; the value is `allow`, `warn`, or `deny`.
 Unspecified lints use their defaults (`deny`, except `format_spec` -> `warn`).

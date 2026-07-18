@@ -60,12 +60,13 @@ have a Factorio install; use `factorio-rs test` to run in-game `#[test]`s.
 ## Docs
 
 - **Book:** https://languint.github.io/factorio-rs/
-- **Guides:** [Getting started](https://languint.github.io/factorio-rs/guides/getting-started/) ·
-  [Language](https://languint.github.io/factorio-rs/guides/language/) ·
-  [Lints](https://languint.github.io/factorio-rs/guides/lints/) ·
-  [Dependencies](https://languint.github.io/factorio-rs/guides/dependencies/) ·
-  [Testing](https://languint.github.io/factorio-rs/guides/testing/)
-- **crates.io:** [factorio-rs](https://crates.io/crates/factorio-rs) ·
+- **Start:** [Getting started](https://languint.github.io/factorio-rs/guides/getting-started/) -
+  [First hour](https://languint.github.io/factorio-rs/recipes/first-hour/)
+- **Recipes / language:** [Testing](https://languint.github.io/factorio-rs/guides/testing/) -
+  [Dependencies](https://languint.github.io/factorio-rs/guides/dependencies/) -
+  [Supported Rust](https://languint.github.io/factorio-rs/guides/language/) -
+  [Lints](https://languint.github.io/factorio-rs/guides/lints/)
+- **crates.io:** [factorio-rs](https://crates.io/crates/factorio-rs) -
   [factorio-rs-cli](https://crates.io/crates/factorio-rs-cli)
 - **Changelog:** [CHANGELOG.md](CHANGELOG.md)
 

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `storage.get::<T>(key) -> Option<T>`: typed optional reads lowering to
+  `storage[key]` (missing -> nil). Distinct from settings `.get` (still
+  `recv[key].value`).
 - Transparent `type` aliases (`type Name = ...`, `type Name<T> = ...`), including
   nested and block-local aliases. Resolved before Option/`Vec`/binding detection;
   no Lua is emitted for the alias itself.
@@ -26,9 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Docs: sidebar split into Recipes / Language / Concepts / Modding (no catch-all
+  “Guides”); recipes for first hour, storage, settings, iterators, enums,
+  graphics, and cross-mod APIs; language pages for enums, collections, and type
+  aliases; fixed truncated Profiles and Events pages; splash highlights tests
+  and exports.
 - README: value prop, Lua vs factorio-rs comparison, pipeline, docs/examples.
 - CLI look and feel: Cargo-style status lines (aligned verbs, color via yansi),
-  quieter build summary (`Finished transpile [profile] → dist/ (N files) in ...`
+  quieter build summary (`Finished transpile [profile] -> dist/ (N files) in ...`
   instead of dumping every generated path), cargo-test-shaped reports, and no
   duplicate `error:` after diagnostics already printed.
 ## [0.1.5] - 2026-07-18
@@ -75,8 +83,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mod assets: `[mod].assets` copies graphics, sounds, and other files into the
   mod output (path-preserving or `{ from, to }` remaps). Thumbnail packaging
   unchanged.
-- Persistent `storage.set(key, value)` lowering to `storage[key] = value` for
-  mod-local state across events and save/load.
+- Persistent `storage.set(key, value)` / `storage.get::<T>(key) -> Option<T>`
+  lowering to `storage[key] = value` / `storage[key]` (missing keys are nil).
 - CI: workspace tests + `factorio-rs check`/`build` on example mods.
 
 ### Fixed

@@ -9,7 +9,7 @@ those with **`Option`** and **`Result`**. factorio-rs keeps the same authoring
 style under `cargo check`, then lowers them to idiomatic Lua.
 
 This page is the full reference. For the rest of the language surface, see
-[Language support](language/).
+[Supported Rust](language/).
 
 ## Mental model
 
@@ -190,7 +190,7 @@ match load(path) {
 ```
 
 `match` / `if let` on `Ok` / `Err` use the same nested `if` desugaring as other
-patterns (see [Language support](language/#match)).
+patterns (see [Supported Rust](language/#match)).
 
 ### Methods
 
@@ -246,7 +246,7 @@ let n = maybe.map(|x| x + 1);
 let r = result.and_then(|x| scale(x));
 ```
 
-See [Language support](language/#closures) for closure limits (plain params,
+See [Supported Rust](language/#closures) for closure limits (plain params,
 no async).
 
 ## Safety traps
@@ -261,7 +261,7 @@ no async).
 
 ## See also
 
-- [Language support](language/) - statements, `match`, closures, collections
+- [Supported Rust](language/) - statements, `match`, closures, collections
 - [Lints](lints/) - `unwrap` / `expect` and other transpile diagnostics
 - [API types](api-types/) - optional concept fields as `Option<T>`
 - [Events](events/) - typical `if let Some(...)` on event payloads

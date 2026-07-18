@@ -40,5 +40,12 @@ Override emit profiles with `--profile <name>` and/or `--debug-level N` on
 Reachability starts from:
 
 - `#[factorio_rs::event]` handlers
-- public functions and structs in settings/data stage modules (load-time entry
-  points)
+- `#[factorio_rs::export]` functions (cross-mod API must survive even if unused in-mod)
+- public functions and structs (and enums) in settings/data stage modules
+  (load-time entry points)
+
+Everything else is kept only if referenced from those roots. Prefer passing
+**function values** (or `lua_fn(...)`) into Factorio APIs instead of stringly
+callback names when prune is on - otherwise the handler can be deleted.
+
+Config reference: [Factorio.toml](../reference/factorio-toml/#profilesname).

@@ -169,9 +169,7 @@ mod tests {
     fn cargo_toml_includes_factorio_dependency() {
         let manifest = cargo_toml_template("my-mod");
         assert!(manifest.contains("name = \"my-mod\""));
-        assert!(manifest.contains(&format!(
-            "factorio-rs = \"{FACTORIO_SDK_VERSION}\""
-        )));
+        assert!(manifest.contains(&format!("factorio-rs = \"{FACTORIO_SDK_VERSION}\"")));
         assert!(manifest.contains(&format!("version = \"{FACTORIO_SDK_VERSION}\"")));
     }
 }

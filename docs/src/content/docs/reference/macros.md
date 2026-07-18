@@ -71,4 +71,4 @@ feature) **`serde_json::{to_string,from_str,...}`** calls are lowered:
 Item macros such as `mod_settings!` and `locale!` are handled separately during
 module lowering.
 
-Full syntax inventory: [Language support](../guides/language/).
+Full syntax inventory: [Supported Rust](../guides/language/).

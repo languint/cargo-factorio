@@ -87,6 +87,33 @@ fn storage_set_lowers_to_index_assignment() {
 }
 
 #[test]
+fn storage_get_lowers_to_index_without_settings_value() {
+    let expr = Expression::MethodCall {
+        receiver: Box::new(Expression::Identifier("storage".to_string())),
+        method: "get".to_string(),
+        args: vec![Expression::Literal(Literal::String("counter".to_string()))],
+    };
+    let lua = LuaGenerator::new().generate_expression(&expr);
+    assert_eq!(lua, "storage[\"counter\"]");
+}
+
+#[test]
+fn settings_get_still_appends_value() {
+    let expr = Expression::MethodCall {
+        receiver: Box::new(Expression::FieldAccess {
+            base: Box::new(Expression::Identifier("settings".to_string())),
+            field: "startup".to_string(),
+        }),
+        method: "get".to_string(),
+        args: vec![Expression::Literal(Literal::String(
+            "ms-casual-mode".to_string(),
+        ))],
+    };
+    let lua = LuaGenerator::new().generate_expression(&expr);
+    assert_eq!(lua, "settings.startup[\"ms-casual-mode\"].value");
+}
+
+#[test]
 fn generates_safe_if_expression() {
     let expr = Expression::If {
         condition: Box::new(Expression::Identifier("cond".to_string())),

@@ -4,7 +4,8 @@ description: Optional serde_json support lowered to helpers.table_to_json and st
 ---
 
 factorio-rs can lower `serde_json` encode/decode calls to Factorio builtins.
-There is **no serde runtime** in Factorio, this is just transpile-time rewrites like in [Tracing](../tracing).
+There is **no serde runtime** in Factorio; this is transpile-time rewriting,
+like [Tracing](tracing/).
 
 ## Enable the feature
 
@@ -45,10 +46,10 @@ Binary uses Lua’s size-prefixed `"s"` format on Factorio’s `string.pack` /
 serde usage under `cargo check` - the transpile strips those calls (and may
 lint). For fallible gameplay code prefer `?` / `if let Ok` - see
 [Option and Result](option-and-result/).
-`serde_json`.
 
 `#[derive(Serialize, Deserialize)]` is **typecheck-only** - the transpiler
-never runs serde; struct values are already Lua tables.
+never runs serde; struct values are already Lua tables. Use this when you need
+JSON for debugging or a remote payload, not as a general Rust serde runtime.
 
 Not supported: `serde_json::json!`, streaming serializers, and other APIs.
 

@@ -57,7 +57,9 @@ end, { { filter = "name", name = "inserter" } })
 - Only events that declare a filter type accept `filter = ...`.
 - Handlers must live in a **control-stage** module.
 
-See also [Option and Result](option-and-result/) for `if let Some(...)` /
-`ok_or` / `?` on event payloads, and [Language support](language/) for other
-syntax.
-commonly used inside handlers.
+## See also
+
+- [Option and Result](option-and-result/) - `if let Some(...)` / `ok_or` / `?`
+  on event payloads
+- [Supported Rust](language/) - other syntax commonly used inside handlers
+- [hello_world](../examples/hello-world/) - filtered `on_built_entity` example

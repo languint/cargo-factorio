@@ -11,12 +11,21 @@ It does **not** compile Rust to native code or WASM for Factorio. The game still
 loads Lua. Think of factorio-rs as an authoring layer that transpiles to
 Factorio’s modding API.
 
+## Start here
+
+| Path | Why |
+| --- | --- |
+| [Installation](installation/) | CLI + SDK + Factorio path |
+| [Getting started](guides/getting-started/) | `init` -> `build` -> install |
+| [First hour](recipes/first-hour/) | Same loop plus your first in-game test |
+| [Recipes](recipes/) | Concrete jobs (storage, settings, enums, ...) |
+
 ## Pieces
 
 | Piece | Crate / binary                                  | Role                                               |
 | ----- | ----------------------------------------------- | -------------------------------------------------- |
 | SDK   | `factorio-rs`                                   | Dependency for your mod crate (API stubs + macros) |
-| CLI   | package `factorio-rs-cli`, binary `factorio-rs` | `init`, `check`, `build`, `package`, `install`, `add`, `open` |
+| CLI   | package `factorio-rs-cli`, binary `factorio-rs` | `init`, `check`, `build`, `package`, `install`, `add`, `open`, `test` |
 
 ## Pipeline
 
@@ -49,12 +58,11 @@ Notable releases are listed in the
 
 ## Language surface
 
-Only a subset of Rust is transpiled. See
-[Language support](guides/language/) for statements and expressions, and
-[Option and Result](guides/option-and-result/) for nil / error handling.
-Transpile-time [Lints](guides/lints/) catch traps that type-check in Rust but
-miscompile in Lua. Optional [Tracing](guides/tracing/) macros lower to colored
-`game.print`.
-Optional [Serde / JSON](guides/serde/) lowers `serde_json` to
-`helpers.table_to_json`. Generated API stubs prefer concrete concepts and
-[Identification enums](guides/api-types/) over `LuaAny`.
+Only a subset of Rust is transpiled. See [Supported Rust](guides/language/) for
+the inventory, [Option and Result](guides/option-and-result/) for nil / errors,
+and [Enums](language/enums/) / [Collections](language/collections/) for focused
+pages. Transpile-time [Lints](guides/lints/) catch traps that type-check in Rust
+but miscompile in Lua. Optional [Tracing](guides/tracing/) and
+[Serde / JSON](guides/serde/) lower to Factorio builtins. Generated API stubs
+prefer concrete concepts and [Identification enums](guides/api-types/) over
+`LuaAny`.

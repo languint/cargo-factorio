@@ -116,7 +116,11 @@ fn lower_function_parts(
         body,
         doc: extract_doc_comments(&function.attrs),
         debug: Some(factorio_ir::debug::FunctionDebug {
-            header_comment: function_header_comment(&function.vis, &function.sig, &ctx.type_aliases),
+            header_comment: function_header_comment(
+                &function.vis,
+                &function.sig,
+                &ctx.type_aliases,
+            ),
             return_type: return_type_string(&function.sig, &ctx.type_aliases),
         }),
         event: event_attr.as_ref().map(|event| event.event_name.clone()),

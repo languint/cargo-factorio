@@ -1,7 +1,8 @@
 use syn::{Attribute, Expr, ExprLit, FnArg, Lit, Meta, Signature, Visibility};
 
 use super::types::{
-    TypeAlias, lower_binding_pattern, receiver_source_string, return_type_string, type_source_string,
+    TypeAlias, lower_binding_pattern, receiver_source_string, return_type_string,
+    type_source_string,
 };
 
 const fn visibility_prefix(visibility: &Visibility) -> &'static str {

@@ -100,5 +100,5 @@ or runtime level filtering. Every lowered call always prints in-game.
 ## See also
 
 - Example: [tracing_test](../examples/tracing-test/)
-- [Language support](language/) - expression macros
+- [Supported Rust](language/) - expression macros
 - [Macros and attributes](../reference/macros/)

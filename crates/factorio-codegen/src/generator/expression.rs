@@ -176,6 +176,14 @@ impl LuaGenerator {
         method: &str,
         args: &[Expression],
     ) -> String {
+        // `storage.get(key)` -> `storage[key]` (missing -> nil / Option::None).
+        // Must run before the settings `.get` rewrite (`recv[key].value`).
+        if method == "get" && args.len() == 1 && is_storage_receiver(receiver) {
+            let receiver = self.generate_expression(receiver);
+            let key = self.generate_expression(&args[0]);
+            return format!("{receiver}[{key}]");
+        }
+
         if method == "get" && args.len() == 1 {
             let receiver = self.generate_expression(receiver);
             let key = self.generate_expression(&args[0]);

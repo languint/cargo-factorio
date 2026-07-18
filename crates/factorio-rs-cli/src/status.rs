@@ -3,7 +3,7 @@
 //! Status words are right-aligned in a fixed column so output scans like:
 //!
 //! ```text
-//!     Finished transpile [debug] → dist/ (12 files) in 1.30s
+//!     Finished transpile [debug] -> dist/ (12 files) in 1.30s
 //!      Created factorio-rs project
 //! ```
 
