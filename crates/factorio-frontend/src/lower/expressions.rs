@@ -4,7 +4,7 @@ use crate::error::{FrontendError, FrontendResult};
 
 use super::{
     context::LowerContext, functions::lower_closure, print::lower_macro_expression,
-    serde_json::serde_json_path_name, util::location,
+    serde_json::serde_json_path_name, test_steps::is_factorio_rs_test_steps, util::location,
 };
 
 #[cfg(feature = "serde")]
@@ -291,6 +291,21 @@ fn lower_call_expression(
             let value = lower_expression(arg, ctx, self_type)?;
             return Ok(lower_serde_json_fn(kind, value));
         }
+    }
+
+    // `factorio_rs::test::steps()` -> `__frs_steps()` (harness intrinsic).
+    if is_factorio_rs_test_steps(&call.func) {
+        if !call.args.is_empty() {
+            return Err(FrontendError::UnsupportedExpression {
+                location: location(call).with_note("factorio_rs::test::steps() takes no arguments"),
+            });
+        }
+        return Ok(factorio_ir::expression::Expression::Call {
+            func: Box::new(factorio_ir::expression::Expression::Identifier(
+                "__frs_steps".to_string(),
+            )),
+            args: vec![],
+        });
     }
 
     if let Some(type_name) = identification_ctor_type(&call.func) {

@@ -226,6 +226,40 @@ fn generate_harness_lua(mod_name: &str, tests: &[factorio_frontend::FactorioTest
     let mut out = String::new();
     out.push_str("-- factorio-rs test harness\n");
     out.push_str("do\n");
+    // Install before require so lowered tests can call `__frs_steps` at runtime.
+    out.push_str(
+        r#"  local function __frs_make_ctx()
+    local data = {}
+    return {
+      set = function(key, value)
+        data[key] = value
+      end,
+      fetch = function(key)
+        return data[key]
+      end,
+      fetch_u32 = function(key)
+        return data[key]
+      end,
+    }
+  end
+  function __frs_steps()
+    local queue = {}
+    local ctx = __frs_make_ctx()
+    storage.__frs_pending_steps = queue
+    storage.__frs_pending_ctx = ctx
+    local api = {}
+    function api.step(fn)
+      table.insert(queue, { kind = "step", fn = fn })
+      return api
+    end
+    function api.wait(ticks)
+      table.insert(queue, { kind = "wait", ticks = ticks })
+      return api
+    end
+    return api
+  end
+"#,
+    );
     let _ = writeln!(
         out,
         "  local __frs_suite = require(\"__{mod_name}__/lua/factorio_rs_tests\")"
@@ -246,39 +280,164 @@ fn generate_harness_lua(mod_name: &str, tests: &[factorio_frontend::FactorioTest
     -- file is the durable fallback. Do not also print/log - that triples counts.
     localised_print(line)
   end
-  local function __frs_run_suite()
-    if storage.__factorio_rs_tests_done then
-      return
-    end
-    storage.__factorio_rs_tests_done = true
-    local lines = {}
-    local passed = 0
-    local failed = 0
-    for _, test in ipairs(__frs_tests) do
-      local start_line = "FACTORIO_RS_TEST start " .. test.name
-      __frs_emit(start_line)
-      table.insert(lines, start_line)
-      local ok, err = pcall(test.fn)
-      local result_line
-      if ok then
-        result_line = "FACTORIO_RS_TEST ok " .. test.name
-        passed = passed + 1
-      else
-        result_line = "FACTORIO_RS_TEST fail " .. test.name .. " " .. tostring(err)
-        failed = failed + 1
-      end
-      __frs_emit(result_line)
-      table.insert(lines, result_line)
-    end
-    local end_line = "FACTORIO_RS_TEST suite_end " .. tostring(passed) .. " " .. tostring(failed)
-    __frs_emit(end_line)
-    table.insert(lines, end_line)
+  local function __frs_write_results(lines)
     helpers.write_file("factorio-rs-test-results.txt", table.concat(lines, "\n") .. "\n", false)
   end
-  script.on_init(__frs_run_suite)
+  local function __frs_ensure_state()
+    if storage.__frs_runner then
+      return storage.__frs_runner
+    end
+    storage.__frs_runner = {
+      index = 1,
+      phase = "idle", -- idle | steps | wait | done
+      lines = {},
+      passed = 0,
+      failed = 0,
+      current_name = nil,
+      queue = nil,
+      queue_i = 1,
+      wait_until_tick = nil,
+      ctx = nil,
+    }
+    return storage.__frs_runner
+  end
+  local function __frs_finish_suite(state)
+    if state.phase == "done" then
+      return
+    end
+    state.phase = "done"
+    local end_line = "FACTORIO_RS_TEST suite_end " .. tostring(state.passed) .. " " .. tostring(state.failed)
+    __frs_emit(end_line)
+    table.insert(state.lines, end_line)
+    __frs_write_results(state.lines)
+  end
+  local function __frs_complete_test(state, ok, err)
+    local result_line
+    if ok then
+      result_line = "FACTORIO_RS_TEST ok " .. state.current_name
+      state.passed = state.passed + 1
+    else
+      result_line = "FACTORIO_RS_TEST fail " .. state.current_name .. " " .. tostring(err)
+      state.failed = state.failed + 1
+    end
+    __frs_emit(result_line)
+    table.insert(state.lines, result_line)
+    state.queue = nil
+    state.queue_i = 1
+    state.wait_until_tick = nil
+    state.ctx = nil
+    storage.__frs_pending_steps = nil
+    storage.__frs_pending_ctx = nil
+    state.phase = "idle"
+    state.index = state.index + 1
+  end
+  local function __frs_start_next(state)
+    if state.index > #__frs_tests then
+      __frs_finish_suite(state)
+      return
+    end
+    local test = __frs_tests[state.index]
+    state.current_name = test.name
+    storage.__frs_pending_steps = nil
+    storage.__frs_pending_ctx = nil
+    local start_line = "FACTORIO_RS_TEST start " .. test.name
+    __frs_emit(start_line)
+    table.insert(state.lines, start_line)
+    local ok, err = pcall(test.fn)
+    if not ok then
+      __frs_complete_test(state, false, err)
+      return
+    end
+    local pending = storage.__frs_pending_steps
+    if pending and #pending > 0 then
+      state.queue = pending
+      state.queue_i = 1
+      state.ctx = storage.__frs_pending_ctx
+      state.wait_until_tick = nil
+      state.phase = "steps"
+      return
+    end
+    __frs_complete_test(state, true, nil)
+  end
+  local function __frs_run_steps(state)
+    while state.phase == "steps" do
+      if state.queue_i > #state.queue then
+        __frs_complete_test(state, true, nil)
+        return
+      end
+      local item = state.queue[state.queue_i]
+      state.queue_i = state.queue_i + 1
+      if item.kind == "wait" then
+        local ticks = tonumber(item.ticks) or 0
+        if ticks > 0 then
+          -- Wait until game.tick advances (not handler-call counts — tick may
+          -- stay frozen during dedicated-server setup).
+          state.wait_until_tick = game.tick + ticks
+          state.phase = "wait"
+          return
+        end
+        -- wait(0): continue processing in this tick
+      elseif item.kind == "step" then
+        local ok, err = pcall(item.fn, state.ctx)
+        if not ok then
+          __frs_complete_test(state, false, err)
+          return
+        end
+      else
+        __frs_complete_test(state, false, "unknown step kind: " .. tostring(item.kind))
+        return
+      end
+    end
+  end
+  local function __frs_on_tick()
+    local state = __frs_ensure_state()
+    if state.phase == "done" then
+      return
+    end
+    if state.phase == "wait" then
+      if game.tick >= (state.wait_until_tick or 0) then
+        state.phase = "steps"
+        __frs_run_steps(state)
+      end
+      -- After completing a test mid-tick, start the next one immediately
+      -- when it has no waits, so sync tests still finish quickly.
+      while state.phase == "idle" do
+        __frs_start_next(state)
+        if state.phase == "steps" then
+          __frs_run_steps(state)
+        end
+      end
+      return
+    end
+    if state.phase == "idle" then
+      __frs_start_next(state)
+      if state.phase == "steps" then
+        __frs_run_steps(state)
+      end
+      while state.phase == "idle" do
+        __frs_start_next(state)
+        if state.phase == "steps" then
+          __frs_run_steps(state)
+        end
+      end
+      return
+    end
+    if state.phase == "steps" then
+      __frs_run_steps(state)
+      while state.phase == "idle" do
+        __frs_start_next(state)
+        if state.phase == "steps" then
+          __frs_run_steps(state)
+        end
+      end
+    end
+  end
+  -- Kick once during init (sync tests may finish before the first tick).
+  script.on_init(function()
+    __frs_on_tick()
+  end)
   script.on_nth_tick(1, function()
-    script.on_nth_tick(1, nil)
-    __frs_run_suite()
+    __frs_on_tick()
   end)
 end
 "#,
@@ -788,5 +947,7 @@ mod tests {
         assert!(lua.contains("FACTORIO_RS_TEST suite_end"));
         assert!(lua.contains("localised_print"));
         assert!(lua.contains("factorio-rs-test-results.txt"));
+        assert!(lua.contains("function __frs_steps()"));
+        assert!(lua.contains("__frs_on_tick"));
     }
 }

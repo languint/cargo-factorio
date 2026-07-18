@@ -407,4 +407,36 @@ mod unit_tests {
         assert_eq!(suite.tests.len(), 1);
         assert_eq!(suite.tests[0].name, "tests::smoke");
     }
+
+    #[test]
+    fn lowers_factorio_rs_test_steps_to_intrinsic() {
+        let source = r"
+            #[cfg(test)]
+            mod tests {
+                #[test]
+                fn tick_advances() {
+                    factorio_rs::test::steps()
+                        .step(|_ctx| {})
+                        .wait(5)
+                        .step(|_ctx| {});
+                }
+            }
+        ";
+        let lints = LintConfig::allow_all();
+        let options = ParseOptions::new(&lints);
+        let mut diagnostics = Vec::new();
+        let sources = vec![(PathBuf::from("src/lib.rs"), source.to_string())];
+        let suite = discover_tests(Path::new("src"), &sources, &options, &mut diagnostics).unwrap();
+        assert!(diagnostics.is_empty());
+        assert_eq!(suite.tests.len(), 1);
+        let module = suite.to_module();
+        let lua = factorio_codegen::LuaGenerator::with_mod_name("test_mod")
+            .generate_module(&module)
+            .unwrap();
+        assert!(
+            lua.contains("__frs_steps()"),
+            "expected __frs_steps intrinsic in:\n{lua}"
+        );
+        assert!(lua.contains(".wait(5)"), "expected wait in:\n{lua}");
+    }
 }

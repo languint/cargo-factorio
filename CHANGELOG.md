@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and print a colored `[OK]` / `[FAIL]` report. Use `--gui` to open a window
   and inspect the map after the suite. Assertion macros (`assert!`,
   `assert_eq!`, `assert_ne!`, `panic!`) lower to Lua `error(...)`.
+- Multi-tick tests via `factorio_rs::test::steps().step(...).wait(n)...` with a
+  shared `TestCtx` for state between steps.
 
 ## [0.1.4] - 2026-07-14
 

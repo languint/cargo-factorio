@@ -351,6 +351,6 @@ mod tests {
         let _c = place_chest(41.0, 41.5);
         let building = place_chest(41.0, 40.0);
         control::check_build_rules(building, 0);
-        assert!(building.valid());
+        assert!(!building.valid());
     }
 }

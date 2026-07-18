@@ -41,6 +41,8 @@ mod control {
 
     #[cfg(test)]
     mod tests {
+        use factorio_rs::prelude::*;
+
         #[test]
         fn arithmetic_smoke() {
             assert_eq!(1 + 1, 2);
@@ -50,6 +52,18 @@ mod control {
         #[allow(clippy::assertions_on_constants)]
         fn truth_holds() {
             assert!(true);
+        }
+
+        #[test]
+        fn tick_advances_across_waits() {
+            factorio_rs::test::steps()
+                .step(|ctx| {
+                    ctx.set("t0", game.tick());
+                })
+                .wait(5)
+                .step(|ctx| {
+                    assert!(game.tick() >= ctx.fetch_u32("t0") + 5);
+                });
         }
     }
 }

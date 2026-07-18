@@ -18,6 +18,9 @@ pub use serde;
 #[cfg(feature = "serde")]
 pub use serde_json;
 
+/// Multi-tick helpers for `factorio-rs test` (compile-only stubs; harness provides Lua).
+pub mod test;
+
 pub mod prelude {
     pub use crate::{
         control, control_mod, data, data_final_fixes, data_final_fixes_mod, data_mod, data_updates,

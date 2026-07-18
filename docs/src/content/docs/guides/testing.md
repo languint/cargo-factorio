@@ -144,6 +144,47 @@ A fuller suite lives in
 [`examples/mandatory_spaghetti`](../examples/mandatory-spaghetti/)
 (`src/control.rs`).
 
+### Multi-tick steps
+
+Sync `#[test]` bodies finish in a single `pcall`. When you need the game to
+advance (belts, inserters, cooldowns), build a step sequence with
+`factorio_rs::test::steps()`:
+
+```rust
+#[cfg(test)]
+mod tests {
+    use factorio_rs::prelude::*;
+
+    #[test]
+    fn tick_advances_across_waits() {
+        factorio_rs::test::steps()
+            .step(|ctx| {
+                ctx.set("t0", game.tick());
+            })
+            .wait(5)
+            .step(|ctx| {
+                assert!(game.tick() >= ctx.fetch_u32("t0") + 5);
+            });
+    }
+}
+```
+
+How it works:
+
+- **`steps()`** registers a pending queue for the current test (call the full
+  path `factorio_rs::test::steps()` so it lowers to the harness intrinsic).
+- **`.step(|ctx| { ... })`** runs on the current tick (or right after a wait).
+- **`.wait(n)`** advances the map by `n` ticks before the next step.
+- **`TestCtx`** (`ctx.set` / `ctx.fetch` / `ctx.fetch_u32`) carries values
+  between steps. Prefer this over outer `let mut` — multiple step closures
+  cannot both mutably borrow the same Rust binding.
+- Use **`fetch` / `fetch_u32`**, not `.get(...)` — `.get` is reserved for
+  mod-settings lowering.
+
+Omit `steps()` entirely for ordinary sync tests; both styles can mix in one
+suite. See [`examples/hello_world`](../examples/hello-world/) for a smoke
+multi-tick case.
+
 ### Assertions
 
 Supported macros lower to Lua `error(...)` on failure:
@@ -201,10 +242,11 @@ Colors are enabled when stdout is a TTY. Set `NO_COLOR=1` for plain text.
 factorio-rs test --gui
 ```
 
-Opens Factorio so you can see the scenario load. The suite still finishes on
-init / the first tick (usually too fast to step through), then Factorio **stays
-open** so you can inspect leftover entities. Close the window to finish the
-CLI. Increase `--timeout` if graphics startup is slow on your machine.
+Opens Factorio so you can see the scenario load. Sync tests finish almost
+immediately; multi-tick `.wait(n)` cases take at least `n` ticks, which is
+easier to spot with `--gui`. Factorio **stays open** after the suite so you
+can inspect leftover entities. Close the window to finish the CLI. Increase
+`--timeout` if graphics startup is slow on your machine.
 
 ## How it works
 
@@ -215,7 +257,8 @@ CLI. Increase `--timeout` if graphics startup is slow on your machine.
    holds mods, `config.ini`, the scenario, and `script-output/`. Your normal
    `~/.factorio` data is untouched. Ignore this directory in git (new projects
    from `factorio-rs init` already do).
-4. **Run** - each test is wrapped in `pcall`. Pass/fail lines go to stdout via
+4. **Run** - each test is wrapped in `pcall`. Tests that call `steps()` are
+   driven across ticks by the harness. Pass/fail lines go to stdout via
    `localised_print`, with a results file as backup.
 5. **Report** - the CLI parses the protocol and prints `[OK]` / `[FAIL]`.
 
@@ -230,8 +273,7 @@ CLI. Increase `--timeout` if graphics startup is slow on your machine.
 
 - Tests share one map and run sequentially in discovery order; clean up or use
   unique positions when placing entities.
-- There is no per-test Factorio restart and no built-in tick stepping /
-  multi-tick scenarios yet - the harness runs the whole suite at init.
+- There is no per-test Factorio restart / map reset.
 - Host-only crates and `std` APIs that are not lowered will not work inside
   tests (same rules as control-stage code). See
   [Language support](language/).

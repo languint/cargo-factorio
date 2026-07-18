@@ -22,6 +22,7 @@ pub mod metadata;
 mod mod_settings;
 pub mod print;
 mod serde_json;
+mod test_steps;
 pub mod statements;
 pub mod structs;
 pub mod tests;
