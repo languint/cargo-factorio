@@ -167,7 +167,10 @@ fn collect_references_from_statement(
             );
             collect_references_from_stmts(graph, module, body, locals, reachability, pending);
         }
-        Statement::StructDecl(_) | Statement::Continue | Statement::Break => {}
+        Statement::StructDecl(_)
+        | Statement::EnumDecl(_)
+        | Statement::Continue
+        | Statement::Break => {}
     }
 }
 
@@ -324,6 +327,26 @@ pub fn collect_references_from_expression(
             args,
         ),
         Expression::StructLiteral { fields, .. } => {
+            for (_, value) in fields {
+                collect_references_from_expression(
+                    graph,
+                    module,
+                    value,
+                    locals,
+                    reachability,
+                    pending,
+                );
+            }
+        }
+        Expression::EnumLiteral {
+            enum_name, fields, ..
+        } => {
+            enqueue_item(
+                reachability,
+                pending,
+                &module.name,
+                ItemKey::Struct(enum_name.clone()),
+            );
             for (_, value) in fields {
                 collect_references_from_expression(
                     graph,

@@ -130,8 +130,9 @@ These **do not** check for nil. They strip to the receiver and emit lints
 
 Discriminant: **`r.err == nil` means Ok**; **`r.err ~= nil` means Err**.
 
-Prefer **non-nil** error payloads (`String`, tables, numbers). `Err(nil)` is
-ambiguous with Ok under the `.err == nil` test.
+Prefer **non-nil** error payloads (`String`, tables, numbers). `Err(nil)` /
+`Err(None)` is ambiguous with Ok under the `.err == nil` test and fires lint
+`err_nil` (`E0011`).
 
 ### `?` (try operator)
 

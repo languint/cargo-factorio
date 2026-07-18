@@ -29,6 +29,8 @@ pub struct LowerContext<'a> {
     /// Binding name -> Rust type key (last path segment, `Option`/`&` peeled) for
     /// compile-time `{:?}` Debug format selection.
     pub binding_types: HashMap<String, String>,
+    /// Locally declared enum variants, used to recognize constructors and patterns.
+    pub enums: HashMap<String, Vec<EnumVariantInfo>>,
     /// Locals annotated as `Option<_>` (kept even though [`Self::binding_types`] peels Option).
     pub option_bindings: HashSet<String>,
     /// Lint levels from `Factorio.toml` `[lints]` (defaults deny).
@@ -42,6 +44,30 @@ pub struct LowerContext<'a> {
     pub try_hoists: Vec<factorio_ir::statement::Statement>,
     /// Monotonic counter for `__try_N` temporaries.
     pub try_tmp_counter: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnumVariantInfo {
+    pub name: String,
+    pub fields: EnumVariantFields,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnumVariantFields {
+    Unit,
+    Tuple(usize),
+    Named,
+}
+
+impl LowerContext<'_> {
+    #[must_use]
+    pub fn enum_variant(&self, enum_name: &str, variant: &str) -> Option<EnumVariantFields> {
+        self.enums
+            .get(enum_name)?
+            .iter()
+            .find(|info| info.name == variant)
+            .map(|info| info.fields)
+    }
 }
 
 impl LowerContext<'_> {

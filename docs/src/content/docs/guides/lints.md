@@ -69,10 +69,12 @@ No Lua is written in that case.
 | `format_spec` | `E0003` | warn | Format specs other than `:?` / `#?` |
 | `variable_index` | `E0004` | deny | Non-literal `expr[index]` |
 | `identification_ctor` | `E0005` | deny | `ForceID::Name(...)`-style constructors |
-| `option_if` | `E0006` | deny | Plain `if option_binding` (Lua truthiness) |
+| `option_if` | `E0006` | deny | Plain `if` / `while` on an Option binding (Lua truthiness) |
 | `ambiguous_try` | `E0007` | deny | `?` on an untyped local |
 | `ambiguous_method` | `E0008` | deny | `.map` / overlapping helpers on an untyped local |
 | `skipped_mod` | `E0009` | deny | Inline `mod` without `#[factorio_rs::export]` |
+| `result_if` | `E0010` | deny | Plain `if` / `while` on a Result binding (always truthy) |
+| `err_nil` | `E0011` | deny | `Err(nil)` / `Err(None)` collapses with Ok |
 
 ### `unwrap` (`E0001`) / `expect` (`E0002`)
 
@@ -146,9 +148,9 @@ See [API types](api-types/) for Identification / `IndexOrName` details.
 
 ### `option_if` (`E0006`)
 
-`if opt { ... }` when `opt` is an `Option` binding uses Lua truthiness, so
-`Some(false)` / `Some(0)` skip the branch. Prefer `if let Some(...)` or
-`.is_some()`.
+`if opt { ... }` or `while opt { ... }` when `opt` is an `Option` binding uses
+Lua truthiness, so `Some(false)` / `Some(0)` skip the body. Prefer
+`if let Some(...)` / `.is_some()`.
 
 ### `ambiguous_try` (`E0007`) / `ambiguous_method` (`E0008`)
 
@@ -160,6 +162,17 @@ Untyped locals get these denies - annotate the binding or use `.ok_or(...)?`.
 
 An inline `mod { ... }` without `#[factorio_rs::export]` is not lowered (contents
 are dropped). Export the mod or move items into a file module.
+
+### `result_if` (`E0010`)
+
+`if result { ... }` / `while result { ... }` when `result` is a `Result` binding
+is always truthy in Lua (Results are tables). Prefer `if let Ok(...)` or
+`.is_ok()`.
+
+### `err_nil` (`E0011`)
+
+`Err(nil)` / `Err(None)` uses the same discriminant as Ok (`r.err == nil`).
+Prefer a non-nil error payload (`String`, number, or table).
 
 ## Configuring defaults
 

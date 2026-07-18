@@ -184,9 +184,9 @@ How it works:
 - **`.step(|ctx| { ... })`** runs on the current tick (or right after a wait).
 - **`.wait(n)`** advances the map by `n` ticks before the next step.
 - **`TestCtx`** (`ctx.set` / `ctx.fetch` / `ctx.fetch_u32`) carries values
-  between steps. Prefer this over outer `let mut` — multiple step closures
+  between steps. Prefer this over outer `let mut` - multiple step closures
   cannot both mutably borrow the same Rust binding.
-- Use **`fetch` / `fetch_u32`**, not `.get(...)` — `.get` is reserved for
+- Use **`fetch` / `fetch_u32`**, not `.get(...)` - `.get` is reserved for
   mod-settings lowering.
 
 Omit `steps()` entirely for ordinary sync tests; both styles can mix in one

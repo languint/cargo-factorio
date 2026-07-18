@@ -1,4 +1,5 @@
 use crate::{
+    enumeration::Enum,
     module::Module,
     prune::{
         module_graph::ItemKey,
@@ -24,10 +25,27 @@ pub fn prune_module(module: &mut Module, reach: &ModuleReachability) {
             .iter_mut()
             .map(|symbol| &mut symbol.statement),
     ) {
-        if let Statement::StructDecl(struct_decl) = statement {
-            prune_struct(struct_decl, reach);
+        match statement {
+            Statement::StructDecl(struct_decl) => prune_struct(struct_decl, reach),
+            Statement::EnumDecl(enum_decl) => prune_enum(enum_decl, reach),
+            _ => {}
         }
     }
+}
+
+fn prune_enum(enum_decl: &mut Enum, reach: &ModuleReachability) {
+    enum_decl.constants.retain(|(name, _)| {
+        reach.items.contains(&ItemKey::StructConstant(
+            enum_decl.name.clone(),
+            name.clone(),
+        ))
+    });
+    enum_decl.methods.retain(|method| {
+        reach.items.contains(&ItemKey::StructMethod(
+            enum_decl.name.clone(),
+            method.name.clone(),
+        ))
+    });
 }
 
 /// Drop unreachable methods and associated constants from a kept struct declaration.

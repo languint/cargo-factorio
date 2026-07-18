@@ -243,6 +243,7 @@ fn lower_test_module_items(
         remote_locals,
         remote_fn_locals,
         binding_types: HashMap::new(),
+        enums: HashMap::new(),
         option_bindings: std::collections::HashSet::new(),
         lints: options.lints,
         diagnostics,

@@ -19,10 +19,10 @@ Factorio-oriented subset of Rust; the CLI typechecks against generated API stubs
 
 ## Why
 
-- **Typed Factorio APIs** — `cargo check` / rust-analyzer against generated stubs
-- **Transpile safety** — lints catch Rust patterns that nil-crash or miscompile in Lua
-- **Cargo-shaped deps** — share APIs between mods with `#[factorio_rs::export]` and normal Cargo dependencies
-- **Familiar workflow** — `init` / `check` / `build` / `package` / `install` / `test`
+- **Typed Factorio APIs** - `cargo check` / rust-analyzer against generated stubs
+- **Transpile safety** - lints catch Rust patterns that nil-crash or miscompile in Lua
+- **Cargo-shaped deps** - share APIs between mods with `#[factorio_rs::export]` and normal Cargo dependencies
+- **Familiar workflow** - `init` / `check` / `build` / `package` / `install` / `test`
 
 | | Lua mods | factorio-rs |
 | --- | :---: | :---: |

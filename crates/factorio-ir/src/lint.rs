@@ -19,7 +19,7 @@ pub enum LintId {
     VariableIndex,
     /// Identification enum constructors (e.g. `ForceID::Name(...)`) are not lowered; use `.into()`.
     IdentificationCtor,
-    /// Plain `if option` uses Lua truthiness (`Some(false)` is skipped).
+    /// Plain `if option` / `while option` uses Lua truthiness (`Some(false)` is skipped).
     OptionIf,
     /// `?` on a value whose type is unknown; lowering assumes Result (`.err` / `.ok`).
     AmbiguousTry,
@@ -27,6 +27,10 @@ pub enum LintId {
     AmbiguousMethod,
     /// Nested inline `mod` without `#[factorio_rs::export]` is skipped when lowering.
     SkippedMod,
+    /// Plain `if result` / `while result` is always truthy (Result is a table).
+    ResultIf,
+    /// `Err(nil)` / `Err(None)` collapses with Ok under the `.err == nil` discriminant.
+    ErrNil,
 }
 
 impl LintId {
@@ -43,6 +47,8 @@ impl LintId {
             Self::AmbiguousTry => "ambiguous_try",
             Self::AmbiguousMethod => "ambiguous_method",
             Self::SkippedMod => "skipped_mod",
+            Self::ResultIf => "result_if",
+            Self::ErrNil => "err_nil",
         }
     }
 
@@ -59,6 +65,8 @@ impl LintId {
             Self::AmbiguousTry => "E0007",
             Self::AmbiguousMethod => "E0008",
             Self::SkippedMod => "E0009",
+            Self::ResultIf => "E0010",
+            Self::ErrNil => "E0011",
         }
     }
 
@@ -78,7 +86,9 @@ impl LintId {
             | Self::OptionIf
             | Self::AmbiguousTry
             | Self::AmbiguousMethod
-            | Self::SkippedMod => LintLevel::Deny,
+            | Self::SkippedMod
+            | Self::ResultIf
+            | Self::ErrNil => LintLevel::Deny,
         }
     }
 
@@ -108,6 +118,12 @@ impl LintId {
             Self::SkippedMod => {
                 "add `#[factorio_rs::export]` on the inline mod, or move items to a file module"
             }
+            Self::ResultIf => {
+                "use `if let Ok(x) = result` or `result.is_ok()` (a Result table is always truthy in Lua)"
+            }
+            Self::ErrNil => {
+                "use a non-nil error payload (`String`, number, table); `Err(nil)` looks like Ok"
+            }
         }
     }
 
@@ -124,6 +140,8 @@ impl LintId {
             Self::AmbiguousTry,
             Self::AmbiguousMethod,
             Self::SkippedMod,
+            Self::ResultIf,
+            Self::ErrNil,
         ]
     }
 
@@ -308,6 +326,8 @@ mod tests {
         let config = LintConfig::default();
         assert_eq!(config.level(LintId::Unwrap), LintLevel::Deny);
         assert_eq!(config.level(LintId::FormatSpec), LintLevel::Warn);
+        assert_eq!(config.level(LintId::ResultIf), LintLevel::Deny);
+        assert_eq!(config.level(LintId::ErrNil), LintLevel::Deny);
     }
 
     #[test]
@@ -338,5 +358,7 @@ mod tests {
         assert_eq!(LintId::AmbiguousTry.code(), "E0007");
         assert_eq!(LintId::AmbiguousMethod.code(), "E0008");
         assert_eq!(LintId::SkippedMod.code(), "E0009");
+        assert_eq!(LintId::ResultIf.code(), "E0010");
+        assert_eq!(LintId::ErrNil.code(), "E0011");
     }
 }

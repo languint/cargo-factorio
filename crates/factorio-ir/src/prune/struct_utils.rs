@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
 use crate::{
-    expression::Expression, function::Function, module::Module, prune::module_graph::ModuleGraph,
-    statement::Statement, structure::Struct,
+    enumeration::Enum, expression::Expression, function::Function, module::Module,
+    prune::module_graph::ModuleGraph, statement::Statement, structure::Struct,
 };
 
 /// Find a struct declaration in a module's body or exported symbols.
@@ -18,9 +18,22 @@ pub fn find_struct<'a>(module: &'a Module, name: &str) -> Option<&'a Struct> {
         })
 }
 
+/// Find an enum declaration in a module's body or exported symbols.
+pub fn find_enum<'a>(module: &'a Module, name: &str) -> Option<&'a Enum> {
+    module
+        .body
+        .statements
+        .iter()
+        .chain(module.symbols.iter().map(|symbol| &symbol.statement))
+        .find_map(|statement| match statement {
+            Statement::EnumDecl(enum_decl) if enum_decl.name == name => Some(enum_decl),
+            _ => None,
+        })
+}
+
 /// Returns whether `module` declares a struct named `name`.
 pub fn struct_exists(module: &Module, name: &str) -> bool {
-    find_struct(module, name).is_some()
+    find_struct(module, name).is_some() || find_enum(module, name).is_some()
 }
 
 /// Find an instance method on a struct declared in `module`.
@@ -29,12 +42,21 @@ pub fn find_struct_method<'a>(
     struct_name: &str,
     method_name: &str,
 ) -> Option<&'a Function> {
-    find_struct(module, struct_name).and_then(|struct_decl| {
-        struct_decl
-            .methods
-            .iter()
-            .find(|method| method.name == method_name)
-    })
+    find_struct(module, struct_name)
+        .and_then(|struct_decl| {
+            struct_decl
+                .methods
+                .iter()
+                .find(|method| method.name == method_name)
+        })
+        .or_else(|| {
+            find_enum(module, struct_name).and_then(|enum_decl| {
+                enum_decl
+                    .methods
+                    .iter()
+                    .find(|method| method.name == method_name)
+            })
+        })
 }
 
 /// Find an associated constant initializer on a struct declared in `module`.
@@ -43,12 +65,21 @@ pub fn find_struct_constant<'a>(
     struct_name: &str,
     constant_name: &str,
 ) -> Option<&'a Expression> {
-    find_struct(module, struct_name).and_then(|struct_decl| {
-        struct_decl
-            .constants
-            .iter()
-            .find_map(|(name, value)| (name == constant_name).then_some(value))
-    })
+    find_struct(module, struct_name)
+        .and_then(|struct_decl| {
+            struct_decl
+                .constants
+                .iter()
+                .find_map(|(name, value)| (name == constant_name).then_some(value))
+        })
+        .or_else(|| {
+            find_enum(module, struct_name).and_then(|enum_decl| {
+                enum_decl
+                    .constants
+                    .iter()
+                    .find_map(|(name, value)| (name == constant_name).then_some(value))
+            })
+        })
 }
 
 /// Returns whether `struct_name` defines an associated constant named `constant_name`.

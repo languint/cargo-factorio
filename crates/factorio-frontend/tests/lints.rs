@@ -236,6 +236,64 @@ pub fn f(x: Option<i32>) {
 }
 
 #[test]
+fn deny_option_if_on_while() {
+    let source = r"
+pub fn f(x: Option<i32>) {
+    while x {
+        let _ = 1;
+    }
+}
+";
+    let mut diagnostics = Vec::new();
+    parse_module_with_options(
+        source,
+        "control",
+        &ParseOptions::new(&LintConfig::default()),
+        &mut diagnostics,
+    )
+    .expect("should lower");
+    assert!(diagnostics.iter().any(|d| d.id == LintId::OptionIf));
+}
+
+#[test]
+fn deny_result_if() {
+    let source = r#"
+pub fn f(x: Result<i32, String>) {
+    if x {
+        let _ = 1;
+    }
+}
+"#;
+    let mut diagnostics = Vec::new();
+    parse_module_with_options(
+        source,
+        "control",
+        &ParseOptions::new(&LintConfig::default()),
+        &mut diagnostics,
+    )
+    .expect("should lower");
+    assert!(diagnostics.iter().any(|d| d.id == LintId::ResultIf));
+}
+
+#[test]
+fn deny_err_nil() {
+    let source = r#"
+pub fn f() -> Result<i32, Option<i32>> {
+    Err(None)
+}
+"#;
+    let mut diagnostics = Vec::new();
+    parse_module_with_options(
+        source,
+        "control",
+        &ParseOptions::new(&LintConfig::default()),
+        &mut diagnostics,
+    )
+    .expect("should lower");
+    assert!(diagnostics.iter().any(|d| d.id == LintId::ErrNil));
+}
+
+#[test]
 fn deny_ambiguous_try_on_untyped_local() {
     let source = r#"
 pub fn f() -> Result<i32, String> {

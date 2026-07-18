@@ -26,6 +26,13 @@ pub enum Expression {
         struct_name: Option<String>,
         fields: Vec<(String, Self)>,
     },
+    /// Tagged enum value `{ tag = "Variant", ...payload }`.
+    EnumLiteral {
+        enum_name: String,
+        variant: String,
+        /// Named fields, or `_1` / `_2` / ... for tuple variants.
+        fields: Vec<(String, Self)>,
+    },
     /// An operation between a `lhs` and a `rhs` with an [`Operator`]
     BinaryOp {
         lhs: Box<Self>,

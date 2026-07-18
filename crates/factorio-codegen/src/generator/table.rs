@@ -1,4 +1,11 @@
-use factorio_ir::{function::Function, module::Module, scope::Scope, structure::Struct};
+use factorio_ir::{
+    enumeration::{Enum, EnumVariantFields},
+    expression::Expression,
+    function::Function,
+    module::Module,
+    scope::Scope,
+    structure::Struct,
+};
 
 use crate::{LuaGenerator, LuaGeneratorError, LuaGeneratorResult};
 
@@ -72,6 +79,54 @@ impl LuaGenerator {
             self.generate_table_method(method, &struct_decl.name, &table_path)?;
         }
 
+        Ok(())
+    }
+
+    /// Generate a user-defined tagged-table enum and its method table.
+    pub(crate) fn generate_enum(
+        &mut self,
+        enum_decl: &Enum,
+        _module: Option<&Module>,
+        scope: Scope,
+        module_name: Option<&str>,
+    ) -> LuaGeneratorResult<()> {
+        if scope == Scope::Private && module_name.is_some() {
+            return Err(LuaGeneratorError::StructLocalAndExported(
+                enum_decl.name.clone(),
+            ));
+        }
+
+        let table_path = match (scope, module_name) {
+            (Scope::Public, Some(module_name)) => format!("{module_name}.{}", enum_decl.name),
+            (Scope::Private | Scope::Public, None) => enum_decl.name.clone(),
+            (Scope::Private, Some(_)) => unreachable!(),
+        };
+        let prefix = if scope == Scope::Private && module_name.is_none() {
+            "local "
+        } else {
+            ""
+        };
+
+        self.write_doc_comments(enum_decl.doc.as_deref());
+        self.write_line(&format!("{prefix}{table_path} = {{}}"));
+
+        for variant in &enum_decl.variants {
+            if matches!(variant.fields, EnumVariantFields::Unit) {
+                let value = self.generate_expression(&Expression::EnumLiteral {
+                    enum_name: enum_decl.name.clone(),
+                    variant: variant.name.clone(),
+                    fields: vec![],
+                });
+                self.write_line(&format!("{table_path}.{} = {value}", variant.name));
+            }
+        }
+        for (name, value) in &enum_decl.constants {
+            let value = self.generate_expression(value);
+            self.write_line(&format!("{table_path}.{name} = {value}"));
+        }
+        for method in &enum_decl.methods {
+            self.generate_table_method(method, &enum_decl.name, &table_path)?;
+        }
         Ok(())
     }
 

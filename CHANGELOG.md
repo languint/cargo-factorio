@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- User-defined `enum` support: unit, tuple, and named variants lower to tagged
+  Lua tables (`{ tag = "..." , ... }`), with `match` patterns and inherent
+  `impl` methods.
+- Lints: `result_if` (`E0010`) for plain `if`/`while` on Result bindings;
+  `err_nil` (`E0011`) for `Err(nil)` / `Err(None)`. `option_if` (`E0006`) now
+  also fires on `while option`.
+- Declared MSRV `1.85` (edition 2024); `factorio-rs init` scaffolds
+  `rust-version = "1.85"`.
+- CI jobs for `cargo fmt --check` and `cargo clippy -D warnings`.
+
+### Changed
+
+- README: value prop, Lua vs factorio-rs comparison, pipeline, docs/examples.
 ## [0.1.5] - 2026-07-18
 
 ### Added

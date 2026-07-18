@@ -77,6 +77,11 @@ impl LuaGenerator {
                 struct_name,
                 fields,
             } => self.generate_struct_literal(struct_name.as_deref(), fields),
+            Expression::EnumLiteral {
+                enum_name,
+                variant,
+                fields,
+            } => self.generate_enum_literal(enum_name, variant, fields),
             Expression::FormatConcat { parts } => parts
                 .iter()
                 .map(|part| self.generate_expression(part))
@@ -264,6 +269,28 @@ impl LuaGenerator {
         let literal = format!("{{ {inner} }}");
 
         if let Some((_, table_path)) = &self.struct_table_context {
+            format!("setmetatable({literal}, {{ __index = {table_path} }})")
+        } else {
+            literal
+        }
+    }
+
+    fn generate_enum_literal(
+        &self,
+        enum_name: &str,
+        variant: &str,
+        fields: &[(String, Expression)],
+    ) -> String {
+        let mut parts = vec![format!("tag = \"{variant}\"")];
+        parts.extend(
+            fields
+                .iter()
+                .map(|(name, value)| format!("{name} = {}", self.generate_expression(value))),
+        );
+        let literal = format!("{{ {} }}", parts.join(", "));
+        if let Some((name, table_path)) = &self.struct_table_context
+            && name == enum_name
+        {
             format!("setmetatable({literal}, {{ __index = {table_path} }})")
         } else {
             literal

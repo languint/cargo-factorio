@@ -15,6 +15,26 @@ pub struct PendingStruct {
     pub doc: Option<String>,
 }
 
+pub struct PendingEnum {
+    pub visibility: Visibility,
+    pub variants: Vec<factorio_ir::enumeration::EnumVariant>,
+    pub constants: Vec<(String, factorio_ir::expression::Expression)>,
+    pub methods: Vec<factorio_ir::function::Function>,
+    pub doc: Option<String>,
+}
+
+impl PendingEnum {
+    pub const fn new(visibility: Visibility) -> Self {
+        Self {
+            visibility,
+            variants: Vec::new(),
+            constants: Vec::new(),
+            methods: Vec::new(),
+            doc: None,
+        }
+    }
+}
+
 impl PendingStruct {
     pub const fn new(visibility: Visibility) -> Self {
         Self {

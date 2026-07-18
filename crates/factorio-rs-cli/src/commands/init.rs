@@ -34,6 +34,8 @@ factorio_version = "2.0"
 # ambiguous_try = "deny"
 # ambiguous_method = "deny"
 # skipped_mod = "deny"
+# result_if = "deny"
+# err_nil = "deny"
 
 [profiles.debug]
 debug_level = 1

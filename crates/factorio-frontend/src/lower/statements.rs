@@ -309,6 +309,7 @@ fn lower_while_loop(
     ctx: &mut LowerContext<'_>,
     self_type: Option<&str>,
 ) -> FrontendResult<Vec<factorio_ir::statement::Statement>> {
+    lint_option_or_result_condition(while_expr.cond.as_ref(), ctx, "while")?;
     let (mut stmts, condition) = lower_expr(&while_expr.cond, ctx, self_type)?;
     let body = lower_block_statements(&while_expr.body.stmts, ctx, self_type)?;
     stmts.push(factorio_ir::statement::Statement::While { condition, body });
@@ -412,13 +413,7 @@ fn lower_if_expression(
     }
 
     // Plain `if cond` (no `let` bindings in the condition).
-    if cond_is_option_binding(if_expression.cond.as_ref(), ctx) {
-        ctx.emit_lint(
-            factorio_ir::lint::LintId::OptionIf,
-            "`if option { ... }` uses Lua truthiness (`Some(false)` / `Some(0)` are skipped); use `if let Some(...)` or `.is_some()`",
-            location(&if_expression.cond),
-        )?;
-    }
+    lint_option_or_result_condition(if_expression.cond.as_ref(), ctx, "if")?;
     let (mut stmts, condition) = lower_expr(&if_expression.cond, ctx, self_type)?;
     stmts.push(factorio_ir::statement::Statement::Conditional {
         condition,
@@ -428,14 +423,42 @@ fn lower_if_expression(
     Ok(stmts)
 }
 
-fn cond_is_option_binding(cond: &Expr, ctx: &LowerContext<'_>) -> bool {
+fn lint_option_or_result_condition(
+    cond: &Expr,
+    ctx: &mut LowerContext<'_>,
+    keyword: &str,
+) -> FrontendResult<()> {
+    match cond_surface_binding(cond, ctx) {
+        Some("Option") => ctx.emit_lint(
+            factorio_ir::lint::LintId::OptionIf,
+            format!(
+                "`{keyword} option {{ ... }}` uses Lua truthiness (`Some(false)` / `Some(0)` are skipped); use `{keyword} let Some(...)` or `.is_some()`"
+            ),
+            location(cond),
+        ),
+        Some("Result") => ctx.emit_lint(
+            factorio_ir::lint::LintId::ResultIf,
+            format!(
+                "`{keyword} result {{ ... }}` is always truthy in Lua (Result is a table); use `{keyword} let Ok(...)` or `.is_ok()`"
+            ),
+            location(cond),
+        ),
+        _ => Ok(()),
+    }
+}
+
+fn cond_surface_binding(cond: &Expr, ctx: &LowerContext<'_>) -> Option<&'static str> {
     match cond {
         Expr::Path(path) if path.path.segments.len() == 1 => ctx
             .binding_surface_type(&path.path.segments[0].ident.to_string())
-            .is_some_and(|key| key == "Option"),
-        Expr::Paren(paren) => cond_is_option_binding(&paren.expr, ctx),
-        Expr::Reference(reference) => cond_is_option_binding(&reference.expr, ctx),
-        _ => false,
+            .and_then(|key| match key {
+                "Option" => Some("Option"),
+                "Result" => Some("Result"),
+                _ => None,
+            }),
+        Expr::Paren(paren) => cond_surface_binding(&paren.expr, ctx),
+        Expr::Reference(reference) => cond_surface_binding(&reference.expr, ctx),
+        _ => None,
     }
 }
 
@@ -810,7 +833,7 @@ fn emit_match_pattern_arm(
     else_block: Vec<factorio_ir::statement::Statement>,
     ctx: &mut LowerContext<'_>,
 ) -> FrontendResult<Vec<factorio_ir::statement::Statement>> {
-    let (condition, bindings) = lower_match_pattern(pat, scrutinee)?;
+    let (condition, bindings) = lower_match_pattern(pat, scrutinee, ctx)?;
     let mut then_block = Vec::new();
     for (name, value) in bindings {
         if let Some(key) = infer_debug_type_key(&value, ctx) {
@@ -887,6 +910,7 @@ type MatchPatternParts = (
 fn lower_match_pattern(
     pat: &Pat,
     scrutinee: &factorio_ir::expression::Expression,
+    ctx: &LowerContext<'_>,
 ) -> FrontendResult<MatchPatternParts> {
     match pat {
         Pat::Wild(_) => Ok((None, vec![])),
@@ -902,11 +926,15 @@ fn lower_match_pattern(
         Pat::Path(path) if is_none_path(&path.path) => {
             Ok((Some(eq_nil(scrutinee.clone())), vec![]))
         }
+        Pat::Path(path) => lower_enum_unit_pattern(path, scrutinee, ctx),
+        Pat::TupleStruct(ts) if enum_pattern_variant(&ts.path, ctx).is_some() => {
+            lower_enum_tuple_pattern(ts, scrutinee, ctx)
+        }
         Pat::TupleStruct(ts) if is_some_path(&ts.path) => {
             let inner = ts.elems.first().ok_or_else(|| FrontendError::UnsupportedExpression {
                 location: location(pat).with_note("Some(...) pattern requires one binding"),
             })?;
-            let (inner_cond, inner_binds) = lower_match_pattern(inner, scrutinee)?;
+            let (inner_cond, inner_binds) = lower_match_pattern(inner, scrutinee, ctx)?;
             Ok((
                 Some(and_conditions(ne_nil(scrutinee.clone()), inner_cond)),
                 inner_binds,
@@ -920,7 +948,7 @@ fn lower_match_pattern(
                 base: Box::new(scrutinee.clone()),
                 field: "ok".to_string(),
             };
-            let (inner_cond, inner_binds) = lower_match_pattern(inner, &ok_field)?;
+            let (inner_cond, inner_binds) = lower_match_pattern(inner, &ok_field, ctx)?;
             let is_ok = eq_nil(factorio_ir::expression::Expression::FieldAccess {
                 base: Box::new(scrutinee.clone()),
                 field: "err".to_string(),
@@ -935,18 +963,21 @@ fn lower_match_pattern(
                 base: Box::new(scrutinee.clone()),
                 field: "err".to_string(),
             };
-            let (inner_cond, inner_binds) = lower_match_pattern(inner, &err_field)?;
+            let (inner_cond, inner_binds) = lower_match_pattern(inner, &err_field, ctx)?;
             let is_err = ne_nil(err_field);
             Ok((Some(and_conditions(is_err, inner_cond)), inner_binds))
         }
-        Pat::Struct(struct_pat) => lower_struct_pattern(struct_pat, scrutinee),
-        Pat::Or(or_pat) => lower_nested_or_pattern(or_pat, scrutinee),
-        Pat::Type(pat_type) => lower_match_pattern(&pat_type.pat, scrutinee),
-        Pat::Paren(paren) => lower_match_pattern(&paren.pat, scrutinee),
-        Pat::Reference(reference) => lower_match_pattern(&reference.pat, scrutinee),
+        Pat::Struct(struct_pat) if enum_pattern_variant(&struct_pat.path, ctx).is_some() => {
+            lower_enum_struct_pattern(struct_pat, scrutinee, ctx)
+        }
+        Pat::Struct(struct_pat) => lower_struct_pattern(struct_pat, scrutinee, ctx),
+        Pat::Or(or_pat) => lower_nested_or_pattern(or_pat, scrutinee, ctx),
+        Pat::Type(pat_type) => lower_match_pattern(&pat_type.pat, scrutinee, ctx),
+        Pat::Paren(paren) => lower_match_pattern(&paren.pat, scrutinee, ctx),
+        Pat::Reference(reference) => lower_match_pattern(&reference.pat, scrutinee, ctx),
         _ => Err(FrontendError::UnsupportedExpression {
             location: location(pat).with_note(
-                "match supports `_`, literals, `None`, `Some(...)`, struct patterns, or-patterns, and plain bindings",
+                "match supports `_`, literals, `None`, `Some(...)`, struct and enum patterns, or-patterns, and plain bindings",
             ),
         }),
     }
@@ -955,6 +986,7 @@ fn lower_match_pattern(
 fn lower_struct_pattern(
     struct_pat: &syn::PatStruct,
     scrutinee: &factorio_ir::expression::Expression,
+    ctx: &LowerContext<'_>,
 ) -> FrontendResult<MatchPatternParts> {
     let mut condition = None;
     let mut bindings = Vec::new();
@@ -972,7 +1004,7 @@ fn lower_struct_pattern(
             base: Box::new(scrutinee.clone()),
             field: field_name,
         };
-        let (field_cond, field_binds) = lower_match_pattern(&field.pat, &field_scrutinee)?;
+        let (field_cond, field_binds) = lower_match_pattern(&field.pat, &field_scrutinee, ctx)?;
         condition = match (condition, field_cond) {
             (None, c) => c,
             (Some(left), Some(right)) => Some(and_expr(left, right)),
@@ -984,15 +1016,131 @@ fn lower_struct_pattern(
     Ok((condition, bindings))
 }
 
+fn enum_pattern_variant(
+    path: &syn::Path,
+    ctx: &LowerContext<'_>,
+) -> Option<(String, String, super::context::EnumVariantFields)> {
+    let variant = path.segments.last()?.ident.to_string();
+    let enum_name = path.segments.iter().nth_back(1)?.ident.to_string();
+    if enum_name == "Self" {
+        return ctx.enums.iter().find_map(|(name, variants)| {
+            variants
+                .iter()
+                .find(|info| info.name == variant)
+                .map(|info| (name.clone(), variant.clone(), info.fields))
+        });
+    }
+    ctx.enum_variant(&enum_name, &variant)
+        .map(|fields| (enum_name, variant, fields))
+}
+
+fn enum_tag_condition(
+    scrutinee: &factorio_ir::expression::Expression,
+    variant: String,
+) -> factorio_ir::expression::Expression {
+    eq_expr(
+        factorio_ir::expression::Expression::FieldAccess {
+            base: Box::new(scrutinee.clone()),
+            field: "tag".to_string(),
+        },
+        factorio_ir::expression::Expression::Literal(factorio_ir::literal::Literal::String(
+            variant,
+        )),
+    )
+}
+
+fn lower_enum_unit_pattern(
+    path: &syn::PatPath,
+    scrutinee: &factorio_ir::expression::Expression,
+    ctx: &LowerContext<'_>,
+) -> FrontendResult<MatchPatternParts> {
+    let Some((_, variant, fields)) = enum_pattern_variant(&path.path, ctx) else {
+        return Err(FrontendError::UnsupportedExpression {
+            location: location(path),
+        });
+    };
+    if fields != super::context::EnumVariantFields::Unit {
+        return Err(FrontendError::UnsupportedExpression {
+            location: location(path).with_note("enum variant payload must be matched"),
+        });
+    }
+    Ok((Some(enum_tag_condition(scrutinee, variant)), vec![]))
+}
+
+fn lower_enum_tuple_pattern(
+    pattern: &syn::PatTupleStruct,
+    scrutinee: &factorio_ir::expression::Expression,
+    ctx: &LowerContext<'_>,
+) -> FrontendResult<MatchPatternParts> {
+    let Some((_, variant, fields)) = enum_pattern_variant(&pattern.path, ctx) else {
+        return Err(FrontendError::UnsupportedExpression {
+            location: location(pattern),
+        });
+    };
+    let super::context::EnumVariantFields::Tuple(count) = fields else {
+        return Err(FrontendError::UnsupportedExpression {
+            location: location(pattern).with_note("enum variant is not a tuple variant"),
+        });
+    };
+    if pattern.elems.len() != count {
+        return Err(FrontendError::UnsupportedExpression {
+            location: location(pattern)
+                .with_note(format!("enum tuple variant expects {count} fields")),
+        });
+    }
+    let mut condition = Some(enum_tag_condition(scrutinee, variant));
+    let mut bindings = Vec::new();
+    for (index, pat) in pattern.elems.iter().enumerate() {
+        let field = factorio_ir::expression::Expression::FieldAccess {
+            base: Box::new(scrutinee.clone()),
+            field: format!("_{}", index + 1),
+        };
+        let (field_cond, field_binds) = lower_match_pattern(pat, &field, ctx)?;
+        condition = match (condition, field_cond) {
+            (Some(left), Some(right)) => Some(and_expr(left, right)),
+            (left, None) => left,
+            (None, right) => right,
+        };
+        bindings.extend(field_binds);
+    }
+    Ok((condition, bindings))
+}
+
+fn lower_enum_struct_pattern(
+    pattern: &syn::PatStruct,
+    scrutinee: &factorio_ir::expression::Expression,
+    ctx: &LowerContext<'_>,
+) -> FrontendResult<MatchPatternParts> {
+    let Some((_, variant, fields)) = enum_pattern_variant(&pattern.path, ctx) else {
+        return Err(FrontendError::UnsupportedExpression {
+            location: location(pattern),
+        });
+    };
+    if fields != super::context::EnumVariantFields::Named {
+        return Err(FrontendError::UnsupportedExpression {
+            location: location(pattern).with_note("enum variant is not a struct variant"),
+        });
+    }
+    let (field_condition, bindings) = lower_struct_pattern(pattern, scrutinee, ctx)?;
+    Ok((
+        Some(and_conditions(
+            enum_tag_condition(scrutinee, variant),
+            field_condition,
+        )),
+        bindings,
+    ))
+}
+
 fn lower_nested_or_pattern(
     or_pat: &syn::PatOr,
     scrutinee: &factorio_ir::expression::Expression,
+    ctx: &LowerContext<'_>,
 ) -> FrontendResult<MatchPatternParts> {
     let mut condition = None;
     let mut any_irrefutable = false;
     let mut bindings: Option<Vec<(String, factorio_ir::expression::Expression)>> = None;
     for case in &or_pat.cases {
-        let (case_cond, case_binds) = lower_match_pattern(case, scrutinee)?;
+        let (case_cond, case_binds) = lower_match_pattern(case, scrutinee, ctx)?;
         match &mut bindings {
             None => bindings = Some(case_binds),
             Some(existing) => {

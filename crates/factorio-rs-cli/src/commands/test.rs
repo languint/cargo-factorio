@@ -371,7 +371,7 @@ fn generate_harness_lua(mod_name: &str, tests: &[factorio_frontend::FactorioTest
       if item.kind == "wait" then
         local ticks = tonumber(item.ticks) or 0
         if ticks > 0 then
-          -- Wait until game.tick advances (not handler-call counts — tick may
+          -- Wait until game.tick advances (not handler-call counts - tick may
           -- stay frozen during dedicated-server setup).
           state.wait_until_tick = game.tick + ticks
           state.phase = "wait"

@@ -17,6 +17,7 @@ fn body_has_continue(body: &[Statement]) -> bool {
 
 impl LuaGenerator {
     /// Generate code for a given [`Statement`].
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn generate_statement(
         &mut self,
         statement: &Statement,
@@ -30,6 +31,9 @@ impl LuaGenerator {
             }
             Statement::StructDecl(struct_decl) => {
                 self.generate_struct(struct_decl, module, scope, module_name)?;
+            }
+            Statement::EnumDecl(enum_decl) => {
+                self.generate_enum(enum_decl, module, scope, module_name)?;
             }
             Statement::VariableDecl {
                 name,

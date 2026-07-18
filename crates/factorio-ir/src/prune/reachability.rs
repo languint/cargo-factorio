@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::{
+    enumeration::Enum,
     module::Module,
     prune::{
         items::find_function,
@@ -66,6 +67,14 @@ pub fn compute_reachability(graph: &ModuleGraph<'_>) -> HashMap<String, ModuleRe
                         ItemKey::Struct(struct_decl.name.clone()),
                     );
                 }
+                Statement::EnumDecl(enum_decl) if module.stage.has_side_effect_entry() => {
+                    enqueue_item(
+                        &mut reachability,
+                        &mut pending,
+                        &module.name,
+                        ItemKey::Struct(enum_decl.name.clone()),
+                    );
+                }
                 _ => {}
             }
         }
@@ -95,7 +104,7 @@ fn expand_reachable_item(
             expand_reachable_function(graph, module, name, reachability, pending);
         }
         ItemKey::Struct(name) => {
-            expand_reachable_struct(graph, module, module_name, name, reachability, pending);
+            expand_reachable_table(graph, module, module_name, name, reachability, pending);
         }
         ItemKey::StructMethod(struct_name, method_name) => expand_reachable_struct_method(
             graph,
@@ -130,7 +139,7 @@ fn expand_reachable_function(
     }
 }
 
-fn expand_reachable_struct(
+fn expand_reachable_table(
     graph: &ModuleGraph<'_>,
     module: &Module,
     module_name: &str,
@@ -138,11 +147,15 @@ fn expand_reachable_struct(
     reachability: &mut HashMap<String, ModuleReachability>,
     pending: &mut VecDeque<(String, ItemKey)>,
 ) {
-    let Some(struct_decl) = struct_utils::find_struct(module, name) else {
+    let Some((constants, methods)) = struct_utils::find_struct(module, name)
+        .map(|decl| (&decl.constants, &decl.methods))
+        .or_else(|| {
+            struct_utils::find_enum(module, name).map(|decl| (&decl.constants, &decl.methods))
+        })
+    else {
         return;
     };
-
-    for (constant, value) in &struct_decl.constants {
+    for (constant, value) in constants {
         enqueue_item(
             reachability,
             pending,
@@ -158,7 +171,7 @@ fn expand_reachable_struct(
             pending,
         );
     }
-    for method in &struct_decl.methods {
+    for method in methods {
         enqueue_item(
             reachability,
             pending,
@@ -270,6 +283,7 @@ pub fn is_statement_reachable(statement: &Statement, reach: &ModuleReachability)
             .items
             .contains(&ItemKey::Function(function.name.clone())),
         Statement::StructDecl(struct_decl) => is_struct_reachable(struct_decl, reach),
+        Statement::EnumDecl(enum_decl) => is_enum_reachable(enum_decl, reach),
         // Nested statements are pruned with their containing function body.
         Statement::VariableDecl { .. }
         | Statement::Assignment { .. }
@@ -281,6 +295,24 @@ pub fn is_statement_reachable(statement: &Statement, reach: &ModuleReachability)
         | Statement::Continue
         | Statement::Break => true,
     }
+}
+
+fn is_enum_reachable(enum_decl: &Enum, reach: &ModuleReachability) -> bool {
+    reach
+        .items
+        .contains(&ItemKey::Struct(enum_decl.name.clone()))
+        || enum_decl.methods.iter().any(|method| {
+            reach.items.contains(&ItemKey::StructMethod(
+                enum_decl.name.clone(),
+                method.name.clone(),
+            ))
+        })
+        || enum_decl.constants.iter().any(|(name, _)| {
+            reach.items.contains(&ItemKey::StructConstant(
+                enum_decl.name.clone(),
+                name.clone(),
+            ))
+        })
 }
 
 /// Returns whether a struct declaration (or any of its members) is reachable.

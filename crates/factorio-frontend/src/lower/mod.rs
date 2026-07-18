@@ -34,7 +34,7 @@ use expressions::lower_expression;
 use functions::{lower_function, lower_impl_method};
 use imports::{lower_use, merge_imports};
 use metadata::{extract_doc_comments, struct_header_comment};
-use structs::{PendingStruct, impl_type_name, lower_struct_fields};
+use structs::{PendingEnum, PendingStruct, impl_type_name, lower_struct_fields};
 use util::{item_name, item_name_impl, location};
 
 /// Options for lowering a Rust module into IR.
@@ -223,6 +223,7 @@ fn lower_items(
     let mut inline_imports = Vec::new();
     let mut submodules = Vec::new();
     let mut structs = BTreeMap::<String, PendingStruct>::new();
+    let mut enums = BTreeMap::<String, PendingEnum>::new();
     let mut pending_locales = Vec::new();
     let mut ctx = LowerContext {
         imports: &mut inline_imports,
@@ -232,6 +233,7 @@ fn lower_items(
         remote_locals: std::collections::HashMap::new(),
         remote_fn_locals: std::collections::HashMap::new(),
         binding_types: std::collections::HashMap::new(),
+        enums: std::collections::HashMap::new(),
         option_bindings: std::collections::HashSet::new(),
         lints,
         diagnostics,
@@ -246,6 +248,7 @@ fn lower_items(
         use_imports: &mut use_imports,
         submodules: &mut submodules,
         structs: &mut structs,
+        enums: &mut enums,
         pending_locales: &mut pending_locales,
         default_export: default_export.cloned(),
     };
@@ -255,6 +258,7 @@ fn lower_items(
     }
 
     finalize_pending_structs(structs, &mut body, &mut symbols);
+    finalize_pending_enums(enums, &mut body, &mut symbols);
 
     let const_strings = locale::collect_const_strings(&body, &symbols);
     let mut locales = Vec::new();
@@ -284,6 +288,7 @@ struct ModuleLowerState<'a> {
     use_imports: &'a mut Vec<imports::ImportFragment>,
     submodules: &'a mut Vec<String>,
     structs: &'a mut BTreeMap<String, PendingStruct>,
+    enums: &'a mut BTreeMap<String, PendingEnum>,
     pending_locales: &'a mut Vec<proc_macro2::TokenStream>,
     default_export: Option<factorio_ir::function::ExportMeta>,
 }
@@ -334,8 +339,15 @@ fn lower_top_level_item(
                 module_state.symbols,
             );
         }
-        Item::Struct(item_struct) => lower_struct_item(item_struct, module_state.structs)?,
-        Item::Impl(item_impl) => lower_impl_item(item_impl, module_state.structs, ctx)?,
+        Item::Struct(item_struct) => {
+            lower_struct_item(item_struct, module_state.structs, module_state.enums)?;
+        }
+        Item::Enum(item_enum) => {
+            lower_enum_item(item_enum, module_state.structs, module_state.enums, ctx)?;
+        }
+        Item::Impl(item_impl) => {
+            lower_impl_item(item_impl, module_state.structs, module_state.enums, ctx)?;
+        }
         Item::Use(use_item) => {
             let fragments = lower_use(
                 use_item,
@@ -424,8 +436,15 @@ fn lower_top_level_item(
 fn lower_struct_item(
     item_struct: &syn::ItemStruct,
     structs: &mut BTreeMap<String, PendingStruct>,
+    enums: &BTreeMap<String, PendingEnum>,
 ) -> FrontendResult<()> {
     let name = item_struct.ident.to_string();
+    if enums.contains_key(&name) {
+        return Err(FrontendError::UnsupportedItem {
+            item: format!("struct `{name}` collides with an enum"),
+            location: location(item_struct),
+        });
+    }
     let entry = structs
         .entry(name)
         .or_insert_with(|| PendingStruct::new(item_struct.vis.clone()));
@@ -438,6 +457,7 @@ fn lower_struct_item(
 fn lower_impl_item(
     item_impl: &syn::ItemImpl,
     structs: &mut BTreeMap<String, PendingStruct>,
+    enums: &mut BTreeMap<String, PendingEnum>,
     ctx: &mut LowerContext<'_>,
 ) -> FrontendResult<()> {
     if item_impl.trait_.is_some() {
@@ -448,10 +468,31 @@ fn lower_impl_item(
     }
 
     let struct_name = impl_type_name(&item_impl.self_ty)?;
+    if let Some(entry) = enums.get_mut(&struct_name) {
+        for impl_item in &item_impl.items {
+            match impl_item {
+                ImplItem::Fn(method) => {
+                    entry
+                        .methods
+                        .push(lower_impl_method(method, &struct_name, ctx)?);
+                }
+                ImplItem::Const(item) => entry.constants.push((
+                    item.ident.to_string(),
+                    lower_expression(&item.expr, ctx, Some(&struct_name))?,
+                )),
+                item => {
+                    return Err(FrontendError::UnsupportedItem {
+                        item: item_name_impl(item),
+                        location: location(item),
+                    });
+                }
+            }
+        }
+        return Ok(());
+    }
     let entry = structs
         .entry(struct_name.clone())
         .or_insert_with(|| PendingStruct::new(Visibility::Inherited));
-
     for impl_item in &item_impl.items {
         match impl_item {
             ImplItem::Fn(method) => {
@@ -459,10 +500,10 @@ fn lower_impl_item(
                     .methods
                     .push(lower_impl_method(method, &struct_name, ctx)?);
             }
-            ImplItem::Const(item) => {
-                let value = lower_expression(&item.expr, ctx, Some(&struct_name))?;
-                entry.constants.push((item.ident.to_string(), value));
-            }
+            ImplItem::Const(item) => entry.constants.push((
+                item.ident.to_string(),
+                lower_expression(&item.expr, ctx, Some(&struct_name))?,
+            )),
             item => {
                 return Err(FrontendError::UnsupportedItem {
                     item: item_name_impl(item),
@@ -473,6 +514,98 @@ fn lower_impl_item(
     }
 
     Ok(())
+}
+
+fn lower_enum_item(
+    item_enum: &syn::ItemEnum,
+    structs: &BTreeMap<String, PendingStruct>,
+    enums: &mut BTreeMap<String, PendingEnum>,
+    ctx: &mut LowerContext<'_>,
+) -> FrontendResult<()> {
+    if item_enum
+        .attrs
+        .iter()
+        .any(|attr| attr.path().is_ident("repr"))
+    {
+        return Err(FrontendError::UnsupportedItem {
+            item: "repr enum".to_string(),
+            location: location(item_enum),
+        });
+    }
+    let name = item_enum.ident.to_string();
+    let mut variants = Vec::with_capacity(item_enum.variants.len());
+    let mut infos = Vec::with_capacity(item_enum.variants.len());
+    for variant in &item_enum.variants {
+        if variant.discriminant.is_some() {
+            return Err(FrontendError::UnsupportedItem {
+                item: "enum discriminant".to_string(),
+                location: location(variant),
+            });
+        }
+        let fields = match &variant.fields {
+            syn::Fields::Unit => factorio_ir::enumeration::EnumVariantFields::Unit,
+            syn::Fields::Unnamed(fields) => factorio_ir::enumeration::EnumVariantFields::Tuple {
+                types: fields
+                    .unnamed
+                    .iter()
+                    .map(|field| types::lower_type(&field.ty))
+                    .collect::<FrontendResult<Vec<_>>>()?,
+            },
+            syn::Fields::Named(fields) => factorio_ir::enumeration::EnumVariantFields::Named(
+                lower_struct_fields(&syn::Fields::Named(fields.clone()))?,
+            ),
+        };
+        let info_fields = match &fields {
+            factorio_ir::enumeration::EnumVariantFields::Unit => context::EnumVariantFields::Unit,
+            factorio_ir::enumeration::EnumVariantFields::Tuple { types } => {
+                context::EnumVariantFields::Tuple(types.len())
+            }
+            factorio_ir::enumeration::EnumVariantFields::Named(_) => {
+                context::EnumVariantFields::Named
+            }
+        };
+        let variant_name = variant.ident.to_string();
+        infos.push(context::EnumVariantInfo {
+            name: variant_name.clone(),
+            fields: info_fields,
+        });
+        variants.push(factorio_ir::enumeration::EnumVariant {
+            name: variant_name,
+            fields,
+        });
+    }
+    if structs.contains_key(&name) {
+        return Err(FrontendError::UnsupportedItem {
+            item: format!("enum `{name}` collides with a struct"),
+            location: location(item_enum),
+        });
+    }
+    ctx.enums.insert(name.clone(), infos);
+    let entry = enums
+        .entry(name)
+        .or_insert_with(|| PendingEnum::new(item_enum.vis.clone()));
+    entry.visibility = item_enum.vis.clone();
+    entry.variants = variants;
+    entry.doc = extract_doc_comments(&item_enum.attrs);
+    Ok(())
+}
+
+fn finalize_pending_enums(
+    enums: BTreeMap<String, PendingEnum>,
+    body: &mut Vec<factorio_ir::statement::Statement>,
+    symbols: &mut Vec<factorio_ir::module::Symbol>,
+) {
+    for (name, pending) in enums {
+        let lowered = factorio_ir::statement::Statement::EnumDecl(factorio_ir::enumeration::Enum {
+            name,
+            variants: pending.variants,
+            constants: pending.constants,
+            methods: pending.methods,
+            doc: pending.doc,
+            debug: None,
+        });
+        push_scoped_statement(lowered, &pending.visibility, body, symbols);
+    }
 }
 
 fn finalize_pending_structs(

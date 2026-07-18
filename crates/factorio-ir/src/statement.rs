@@ -1,9 +1,12 @@
-use crate::{expression::Expression, function::Function, structure::Struct, r#type::Type};
+use crate::{
+    enumeration::Enum, expression::Expression, function::Function, structure::Struct, r#type::Type,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     FunctionDecl(Function),
     StructDecl(Struct),
+    EnumDecl(Enum),
     VariableDecl {
         name: String,
         ty: Type,

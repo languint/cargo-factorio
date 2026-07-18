@@ -101,10 +101,12 @@ Unspecified lints use their defaults (`deny`, except `format_spec` -> `warn`).
 | `format_spec` | `E0003` | warn | Non-`?` format specs (e.g. `{:.2}`) are ignored when lowering |
 | `variable_index` | `E0004` | deny | Non-literal indices are not shifted for Lua's 1-based tables |
 | `identification_ctor` | `E0005` | deny | Identification enum constructors are not lowered; use `.into()` |
-| `option_if` | `E0006` | deny | Plain `if option` uses Lua truthiness |
+| `option_if` | `E0006` | deny | Plain `if` / `while` on an Option uses Lua truthiness |
 | `ambiguous_try` | `E0007` | deny | `?` on an untyped local (assumes Result) |
 | `ambiguous_method` | `E0008` | deny | Overlapping Option/Result method on an untyped local |
 | `skipped_mod` | `E0009` | deny | Inline `mod` without `#[factorio_rs::export]` is skipped |
+| `result_if` | `E0010` | deny | Plain `if` / `while` on a Result is always truthy |
+| `err_nil` | `E0011` | deny | `Err(nil)` / `Err(None)` collapses with Ok |
 
 ```toml
 [lints]

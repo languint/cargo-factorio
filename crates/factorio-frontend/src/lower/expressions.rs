@@ -241,6 +241,36 @@ fn lower_call_expression(
         return lower_result_constructor(call, kind, ctx, self_type);
     }
 
+    if let Expr::Path(path) = call.func.as_ref() {
+        let segments = lower_path_segments(path, self_type)?;
+        if let Some((enum_name, variant, super::context::EnumVariantFields::Tuple(count))) =
+            enum_variant_from_segments(&segments, ctx)
+        {
+            if call.args.len() != count {
+                return Err(FrontendError::UnsupportedExpression {
+                    location: location(call)
+                        .with_note(format!("{enum_name}::{variant} expects {count} arguments")),
+                });
+            }
+            let fields = call
+                .args
+                .iter()
+                .enumerate()
+                .map(|(index, arg)| {
+                    Ok((
+                        format!("_{}", index + 1),
+                        lower_expression(arg, ctx, self_type)?,
+                    ))
+                })
+                .collect::<FrontendResult<Vec<_>>>()?;
+            return Ok(factorio_ir::expression::Expression::EnumLiteral {
+                enum_name,
+                variant,
+                fields,
+            });
+        }
+    }
+
     // `lua_fn(handler)` / `lua_fn0` / `lua_fn2` - stub-only coercion helpers; emit the fn name.
     if is_lua_fn_helper(&call.func) {
         let mut args = call.args.iter();
@@ -468,6 +498,13 @@ fn lower_result_constructor(
         });
     }
     let value = lower_expression(arg, ctx, self_type)?;
+    if kind == "Err" && is_nil_like_expression(arg, &value) {
+        ctx.emit_lint(
+            factorio_ir::lint::LintId::ErrNil,
+            "`Err(nil)` / `Err(None)` is ambiguous with Ok (`r.err == nil`); use a non-nil error payload",
+            location(arg),
+        )?;
+    }
     let field = match kind {
         "Ok" => "ok",
         "Err" => "err",
@@ -477,6 +514,32 @@ fn lower_result_constructor(
         struct_name: Some("Result".to_string()),
         fields: vec![(field.to_string(), value)],
     })
+}
+
+fn is_nil_like_expression(arg: &Expr, lowered: &factorio_ir::expression::Expression) -> bool {
+    if matches!(
+        lowered,
+        factorio_ir::expression::Expression::Literal(factorio_ir::literal::Literal::Nil)
+    ) {
+        return true;
+    }
+    match arg {
+        Expr::Path(path) => {
+            let segments: Vec<_> = path
+                .path
+                .segments
+                .iter()
+                .map(|segment| segment.ident.to_string())
+                .collect();
+            match segments.as_slice() {
+                [name] if name == "None" => true,
+                [.., option, name] if option == "Option" && name == "None" => true,
+                _ => false,
+            }
+        }
+        Expr::Paren(paren) => is_nil_like_expression(&paren.expr, lowered),
+        _ => false,
+    }
 }
 
 fn is_lua_fn_helper(func: &Expr) -> bool {
@@ -959,12 +1022,22 @@ fn lower_if_expr(
     ctx: &mut LowerContext<'_>,
     self_type: Option<&str>,
 ) -> FrontendResult<factorio_ir::expression::Expression> {
-    if expr_type_key(&if_expr.cond, ctx) == Some("Option") {
-        ctx.emit_lint(
-            factorio_ir::lint::LintId::OptionIf,
-            "`if option { ... }` uses Lua truthiness (`Some(false)` / `Some(0)` are skipped); use `if let Some(...)` or `.is_some()`",
-            location(&if_expr.cond),
-        )?;
+    match expr_type_key(&if_expr.cond, ctx) {
+        Some("Option") => {
+            ctx.emit_lint(
+                factorio_ir::lint::LintId::OptionIf,
+                "`if option { ... }` uses Lua truthiness (`Some(false)` / `Some(0)` are skipped); use `if let Some(...)` or `.is_some()`",
+                location(&if_expr.cond),
+            )?;
+        }
+        Some("Result") => {
+            ctx.emit_lint(
+                factorio_ir::lint::LintId::ResultIf,
+                "`if result { ... }` is always truthy in Lua (Result is a table); use `if let Ok(...)` or `.is_ok()`",
+                location(&if_expr.cond),
+            )?;
+        }
+        _ => {}
     }
     let condition = lower_expression(&if_expr.cond, ctx, self_type)?;
     let else_branch =
@@ -1072,7 +1145,12 @@ fn lower_struct_expression(
     ctx: &mut LowerContext<'_>,
     self_type: Option<&str>,
 ) -> FrontendResult<factorio_ir::expression::Expression> {
-    let struct_name = item.path.segments.last().map(|s| s.ident.to_string());
+    let segments = item
+        .path
+        .segments
+        .iter()
+        .map(|segment| resolve_path_segment(&segment.ident, self_type))
+        .collect::<FrontendResult<Vec<_>>>()?;
 
     let fields = item
         .fields
@@ -1090,8 +1168,17 @@ fn lower_struct_expression(
         })
         .collect::<FrontendResult<Vec<_>>>()?;
 
+    if let Some((enum_name, variant, super::context::EnumVariantFields::Named)) =
+        enum_variant_from_segments(&segments, ctx)
+    {
+        return Ok(factorio_ir::expression::Expression::EnumLiteral {
+            enum_name,
+            variant,
+            fields,
+        });
+    }
     Ok(factorio_ir::expression::Expression::StructLiteral {
-        struct_name,
+        struct_name: segments.last().cloned(),
         fields,
     })
 }
@@ -1219,12 +1306,32 @@ fn lower_path_expression(
         ));
     }
 
+    if let Some((enum_name, variant, super::context::EnumVariantFields::Unit)) =
+        enum_variant_from_segments(&segments, ctx)
+    {
+        return Ok(factorio_ir::expression::Expression::EnumLiteral {
+            enum_name,
+            variant,
+            fields: vec![],
+        });
+    }
+
     match segments.len() {
         1 => Ok(factorio_ir::expression::Expression::Identifier(
             segments[0].clone(),
         )),
         _ => Ok(factorio_ir::expression::Expression::QualifiedPath { segments }),
     }
+}
+
+fn enum_variant_from_segments(
+    segments: &[String],
+    ctx: &LowerContext<'_>,
+) -> Option<(String, String, super::context::EnumVariantFields)> {
+    let variant = segments.last()?.clone();
+    let enum_name = segments.get(segments.len().checked_sub(2)?)?.clone();
+    ctx.enum_variant(&enum_name, &variant)
+        .map(|fields| (enum_name, variant, fields))
 }
 
 /// Resolve a path ending in `Type::Variant` to a Factorio literal-union string.

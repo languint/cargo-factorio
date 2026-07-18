@@ -8,7 +8,7 @@ factorio-rs does **not** implement a full Rust dialect. It lowers a Factorio-ori
 This page is the inventory of that surface. For **`Option` / `Result` / `?`**
 in depth, see [Option and Result](option-and-result/).
 
-Lua has no enums, traits, or borrow checker. Option-like values are usually
+Lua has no traits or borrow checker. Option-like values are usually
 **value or `nil`**; Results are tagged `{ ok }` / `{ err }` tables. Tables also
 stand in for structs, arrays, and maps.
 
@@ -18,6 +18,7 @@ stand in for structs, arrays, and maps.
 | --------------------------- | ---------------------------------------------------------------- |
 | `fn`                        | Private -> `local function`; `pub` -> `module.name` (see below) |
 | `struct` + inherent `impl`  | Fields, methods, associated `const`s                             |
+| `enum` + inherent `impl`    | Unit, tuple, and named variants as tagged tables                 |
 | `const`                     | Becomes a local (or exported) binding                            |
 | `use crate::...`            | Binding crates with `[package.metadata.factorio]` also lower; see [Sharing code between mods](dependencies/). `crate::` paths become `require`s |
 | `#[factorio_rs::export]`      | Publishes a fn via remote (control) or require (shared); see [Sharing code between mods](dependencies/) |
@@ -25,7 +26,20 @@ stand in for structs, arrays, and maps.
 | `mod_settings!` / `locale!` | Expanded / collected at transpile time                           |
 | Doc comments                | Emitted as Lua comments when debug comments are on               |
 
-**Not supported (yet):** `enum`, `trait`, trait `impl`, `type` aliases, `static`, tuple structs, unknown macros at item position.
+**Not supported (yet):** `trait`, trait `impl`, `type` aliases, `static`, tuple structs, unknown macros at item position.
+
+### Enums
+
+User-defined enums lower to tagged Lua tables. `Color::Red` is
+`{ tag = "Red" }`; `Msg::Move(x, y)` is
+`{ tag = "Move", _1 = x, _2 = y }`; and `Msg::Move { x, y }` is
+`{ tag = "Move", x = x, y = y }`. `match` supports the corresponding unit,
+tuple, and named-field patterns. Inherent enum methods share a table with unit
+variant constants, just like struct methods.
+
+This is distinct from Factorio API literal unions such as `GuiDirection`:
+those API values remain Lua strings, while your declared Rust enums use tagged
+tables.
 
 ### `pub fn` vs `fn`
 
@@ -304,7 +318,7 @@ still fails the build as unsupported syntax when known unsafe.
 | Error | Typical cause |
 | --- | --- |
 | `unsupported expression (Async)` / ... | Use a supported construct (see [Language](language/)) |
-| `unsupported item` | `enum` / `trait` / unknown macro |
+| `unsupported item` | `trait` / unknown macro / unsupported item form |
 | `let binding requires an initializer` | `let x;` without value |
 | `event handlers are only allowed in control-stage modules` | Move handler to control |
 | `could not resolve locale key` | `Settings::FOO` not in this module |
