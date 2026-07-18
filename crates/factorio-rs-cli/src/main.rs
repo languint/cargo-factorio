@@ -12,6 +12,7 @@ mod locale;
 mod manifest;
 mod open;
 mod paths;
+mod progress;
 
 use cli::{
     AddArgs, BuildArgs, CheckArgs, Cli, Command, InitArgs, InstallArgs, PackageArgs, TestArgs,
@@ -59,11 +60,7 @@ fn run_build(args: &BuildArgs) -> anyhow::Result<()> {
     let options = BuildOptions::new(&args.profile)
         .with_debug_level(args.debug_level)
         .with_skip_typecheck(args.skip_typecheck);
-    let outputs = commands::build::build(&project_root, &options)?;
-
-    for output in outputs {
-        println!("Generated `{}`", output.display());
-    }
+    let _outputs = commands::build::build(&project_root, &options)?;
 
     if args.package {
         let zip_path = commands::package::create_archive(&project_root)?;

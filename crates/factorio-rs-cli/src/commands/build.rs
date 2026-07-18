@@ -18,6 +18,7 @@ use crate::{
         StageModules, collect_event_registrations, collect_remote_exports, collect_shared_consts,
         collect_shared_exports, collect_stage_module, write_mod_manifests,
     },
+    progress::{self, BuildProgress},
 };
 
 /// Options that select how a project is transpiled.
@@ -62,16 +63,41 @@ pub fn check(project_root: &Path, options: &BuildOptions) -> CliResult<()> {
     if !options.skip_typecheck {
         typecheck::cargo_check(project_root)?;
     }
-    let _ = lower_project(project_root)?;
+    let _ = lower_project(project_root, None)?;
     Ok(())
 }
 
 /// Transpile Rust sources to a loadable Factorio mod directory.
 pub fn build(project_root: &Path, options: &BuildOptions) -> CliResult<Vec<PathBuf>> {
+    let mut progress = BuildProgress::start();
+
+    let result = build_with_progress(project_root, options, &mut progress);
+    match result {
+        Ok(outputs) => {
+            for output in &outputs {
+                progress.println(format!("Generated `{}`", output.display()));
+            }
+            progress.finish();
+            Ok(outputs)
+        }
+        Err(err) => {
+            progress.abandon();
+            Err(err)
+        }
+    }
+}
+
+fn build_with_progress(
+    project_root: &Path,
+    options: &BuildOptions,
+    progress: &mut BuildProgress,
+) -> CliResult<Vec<PathBuf>> {
     if !options.skip_typecheck {
+        progress.begin("Typecheck");
         typecheck::cargo_check(project_root)?;
     }
 
+    progress.begin("Prepare");
     let config = Config::load(project_root)?;
     let mut profile = config.resolve_profile(&options.profile);
     if let Some(level) = options.debug_level {
@@ -88,8 +114,10 @@ pub fn build(project_root: &Path, options: &BuildOptions) -> CliResult<Vec<PathB
     let lua_dir = output_dir.join("lua");
     let mut outputs = Vec::new();
 
-    let mut discovered_modules = lower_project(project_root)?;
+    progress.begin("Lower");
+    let mut discovered_modules = lower_project(project_root, Some(progress))?;
 
+    progress.begin("Emit");
     purge_output_dir(&output_dir)?;
     std::fs::create_dir_all(&lua_dir).map_err(|source| CliError::CreateDir {
         path: lua_dir.clone(),
@@ -114,7 +142,10 @@ pub fn build(project_root: &Path, options: &BuildOptions) -> CliResult<Vec<PathB
     }
 
     let lua_module_prefix = config.emit.lua_module_prefix.as_deref().unwrap_or("");
+    let module_count = u64::try_from(discovered_modules.len()).unwrap_or(u64::MAX);
+    progress.start_files(module_count, "Emit");
     for (module_spec, module) in &discovered_modules {
+        progress.tick_file(&module_spec.module_name);
         let output_path = transpile_module(
             module_spec,
             module,
@@ -136,6 +167,7 @@ pub fn build(project_root: &Path, options: &BuildOptions) -> CliResult<Vec<PathB
         outputs.push(output_path);
     }
 
+    progress.begin("Finalize");
     write_mod_manifests(
         &output_dir,
         &package,
@@ -173,6 +205,7 @@ pub fn build(project_root: &Path, options: &BuildOptions) -> CliResult<Vec<PathB
 /// Discover, lower, and lint every source module (no disk writes).
 fn lower_project(
     project_root: &Path,
+    mut progress: Option<&mut BuildProgress>,
 ) -> CliResult<Vec<(factorio_frontend::DiscoveredModule, Module)>> {
     let config = Config::load(project_root)?;
     let bindings = bindings::discover_bindings(project_root)?;
@@ -195,13 +228,22 @@ fn lower_project(
     let mut discovered_modules = Vec::new();
     let mut failed = false;
 
-    for source_path in sources {
-        let source = std::fs::read_to_string(&source_path).map_err(|err| CliError::ReadFile {
+    let file_count = u64::try_from(sources.len()).unwrap_or(u64::MAX);
+    if let Some(progress) = progress.as_deref_mut() {
+        progress.start_files(file_count, "Lower");
+    }
+
+    for source_path in &sources {
+        if let Some(progress) = progress.as_deref() {
+            progress.tick_file(progress::display_rel(project_root, source_path));
+        }
+
+        let source = std::fs::read_to_string(source_path).map_err(|err| CliError::ReadFile {
             path: source_path.clone(),
             source: err,
         })?;
-        let discovered = discover_modules(&source_dir, &source_path, &source)?;
-        let filename = display_filename(&source_path);
+        let discovered = discover_modules(&source_dir, source_path, &source)?;
+        let filename = display_filename(source_path);
 
         for module_spec in discovered {
             let mut file_diagnostics = Vec::new();
@@ -212,7 +254,9 @@ fn lower_project(
             ) {
                 Ok(module) => {
                     for diagnostic in &file_diagnostics {
-                        let _ = eprint_diagnostic(&filename, &source, diagnostic);
+                        with_progress_suspended(progress.as_deref(), || {
+                            let _ = eprint_diagnostic(&filename, &source, diagnostic);
+                        });
                         if diagnostic.is_error() {
                             failed = true;
                         }
@@ -221,9 +265,13 @@ fn lower_project(
                 }
                 Err(err) => {
                     for diagnostic in &file_diagnostics {
-                        let _ = eprint_diagnostic(&filename, &source, diagnostic);
+                        with_progress_suspended(progress.as_deref(), || {
+                            let _ = eprint_diagnostic(&filename, &source, diagnostic);
+                        });
                     }
-                    let _ = eprint_frontend_error(&filename, &source, &err);
+                    with_progress_suspended(progress.as_deref(), || {
+                        let _ = eprint_frontend_error(&filename, &source, &err);
+                    });
                     failed = true;
                 }
             }
@@ -238,6 +286,14 @@ fn lower_project(
     }
 
     Ok(discovered_modules)
+}
+
+fn with_progress_suspended(progress: Option<&BuildProgress>, f: impl FnOnce()) {
+    if let Some(progress) = progress {
+        progress.suspend(f);
+    } else {
+        f();
+    }
 }
 
 fn purge_output_dir(output_dir: &Path) -> CliResult<()> {
