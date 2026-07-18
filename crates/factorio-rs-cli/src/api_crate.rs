@@ -257,11 +257,8 @@ fn load_exports_from_cargo_toml(lib_root: &Path) -> CliResult<Option<ExportsMani
         .and_then(toml::Value::as_str)
         .unwrap_or("unknown")
         .to_string();
-    let version = package
-        .get("version")
-        .and_then(toml::Value::as_str)
-        .unwrap_or("0.0.0")
-        .to_string();
+    let version = crate::cargo_manifest::resolve_package_version(lib_root, package, &path)
+        .unwrap_or_else(|_| "0.0.0".to_string());
 
     let mod_name = factorio
         .get("mod_name")
@@ -517,12 +514,12 @@ mod tests {
             provider.join("Cargo.toml"),
             r#"[package]
 name = "provider"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2024"
 
 [package.metadata.factorio]
 mod_name = "provider"
-dependencies = ["provider >= 0.1.6"]
+dependencies = ["provider >= 0.1.7"]
 module_root = "lua"
 interface = "provider"
 remote_fns = ["greet"]
@@ -552,7 +549,7 @@ path = "src/lib.rs"
             provider.join("Cargo.toml"),
             r#"[package]
 name = "provider"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2024"
 
 [lib]
@@ -564,7 +561,7 @@ path = "src/lib.rs"
 
         let package = CargoPackage {
             name: "provider".to_string(),
-            version: "0.1.6".to_string(),
+            version: "0.1.7".to_string(),
             authors: None,
         };
         let remotes = vec![RemoteExport {

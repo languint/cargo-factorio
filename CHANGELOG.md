@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-07-18
+
+### Fixed
+
+- CLI resolves `version.workspace = true` when reading package metadata (workspace
+  example crates no longer fail `factorio-rs build` with a Cargo.toml parse error).
+
 ## [0.1.6] - 2026-07-18
 
 ### Added
@@ -142,7 +149,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `mod_settings!`, `locale!`, events and filters, build profiles, dead-code prune.
 - `format!` / `println!`, thumbnails, documentation site.
 
-[Unreleased]: https://github.com/languint/factorio-rs/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/languint/factorio-rs/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/languint/factorio-rs/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/languint/factorio-rs/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/languint/factorio-rs/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/languint/factorio-rs/compare/v0.1.3...v0.1.4

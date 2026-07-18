@@ -53,7 +53,7 @@ pub enum CliError {
     #[error("no Rust source files found in `{path}`")]
     NoSourceFiles { path: PathBuf },
 
-    #[error("failed to parse `{path}`")]
+    #[error("failed to parse `{path}`: {source}")]
     ConfigParse {
         path: PathBuf,
         source: toml::de::Error,
@@ -68,7 +68,7 @@ pub enum CliError {
     #[error("typecheck failed (`cargo check`)")]
     TypecheckFailed,
 
-    #[error("failed to parse `{path}`")]
+    #[error("failed to parse `{path}`: {source}")]
     CargoManifestParse {
         path: PathBuf,
         source: toml::de::Error,
