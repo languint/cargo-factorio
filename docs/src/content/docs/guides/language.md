@@ -249,13 +249,14 @@ only**.
 
 ## Expression macros
 
-Only **`println!`**, **`format!`**, assertion macros, **`panic!`**, and (CLI
-default) **`tracing::*!`** level macros are lowered:
+Only **`println!`**, **`format!`**, **`matches!`**, assertion macros, **`panic!`**,
+and (CLI default) **`tracing::*!`** level macros are lowered:
 
 | Macro | Lua |
 | --- | --- |
 | `println!(...)` | `game.print(...)` with `..` concatenation |
 | `format!(...)` | string built with `..` (no `game.print`) |
+| `matches!(expr, pat)` / `matches!(expr, pat if guard)` | value `match` -> `true` / `false` |
 | `assert!(cond)` / `assert!(cond, "...")` | `if not (cond) then error(...) end` |
 | `assert_eq!` / `assert_ne!` | compare temps, `error` with left/right |
 | `panic!("...")` | `error(...)` |
@@ -310,7 +311,7 @@ still fails the build as unsupported syntax when known unsafe.
 | `let binding requires an initializer` | `let x;` without value |
 | `event handlers are only allowed in control-stage modules` | Move handler to control |
 | `could not resolve locale key` | `Settings::FOO` not in this module |
-| `unsupported macro` | Only `println!` / `format!` / asserts / `panic!` / `tracing::*!` in expressions |
+| `unsupported macro` | Only `println!` / `format!` / `matches!` / asserts / `panic!` / `tracing::*!` in expressions |
 
 ## See also
 

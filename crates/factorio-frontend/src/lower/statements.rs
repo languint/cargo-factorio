@@ -1370,3 +1370,61 @@ fn match_tmp_name(match_expr: &ExprMatch) -> String {
     use syn::spanned::Spanned;
     format!("__match_{}", match_expr.span().byte_range().start)
 }
+
+/// Lower `matches!(expr, pat)` / `matches!(expr, pat if guard)` to a value `match`.
+///
+/// Desugars to `match expr { pat if guard => true, _ => false }`, then uses the
+/// same arm folding as ordinary value-position `match`.
+pub fn lower_matches_macro(
+    mac: &syn::ExprMacro,
+    ctx: &mut LowerContext<'_>,
+    self_type: Option<&str>,
+) -> FrontendResult<factorio_ir::expression::Expression> {
+    let input: MatchesMacroInput = mac.mac.parse_body()?;
+    let expr = &input.expr;
+    let pat = &input.pat;
+    let match_expr: ExprMatch = input.guard.as_ref().map_or_else(
+        || {
+            syn::parse_quote! {
+                match #expr {
+                    #pat => true,
+                    _ => false,
+                }
+            }
+        },
+        |guard| {
+            syn::parse_quote! {
+                match #expr {
+                    #pat if #guard => true,
+                    _ => false,
+                }
+            }
+        },
+    );
+    lower_match_expression(&match_expr, ctx, self_type)
+}
+
+struct MatchesMacroInput {
+    expr: Expr,
+    pat: Pat,
+    guard: Option<Expr>,
+}
+
+impl syn::parse::Parse for MatchesMacroInput {
+    fn parse(input: syn::parse::ParseStream<'_>) -> syn::Result<Self> {
+        // Avoid eager braces
+        let expr = Expr::parse_without_eager_brace(input)?;
+        input.parse::<syn::Token![,]>()?;
+        let pat = Pat::parse_multi(input)?;
+        let guard = if input.peek(syn::Token![if]) {
+            input.parse::<syn::Token![if]>()?;
+            Some(input.parse()?)
+        } else {
+            None
+        };
+        if input.peek(syn::Token![,]) {
+            input.parse::<syn::Token![,]>()?;
+        }
+        Ok(Self { expr, pat, guard })
+    }
+}

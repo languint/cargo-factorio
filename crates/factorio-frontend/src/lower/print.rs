@@ -45,6 +45,7 @@ pub fn lower_macro_expression(
     match name.as_str() {
         "println" => lower_println_macro(mac, ctx, self_type),
         "format" => lower_format_macro(mac, ctx, self_type),
+        "matches" => super::statements::lower_matches_macro(mac, ctx, self_type),
         "assert" | "assert_eq" | "assert_ne" | "panic" => {
             let stmts = super::assert_macros::lower_assert_macro_statements(mac, ctx, self_type)?;
             ctx.try_hoists.extend(stmts);

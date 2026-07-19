@@ -41,6 +41,8 @@ match msg {
 ```
 
 Supported patterns include unit / tuple / named variants, guards, and or-patterns.
+`matches!(expr, pat)` / `matches!(expr, pat if guard)` is supported and desugars to
+a value `match` that yields `true` / `false`.
 Full pattern rules: [Supported Rust -> match](../guides/language/#match).
 
 ## Not the same as API unions

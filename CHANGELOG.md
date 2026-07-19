@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `matches!(expr, pat)` / `matches!(expr, pat if guard)`: desugars to a value
+  `match` (`true` / `false`), reusing the same patterns as `match` arms.
 - Lints: `option_try` (`E0012`) for `?` on call/method results (assumes Result);
   `integer_div` (`E0013`, warn) for `/` / `/=` without a float operand;
   `struct_rest` (`E0014`) for struct updates other than `..Default::default()`.

@@ -59,12 +59,13 @@ See [Locale](../guides/locale/).
 
 ## Expression macros
 
-In executable code, **`println!`**, **`format!`**, (with the `tracing`
-feature) **`tracing::{error,warn,info,debug,trace}!`**, and (with the `serde`
-feature) **`serde_json::{to_string,from_str,...}`** calls are lowered:
+In executable code, **`println!`**, **`format!`**, **`matches!`**, (with the
+`tracing` feature) **`tracing::{error,warn,info,debug,trace}!`**, and (with the
+`serde` feature) **`serde_json::{to_string,from_str,...}`** calls are lowered:
 
 - `println!(...)` -> `game.print(...)`
 - `format!(...)` -> Lua string concatenation with `..`
+- `matches!(expr, pat)` / `matches!(expr, pat if guard)` -> value `match` -> `true` / `false`
 - `tracing::info!(...)` / `warn!` / ... -> colored `game.print` (see [Tracing](../guides/tracing/))
 - `serde_json::to_string` / ... -> `helpers.table_to_json` / `string.pack` (see [Serde / JSON](../guides/serde/))
 

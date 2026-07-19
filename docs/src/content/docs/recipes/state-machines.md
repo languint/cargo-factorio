@@ -69,5 +69,5 @@ Details: [Enums](../language/enums/).
 
 ## See also
 
-- [Supported Rust](../guides/language/#match) - pattern rules
+- [Supported Rust](../guides/language/#match) - pattern rules / `matches!`
 - [Option and Result](../guides/option-and-result/) - `Some` / `Ok` arms
