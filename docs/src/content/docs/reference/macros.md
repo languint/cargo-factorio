@@ -53,6 +53,14 @@ pub fn ping() {}
 
 See [Mod settings](../guides/mod-settings/).
 
+## `item!`
+
+Declare data-stage item prototypes. Expands to `Items` name constants (for
+`locale!`) and `pub fn register()` that calls `data.extend`. Relative `icon`
+paths become `__{package.name}__/...`.
+
+See [Package graphics](../recipes/package-graphics/).
+
 ## `locale!`
 
 See [Locale](../guides/locale/).
@@ -69,7 +77,7 @@ In executable code, **`println!`**, **`format!`**, **`matches!`**, (with the
 - `tracing::info!(...)` / `warn!` / ... -> colored `game.print` (see [Tracing](../guides/tracing/))
 - `serde_json::to_string` / ... -> `helpers.table_to_json` / `string.pack` (see [Serde / JSON](../guides/serde/))
 
-Item macros such as `mod_settings!` and `locale!` are handled separately during
-module lowering.
+Item macros such as `mod_settings!`, `item!`, and `locale!` are handled
+separately during module lowering.
 
 Full syntax inventory: [Supported Rust](../guides/language/).

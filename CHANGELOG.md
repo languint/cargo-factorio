@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `item!` data-stage macro: declares item prototypes with relative icon paths
+  rewritten to `__{package.name}__/...`, emits `Items::*` name constants for
+  `locale!` (`item_name` / `item_description`), and `pub fn register()` via
+  `data.extend`. See Package graphics recipe.
+- Data-stage `Item` prototype stub (`type = "item"`) for `data.extend`, with
+  packaged-icon fields. Package graphics recipe walks assets -> `__mod__/...` ->
+  `Item` registration end-to-end.
 - `matches!(expr, pat)` / `matches!(expr, pat if guard)`: desugars to a value
   `match` (`true` / `false`), reusing the same patterns as `match` arms.
 - Lints: `option_try` (`E0012`) for `?` on call/method results (assumes Result);

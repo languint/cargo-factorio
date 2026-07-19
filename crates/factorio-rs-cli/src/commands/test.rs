@@ -154,6 +154,7 @@ fn load_test_suite(
     project_root: &Path,
     config: &Config,
 ) -> CliResult<factorio_frontend::TestSuite> {
+    let package = CargoPackage::load(project_root)?;
     let bindings = crate::bindings::discover_bindings(project_root)?;
     let source_dir = project_root.join(&config.source);
     let sources = collect_sources(&source_dir)?;
@@ -161,7 +162,8 @@ fn load_test_suite(
     let lua_module_prefix = config.emit.lua_module_prefix.as_deref().unwrap_or("");
     let parse_options = ParseOptions::new(&lint_config)
         .with_prefix(lua_module_prefix)
-        .with_bindings(&bindings);
+        .with_bindings(&bindings)
+        .with_mod_name(&package.name);
 
     let mut diagnostics = Vec::new();
     let suite = match discover_tests(&source_dir, &sources, &parse_options, &mut diagnostics) {

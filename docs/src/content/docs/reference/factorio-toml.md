@@ -70,7 +70,8 @@ Rules:
   `thumbnail.png` (use `[mod].thumbnail` for the portal thumbnail).
 
 Reference packaged files in data-stage code with Factorio paths such as
-`"__my_mod__/graphics/icon.png"` (replace `my_mod` with your Cargo package name).
+`"__my_mod__/graphics/icon.png"` (replace `my_mod` with your Cargo package name),
+or use `item!` with a relative `icon` path. End-to-end: [Package graphics](../recipes/package-graphics/).
 
 ## `[emit]`
 
@@ -92,7 +93,8 @@ See [Profiles](../guides/profiles/).
 Transpile-time safety checks. See [Lints](../guides/lints/).
 
 Each key is a lint **identifier**; the value is `allow`, `warn`, or `deny`.
-Unspecified lints use their defaults (`deny`, except `format_spec` / `integer_div` -> `warn`).
+Unspecified lints use their defaults (`deny`, except `format_spec` /
+`integer_div` -> `warn`).
 
 | Identifier | Code | Default | Meaning |
 | --- | --- | --- | --- |

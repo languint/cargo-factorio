@@ -60,6 +60,11 @@ pub enum FrontendError {
     #[error("invalid locale entry: {message}")]
     InvalidLocale { message: String },
 
+    #[error(
+        "item! relative icon `{path}` needs the package mod name; use a full `__mod__/...` path or build with factorio-rs"
+    )]
+    ItemIconNeedsModName { path: String },
+
     #[error("{0}")]
     Lint(factorio_ir::lint::Diagnostic),
 }
@@ -94,7 +99,8 @@ impl FrontendError {
             | Self::InvalidModuleStage { .. }
             | Self::EventOutsideControlStage { .. }
             | Self::LocaleKeyUnresolved { .. }
-            | Self::InvalidLocale { .. } => None,
+            | Self::InvalidLocale { .. }
+            | Self::ItemIconNeedsModName { .. } => None,
         }
     }
 
@@ -139,6 +145,9 @@ impl FrontendError {
                 format!("could not resolve locale key `{path}` to a string constant in this module")
             }
             Self::InvalidLocale { message } => format!("invalid locale entry: {message}"),
+            Self::ItemIconNeedsModName { path } => format!(
+                "item! relative icon `{path}` needs the package mod name; use a full `__mod__/...` path or build with factorio-rs"
+            ),
             Self::Lint(diagnostic) => diagnostic.message.clone(),
         }
     }

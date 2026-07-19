@@ -595,6 +595,195 @@ fn build_lua_name(prefix: Option<&str>, snake: &str) -> String {
     }
 }
 
+/// Declare data-stage item prototypes.
+///
+/// Expands to an `Items` type with name constants (for `locale!`) and
+/// `pub fn register()` that calls `data.extend` with [`Item`] literals.
+/// Relative `icon` paths are prefixed with `__{CARGO_PKG_NAME}__/`.
+///
+/// # Example
+/// ```ignore
+/// use factorio_rs::prelude::*;
+///
+/// item! {
+///     widget {
+///         name = "my-mod-widget",
+///         icon = "graphics/icon.png",
+///         stack_size = 50,
+///         icon_size = 64,
+///     }
+/// }
+///
+/// locale! {
+///     en {
+///         item_name {
+///             Items::WIDGET = "Widget",
+///         }
+///     }
+/// }
+/// ```
+#[proc_macro]
+pub fn item(input: TokenStream) -> TokenStream {
+    let ItemsMacroInput { items } = parse_macro_input!(input as ItemsMacroInput);
+    let mod_name = std::env::var("CARGO_PKG_NAME").unwrap_or_else(|_| "mod".to_string());
+
+    let mut const_defs = Vec::<TokenStream2>::new();
+    let mut extend_items = Vec::<TokenStream2>::new();
+
+    for entry in &items {
+        let const_name = screaming_to_const_ident(&entry.ident);
+        let name_lit = entry.name.as_str();
+        let icon_lit = resolve_icon_path(&entry.icon, &mod_name);
+        let stack_size = entry.stack_size;
+        let icon_size = option_i64_tokens(entry.icon_size);
+        let subgroup = option_str_tokens(entry.subgroup.as_deref());
+        let order = option_str_tokens(entry.order.as_deref());
+
+        const_defs.push(quote::quote! {
+            pub const #const_name: &'static str = #name_lit;
+        });
+
+        extend_items.push(quote::quote! {
+            Item {
+                name: #name_lit,
+                icon: #icon_lit,
+                stack_size: #stack_size,
+                icon_size: #icon_size,
+                subgroup: #subgroup,
+                order: #order,
+                ..Default::default()
+            }
+        });
+    }
+
+    TokenStream::from(quote::quote! {
+        pub struct Items;
+
+        impl Items {
+            #( #const_defs )*
+        }
+
+        pub fn register() {
+            data.extend([
+                #( #extend_items, )*
+            ]);
+        }
+    })
+}
+
+fn resolve_icon_path(icon: &str, mod_name: &str) -> String {
+    if icon.starts_with("__") {
+        return icon.to_string();
+    }
+    let trimmed = icon.strip_prefix("./").unwrap_or(icon);
+    format!("__{mod_name}__/{trimmed}")
+}
+
+fn option_i64_tokens(value: Option<i64>) -> TokenStream2 {
+    value.map_or_else(|| quote::quote! { None }, |v| quote::quote! { Some(#v) })
+}
+
+fn option_str_tokens(value: Option<&str>) -> TokenStream2 {
+    value.map_or_else(|| quote::quote! { None }, |v| quote::quote! { Some(#v) })
+}
+
+struct ItemsMacroInput {
+    items: Vec<ItemProtoEntry>,
+}
+
+struct ItemProtoEntry {
+    ident: syn::Ident,
+    name: String,
+    icon: String,
+    stack_size: i64,
+    icon_size: Option<i64>,
+    subgroup: Option<String>,
+    order: Option<String>,
+}
+
+impl Parse for ItemsMacroInput {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let mut items = Vec::new();
+        while !input.is_empty() {
+            items.push(input.parse::<ItemProtoEntry>()?);
+        }
+        if items.is_empty() {
+            return Err(input.error("expected at least one item block"));
+        }
+        Ok(Self { items })
+    }
+}
+
+impl Parse for ItemProtoEntry {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let ident: syn::Ident = input.parse()?;
+        let content;
+        syn::braced!(content in input);
+
+        let mut name: Option<String> = None;
+        let mut icon: Option<String> = None;
+        let mut stack_size: Option<i64> = None;
+        let mut icon_size: Option<i64> = None;
+        let mut subgroup: Option<String> = None;
+        let mut order: Option<String> = None;
+
+        while !content.is_empty() {
+            let field: syn::Ident = content.parse()?;
+            let _: Token![=] = content.parse()?;
+            match field.to_string().as_str() {
+                "name" => {
+                    let lit: LitStr = content.parse()?;
+                    name = Some(lit.value());
+                }
+                "icon" => {
+                    let lit: LitStr = content.parse()?;
+                    icon = Some(lit.value());
+                }
+                "stack_size" => {
+                    let lit: syn::LitInt = content.parse()?;
+                    stack_size = Some(lit.base10_parse()?);
+                }
+                "icon_size" => {
+                    let lit: syn::LitInt = content.parse()?;
+                    icon_size = Some(lit.base10_parse()?);
+                }
+                "subgroup" => {
+                    let lit: LitStr = content.parse()?;
+                    subgroup = Some(lit.value());
+                }
+                "order" => {
+                    let lit: LitStr = content.parse()?;
+                    order = Some(lit.value());
+                }
+                other => {
+                    return Err(syn::Error::new(
+                        field.span(),
+                        format!(
+                            "unknown item field `{other}`; expected `name`, `icon`, `stack_size`, `icon_size`, `subgroup`, or `order`"
+                        ),
+                    ));
+                }
+            }
+            let _: Option<Token![,]> = content.parse()?;
+        }
+
+        let span = ident.span();
+        Ok(Self {
+            ident,
+            name: name
+                .ok_or_else(|| syn::Error::new(span, "item block missing required field `name`"))?,
+            icon: icon
+                .ok_or_else(|| syn::Error::new(span, "item block missing required field `icon`"))?,
+            stack_size: stack_size.ok_or_else(|| {
+                syn::Error::new(span, "item block missing required field `stack_size`")
+            })?,
+            icon_size,
+            subgroup,
+            order,
+        })
+    }
+}
+
 /// Declare Factorio locale entries in Rust.
 ///
 /// Keys that reference associated constants (e.g. `Settings::CASUAL_MODE`) are

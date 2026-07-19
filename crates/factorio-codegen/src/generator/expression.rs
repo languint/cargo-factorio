@@ -12,6 +12,7 @@ fn prototype_lua_type(struct_name: &str) -> Option<&'static str> {
         "IntSetting" => Some("int-setting"),
         "DoubleSetting" => Some("double-setting"),
         "StringSetting" => Some("string-setting"),
+        "Item" => Some("item"),
         _ => None,
     }
 }

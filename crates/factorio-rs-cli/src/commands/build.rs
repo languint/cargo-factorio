@@ -222,11 +222,13 @@ fn lower_project(
         return Err(CliError::NoSourceFiles { path: source_dir });
     }
 
+    let package = CargoPackage::load(project_root)?;
     let lint_config = config.lints.resolve()?;
     let lua_module_prefix = config.emit.lua_module_prefix.as_deref().unwrap_or("");
     let parse_options = ParseOptions::new(&lint_config)
         .with_prefix(lua_module_prefix)
-        .with_bindings(&bindings);
+        .with_bindings(&bindings)
+        .with_mod_name(&package.name);
 
     let mut discovered_modules = Vec::new();
     let mut failed = false;

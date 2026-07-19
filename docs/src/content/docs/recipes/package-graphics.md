@@ -1,11 +1,11 @@
 ---
 title: Package graphics
-description: Copy sprites into the mod output with Factorio.toml assets and reference them by path.
+description: Copy sprites into the mod output and register a data-stage item with item!.
 ---
 
 factorio-rs builds a normal Factorio mod directory. Put graphics under your
-project, list them in `Factorio.toml`, and reference the packaged paths from
-data-stage (or other) code.
+project, list them in `Factorio.toml`, and register items with `item!` so relative
+icon paths become `__mod__/...` and `Items::*` constants wire into `locale!`.
 
 ## 1. Add files
 
@@ -14,7 +14,9 @@ my-mod/
   assets/graphics/icon.png
   Factorio.toml
   Cargo.toml
-  src/...
+  src/
+    lib.rs
+    data.rs
 ```
 
 ## 2. Declare assets
@@ -37,33 +39,87 @@ assets = ["graphics"]
 
 Rules (collisions, remaps, thumbnail): [Factorio.toml -> Assets](../reference/factorio-toml/#assets).
 
-## 3. Build and check `dist/`
+## 3. Register items + locale
+
+Cargo `[package].name` is the mod id. Relative `icon` paths are rewritten to
+`__my_mod__/graphics/...` (replace `my_mod` with your package name). Paths that
+already start with `__` are left unchanged.
+
+Co-locate `item!` and `locale!` in the same data-stage module so
+`Items::CONST` keys resolve (same pattern as `Settings` + `mod_settings!`).
+
+```rust
+// src/data.rs
+use factorio_rs::prelude::*;
+
+item! {
+    widget {
+        name = "my-mod-widget",
+        icon = "graphics/icon.png",
+        stack_size = 50,
+        icon_size = 64,
+        subgroup = "intermediate-product",
+        order = "a[my-mod]-a[widget]",
+    }
+}
+
+locale! {
+    file = "items",
+
+    en {
+        item_name {
+            Items::WIDGET = "Widget",
+        }
+        item_description {
+            Items::WIDGET = "A sample packaged item.",
+        }
+    }
+}
+```
+
+`item!` expands to an `Items` type with name constants and `pub fn register()`
+that calls `data.extend` with typed `Item` literals (`type = "item"` is injected).
+Every `pub fn` in a data-stage module runs from `data.lua` at load time -
+see [Stages](../guides/stages/).
+
+Factorio reads `[item-name]` / `[item-description]` from locale `.cfg` files
+automatically (category idents use underscores -> hyphens).
+
+Escape hatch: hand-write `data.extend([Item { ... }])` when you need fields the
+macro does not expose yet.
+
+## 4. Build and check `dist/`
 
 ```bash
 factorio-rs build
 ls dist/graphics
+rg 'type = "item"' dist/lua
+rg 'my-mod-widget' dist/locale
 ```
 
-You should see `icon.png` (or your tree) next to generated `info.json` / Lua.
+You should see `icon.png`, an item table using `__my_mod__/graphics/...`, and
+locale keys for the item name.
 
-## 4. Reference the Factorio path
+Emitted shape (simplified):
 
-Cargo `[package].name` is the mod id. Paths look like:
-
-```text
-__my_mod__/graphics/icon.png
+```lua
+data.extend({
+  {
+    type = "item",
+    name = "my-mod-widget",
+    icon = "__my_mod__/graphics/icon.png",
+    icon_size = 64,
+    stack_size = 50,
+    subgroup = "intermediate-product",
+    order = "a[my-mod]-a[widget]",
+  },
+})
 ```
 
-Use that string from a **data-stage** module when defining prototypes (icons,
-sprites, ...). Discover data modules with `data.rs`, `#[factorio_rs::data]`, or
-`data_mod!` - see [Stages](../guides/stages/).
-
-```rust
-// Illustrative: pass the path wherever your prototype helpers expect a filename.
-const ICON: &str = "__my_mod__/graphics/icon.png";
+```ini
+[item-name]
+my-mod-widget=Widget
 ```
-
-Replace `my_mod` with your Cargo package name.
 
 ## Thumbnail
 
@@ -78,3 +134,6 @@ thumbnail = "assets/thumbnail.png"  # or rely on ./thumbnail.png
 
 - [Getting started](../guides/getting-started/) - install / package
 - [First hour](first-hour/) - end-to-end loop
+- [Stages](../guides/stages/) - data vs control modules
+- [Locale](../guides/locale/) - `locale!` + `Items::*` keys
+- [Mod settings](../guides/mod-settings/) - same `register` / const pattern

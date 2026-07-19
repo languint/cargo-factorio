@@ -881,6 +881,83 @@ mod tests {
     }
 
     #[test]
+    fn transpiles_item_prototype_with_packaged_icon() {
+        use factorio_codegen::LuaGenerator;
+        use factorio_frontend::parse_module;
+
+        let source = r#"
+            pub fn register() {
+                data.extend([
+                    Item {
+                        name: "my-mod-widget",
+                        icon: "__my_mod__/graphics/icon.png",
+                        icon_size: Some(64),
+                        stack_size: 50,
+                        ..Default::default()
+                    },
+                ]);
+            }
+        "#;
+
+        let module = parse_module(source, "data").expect("parse data");
+        let lua = LuaGenerator::with_mod_name("my_mod")
+            .generate_module(&module)
+            .expect("generate data lua");
+
+        assert!(lua.contains("function data.register()"));
+        assert!(lua.contains("data.extend("));
+        assert!(lua.contains("type = \"item\""));
+        assert!(lua.contains("name = \"my-mod-widget\""));
+        assert!(lua.contains("icon = \"__my_mod__/graphics/icon.png\""));
+        assert!(lua.contains("icon_size = 64"));
+        assert!(lua.contains("stack_size = 50"));
+        assert!(!lua.contains("subgroup"));
+        assert!(!lua.contains("order"));
+    }
+
+    #[test]
+    fn transpiles_item_macro_with_relative_icon() {
+        use factorio_codegen::LuaGenerator;
+        use factorio_frontend::{ParseOptions, parse_module_with_options};
+        use factorio_ir::lint::LintConfig;
+
+        let source = r#"
+            item! {
+                widget {
+                    name = "my-mod-widget",
+                    icon = "graphics/icon.png",
+                    stack_size = 50,
+                    icon_size = 64,
+                    subgroup = "intermediate-product",
+                    order = "a[my-mod]-a[widget]",
+                }
+            }
+        "#;
+
+        let lints = LintConfig::allow_all();
+        let mut diagnostics = Vec::new();
+        let module = parse_module_with_options(
+            source,
+            "data",
+            &ParseOptions::new(&lints).with_mod_name("my_mod"),
+            &mut diagnostics,
+        )
+        .expect("parse data");
+        let lua = LuaGenerator::with_mod_name("my_mod")
+            .generate_module(&module)
+            .expect("generate data lua");
+
+        assert!(lua.contains("function data.register()"));
+        assert!(lua.contains("data.extend("));
+        assert!(lua.contains("type = \"item\""));
+        assert!(lua.contains("name = \"my-mod-widget\""));
+        assert!(lua.contains("icon = \"__my_mod__/graphics/icon.png\""));
+        assert!(lua.contains("icon_size = 64"));
+        assert!(lua.contains("stack_size = 50"));
+        assert!(lua.contains("subgroup = \"intermediate-product\""));
+    }
+
+    #[test]
     fn dependency_mod_name_strips_prefixes_and_versions() {
         assert_eq!(dependency_mod_name("base >= 2.0"), "base");
         assert_eq!(dependency_mod_name("? space-age"), "space-age");

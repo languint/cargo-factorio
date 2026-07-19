@@ -17,6 +17,7 @@ pub mod event_handler;
 pub mod expressions;
 pub mod functions;
 pub mod imports;
+mod items;
 pub mod iterators;
 mod locale;
 pub mod metadata;
@@ -44,6 +45,8 @@ pub struct ParseOptions<'a> {
     pub module_prefix: &'a str,
     pub lints: &'a LintConfig,
     pub bindings: Option<&'a crate::BindingRegistry>,
+    /// Cargo `[package].name` / Factorio mod id (for `item!` icon path rewriting).
+    pub mod_name: Option<&'a str>,
 }
 
 impl<'a> ParseOptions<'a> {
@@ -53,6 +56,7 @@ impl<'a> ParseOptions<'a> {
             module_prefix: "",
             lints,
             bindings: None,
+            mod_name: None,
         }
     }
 
@@ -65,6 +69,12 @@ impl<'a> ParseOptions<'a> {
     #[must_use]
     pub const fn with_bindings(mut self, bindings: &'a crate::BindingRegistry) -> Self {
         self.bindings = Some(bindings);
+        self
+    }
+
+    #[must_use]
+    pub const fn with_mod_name(mut self, mod_name: &'a str) -> Self {
+        self.mod_name = Some(mod_name);
         self
     }
 
@@ -154,6 +164,7 @@ pub fn parse_module_with_options(
         options.lints,
         diagnostics,
         None,
+        options.mod_name,
     )
 }
 
@@ -204,6 +215,7 @@ pub fn parse_discovered_module_with_options(
         options.lints,
         diagnostics,
         discovered.default_export.as_ref(),
+        options.mod_name,
     )
 }
 
@@ -217,6 +229,7 @@ fn lower_items(
     lints: &LintConfig,
     diagnostics: &mut Vec<Diagnostic>,
     default_export: Option<&factorio_ir::function::ExportMeta>,
+    mod_name: Option<&str>,
 ) -> FrontendResult<factorio_ir::module::Module> {
     let mut body = Vec::new();
     let mut symbols = Vec::new();
@@ -254,6 +267,7 @@ fn lower_items(
         enums: &mut enums,
         pending_locales: &mut pending_locales,
         default_export: default_export.cloned(),
+        mod_name,
     };
 
     for item in items {
@@ -294,6 +308,7 @@ struct ModuleLowerState<'a> {
     enums: &'a mut BTreeMap<String, PendingEnum>,
     pending_locales: &'a mut Vec<proc_macro2::TokenStream>,
     default_export: Option<factorio_ir::function::ExportMeta>,
+    mod_name: Option<&'a str>,
 }
 
 #[allow(clippy::too_many_lines)]
@@ -418,6 +433,12 @@ fn lower_top_level_item(
         }
         Item::Macro(mac) if is_known_macro(&mac.mac, "mod_settings") => {
             let expanded = mod_settings::expand(mac.mac.tokens.clone())?;
+            for item in &expanded {
+                lower_top_level_item(item, module_name, module_state, ctx)?;
+            }
+        }
+        Item::Macro(mac) if is_known_macro(&mac.mac, "item") => {
+            let expanded = items::expand(mac.mac.tokens.clone(), module_state.mod_name)?;
             for item in &expanded {
                 lower_top_level_item(item, module_name, module_state, ctx)?;
             }

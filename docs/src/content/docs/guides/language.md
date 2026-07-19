@@ -31,7 +31,7 @@ stand in for structs, arrays, and maps.
 | `use crate::...`            | Binding crates with `[package.metadata.factorio]` also lower; see [Sharing code between mods](dependencies/). `crate::` paths become `require`s |
 | `#[factorio_rs::export]`      | Publishes a fn via remote (control) or require (shared); see [Sharing code between mods](dependencies/) |
 | `mod name;`                 | Declares a submodule file                                        |
-| `mod_settings!` / `locale!` | Expanded / collected at transpile time                           |
+| `mod_settings!` / `item!` / `locale!` | Expanded / collected at transpile time                           |
 | Doc comments                | Emitted as Lua comments when debug comments are on               |
 
 **Not supported (yet):** `trait`, trait `impl`, `static`, tuple structs, unknown macros at item position.
@@ -241,6 +241,7 @@ See [Stages](stages/) for how files map to Factorio load phases.
 | Stages / discovery   | [Stages](stages/)             |
 | `#[event]` + filters | [Events](events/)             |
 | `mod_settings!`      | [Mod settings](mod-settings/) |
+| `item!`              | [Package graphics](../recipes/package-graphics/) |
 | `locale!`            | [Locale](locale/)             |
 | Profiles / prune     | [Profiles](profiles/)         |
 
@@ -249,14 +250,13 @@ only**.
 
 ## Expression macros
 
-Only **`println!`**, **`format!`**, **`matches!`**, assertion macros, **`panic!`**,
-and (CLI default) **`tracing::*!`** level macros are lowered:
+Only **`println!`**, **`format!`**, assertion macros, **`panic!`**, and (CLI
+default) **`tracing::*!`** level macros are lowered:
 
 | Macro | Lua |
 | --- | --- |
 | `println!(...)` | `game.print(...)` with `..` concatenation |
 | `format!(...)` | string built with `..` (no `game.print`) |
-| `matches!(expr, pat)` / `matches!(expr, pat if guard)` | value `match` -> `true` / `false` |
 | `assert!(cond)` / `assert!(cond, "...")` | `if not (cond) then error(...) end` |
 | `assert_eq!` / `assert_ne!` | compare temps, `error` with left/right |
 | `panic!("...")` | `error(...)` |
@@ -311,7 +311,7 @@ still fails the build as unsupported syntax when known unsafe.
 | `let binding requires an initializer` | `let x;` without value |
 | `event handlers are only allowed in control-stage modules` | Move handler to control |
 | `could not resolve locale key` | `Settings::FOO` not in this module |
-| `unsupported macro` | Only `println!` / `format!` / `matches!` / asserts / `panic!` / `tracing::*!` in expressions |
+| `unsupported macro` | Only `println!` / `format!` / asserts / `panic!` / `tracing::*!` in expressions |
 
 ## See also
 

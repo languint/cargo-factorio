@@ -91,5 +91,5 @@ and launches Factorio. Full details: [Testing](../guides/testing/).
 | Toggle behavior from mod settings | [Settings that change gameplay](settings-gameplay/) |
 | Map / filter a list of entities | [Filter entity lists](filter-entities/) |
 | Model mod phases with enums | [State machines with enums](state-machines/) |
-| Ship sprites with the mod | [Package graphics](package-graphics/) |
+| Ship sprites + data-stage item | [Package graphics](package-graphics/) |
 | Call another mod’s API | [Share an API between mods](share-api/) |

@@ -6,7 +6,9 @@ description: Author Factorio locale .cfg files from Rust with locale!.
 Declare translations in Rust with `locale!`. On build, factorio-rs writes
 `locale/<lang>/<file>.cfg` into the mod output.
 
-Keys that reference associated constants (such as `Settings::CASUAL_MODE`) are checked by rustc and resolved to the setting’s Factorio name when assembling `.cfg` files.
+Keys that reference associated constants (such as `Settings::CASUAL_MODE` or
+`Items::WIDGET`) are checked by rustc and resolved to the Factorio name when
+assembling `.cfg` files.
 
 ```rust
 factorio_rs::locale! {
@@ -32,6 +34,26 @@ factorio_rs::locale! {
     }
 }
 ```
+
+For data-stage items from `item!`, use `item_name` / `item_description` with
+`Items::*` (co-locate in the same module):
+
+```rust
+factorio_rs::locale! {
+    file = "items",
+
+    en {
+        item_name {
+            Items::WIDGET = "Widget",
+        }
+        item_description {
+            Items::WIDGET = "A sample packaged item.",
+        }
+    }
+}
+```
+
+See [Package graphics](../recipes/package-graphics/).
 
 ## Rules
 
