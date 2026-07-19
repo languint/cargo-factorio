@@ -131,7 +131,7 @@ item! {
 | `subgroup` | no | |
 | `order` | no | |
 
-Block idents become screaming consts: `widget` → `Items::WIDGET`.
+Block idents become screaming consts: `widget` -> `Items::WIDGET`.
 
 Co-locate `locale!` in the same module, or put it in a sibling module and
 `use crate::data::items::Items` (see [Locale](locale/)):
@@ -193,7 +193,7 @@ recipe! {
 | `subgroup` | no | |
 | `order` | no | |
 
-`craft_widget` → `Recipes::CRAFT_WIDGET`. Use that const in `locale!` under
+`craft_widget` -> `Recipes::CRAFT_WIDGET`. Use that const in `locale!` under
 `recipe_name` / `recipe_description` when you want localized recipe titles.
 
 ## Items + recipes together

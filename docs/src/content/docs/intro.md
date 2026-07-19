@@ -19,6 +19,7 @@ Factorio’s modding API.
 | [Getting started](guides/getting-started/) | `init` -> `build` -> install |
 | [First hour](recipes/first-hour/) | Same loop plus your first in-game test |
 | [Recipes](recipes/) | Concrete jobs (storage, settings, enums, ...) |
+| [Discord](https://discord.gg/Tq8243rqmn) | Community help and announcements |
 
 ## Pieces
 

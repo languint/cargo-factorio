@@ -54,3 +54,9 @@ You only need a Factorio install for:
 
 On Linux, binary launches prefer `steam-run` when it is available so Steam
 runtime libraries are present.
+
+## Community
+
+Questions that aren’t bugs: [Discord](https://discord.gg/Tq8243rqmn). See also
+[CONTRIBUTING.md](https://github.com/languint/factorio-rs/blob/main/CONTRIBUTING.md)
+and [ROADMAP.md](https://github.com/languint/factorio-rs/blob/main/ROADMAP.md).

@@ -69,6 +69,9 @@ have a Factorio install; use `factorio-rs test` to run in-game `#[test]`s.
 - **crates.io:** [factorio-rs](https://crates.io/crates/factorio-rs) -
   [factorio-rs-cli](https://crates.io/crates/factorio-rs-cli)
 - **Changelog:** [CHANGELOG.md](CHANGELOG.md)
+- **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Roadmap:** [ROADMAP.md](ROADMAP.md)
+- **Discord:** https://discord.gg/Tq8243rqmn
 
 Preview the docs site locally:
 
