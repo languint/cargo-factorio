@@ -14,6 +14,8 @@ fn prototype_lua_type(struct_name: &str) -> Option<&'static str> {
         "StringSetting" => Some("string-setting"),
         "Item" | "RecipeIngredient" | "RecipeProduct" => Some("item"),
         "Recipe" => Some("recipe"),
+        "Technology" => Some("technology"),
+        "UnlockRecipeEffect" => Some("unlock-recipe"),
         _ => None,
     }
 }
@@ -256,6 +258,24 @@ impl LuaGenerator {
         struct_name: Option<&str>,
         fields: &[(String, Expression)],
     ) -> String {
+        // Research ingredients are Factorio tuples `{ "pack", amount }`, not named tables.
+        if struct_name == Some("TechnologyUnitIngredient") {
+            let name = fields.iter().find_map(|(n, v)| {
+                (n == "name").then(|| self.generate_expression(v))
+            });
+            let amount = fields.iter().find_map(|(n, v)| {
+                (n == "amount").then(|| self.generate_expression(v))
+            });
+            if let (Some(name), Some(amount)) = (name, amount) {
+                let literal = format!("{{ {name}, {amount} }}");
+                return if let Some((_, table_path)) = &self.struct_table_context {
+                    format!("setmetatable({literal}, {{ __index = {table_path} }})")
+                } else {
+                    literal
+                };
+            }
+        }
+
         let injected_type = struct_name.and_then(prototype_lua_type);
         let type_prefix = injected_type.map(|t| format!("type = \"{t}\", "));
 

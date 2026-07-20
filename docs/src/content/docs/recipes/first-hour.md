@@ -92,4 +92,5 @@ and launches Factorio. Full details: [Testing](../guides/testing/).
 | Map / filter a list of entities | [Filter entity lists](filter-entities/) |
 | Model mod phases with enums | [State machines with enums](state-machines/) |
 | Ship sprites + data-stage item | [Package graphics](package-graphics/) |
+| Open a styled GUI frame | [GUI basics](gui-basics/) |
 | Call another mod’s API | [Share an API between mods](share-api/) |

@@ -78,8 +78,9 @@ Same-module co-location still works and needs no import. Renames
 (`crate::data::items::Items::WIDGET`) are supported. String literal keys always
 work without imports.
 
-For data-stage items / recipes, use `item_name` / `item_description` /
-`recipe_name` with `Items::*` / `Recipes::*`. See [Prototypes](prototypes/)
+For data-stage items / recipes / technologies, use `item_name` /
+`item_description` / `recipe_name` / `technology_name` with `Items::*` /
+`Recipes::*` / `Technologies::*`. See [Prototypes](prototypes/)
 and [Package graphics](../recipes/package-graphics/).
 
 ## Rules

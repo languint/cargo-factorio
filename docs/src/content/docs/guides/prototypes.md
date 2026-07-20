@@ -1,14 +1,14 @@
 ---
 title: Prototypes
-description: Register Factorio data-stage prototypes with typed stubs, item!, and recipe!.
+description: Register Factorio data-stage prototypes with typed stubs, item!, recipe!, and technology!.
 ---
 
 Prototype registration happens in the **data** stage (`data.rs`,
 `#[factorio_rs::data]`, or `data_mod!`). factorio-rs gives you:
 
-- typed stub structs (`Item`, `Recipe`, ...) for `data.extend`
-- macros (`item!`, `recipe!`) that expand to name constants + a `pub fn`
-  register helper
+- typed stub structs (`Item`, `Recipe`, `Technology`, ...) for `data.extend`
+- macros (`item!`, `recipe!`, `technology!`) that expand to name constants + a
+  `pub fn` register helper
 - codegen that injects Factorio’s `type = "..."` discriminant from the Rust
   struct name
 
@@ -93,10 +93,14 @@ data.extend({
 | `Recipe` | `"recipe"` |
 | `RecipeIngredient` | `"item"` |
 | `RecipeProduct` | `"item"` |
+| `Technology` | `"technology"` |
+| `UnlockRecipeEffect` | `"unlock-recipe"` |
+| `TechnologyUnitIngredient` | (tuple `{ "name", amount }` — no `type` field) |
 | `BoolSetting` / `IntSetting` / ... | `"bool-setting"` / ... (settings stage) |
 
 Factorio 2.0 recipes need the full ingredient/product tables
-(`{type, name, amount}`); the stubs always emit that shape.
+(`{type, name, amount}`); the stubs always emit that shape. Technology research
+ingredients use Factorio’s compact tuple form instead.
 
 Use hand-written stubs when you need fields the macros do not expose yet.
 
@@ -196,7 +200,56 @@ recipe! {
 `craft_widget` -> `Recipes::CRAFT_WIDGET`. Use that const in `locale!` under
 `recipe_name` / `recipe_description` when you want localized recipe titles.
 
-## Items + recipes together
+## `technology!`
+
+Declares technology prototypes that unlock recipes. Expands to:
+
+- `Technologies` with name constants
+- `pub fn register_technologies()` (separate from `item!`’s `register()` and
+  `recipe!`’s `register_recipes()`)
+
+```rust
+use factorio_rs::prelude::*;
+
+technology! {
+    widget_tech {
+        name = "my-mod-widget",
+        icon = "graphics/technology.png",
+        icon_size = 256,
+        prerequisites = ["automation"],
+        unlock_recipes = ["my-mod-widget"],
+        unit_count = 50,
+        unit_time = 30.0,
+        unit_ingredients = [
+            { name = "automation-science-pack", amount = 1 },
+        ],
+        order = "a[my-mod]-c[widget]",
+    }
+}
+```
+
+| Field | Required | Notes |
+| --- | --- | --- |
+| `name` | yes | Internal tech id; often matches the unlocked recipe |
+| `icon` | yes | Relative paths rewrite to `__{package.name}__/...` |
+| `icon_size` | no | Technology icons are often `256` |
+| `prerequisites` | no | List of prerequisite technology name strings |
+| `unlock_recipes` | yes | Recipe names unlocked on research |
+| `unit_count` | yes | Lab cycles required |
+| `unit_time` | yes | Seconds per cycle |
+| `unit_ingredients` | yes | `[{ name = "pack", amount = N }, ...]` science packs |
+| `order` | no | |
+
+`widget_tech` -> `Technologies::WIDGET_TECH`. Use that const in `locale!` under
+`technology_name` / `technology_description`.
+
+Science packs emit Factorio tuples `{ "pack-name", amount }`. Each unlock
+injects `type = "unlock-recipe"`.
+
+Set the matching recipe’s `enabled = false` (or omit `enabled` and keep it
+disabled by default in hand-written stubs) so research gates the craft.
+
+## Items + recipes + technologies
 
 Typical data module:
 
@@ -224,7 +277,22 @@ recipe! {
             { name = "my-mod-widget", amount = 1 },
         ],
         category = "crafting",
-        enabled = true,
+        enabled = false,
+    }
+}
+
+technology! {
+    widget_tech {
+        name = "my-mod-widget",
+        icon = "graphics/technology.png",
+        icon_size = 256,
+        prerequisites = ["automation"],
+        unlock_recipes = ["my-mod-widget"],
+        unit_count = 50,
+        unit_time = 30.0,
+        unit_ingredients = [
+            { name = "automation-science-pack", amount = 1 },
+        ],
     }
 }
 
@@ -238,17 +306,21 @@ locale! {
         recipe_name {
             Recipes::CRAFT_WIDGET = "Widget",
         }
+        technology_name {
+            Technologies::WIDGET_TECH = "Widget",
+        }
     }
 }
 ```
 
-Both `register` and `register_recipes` are `pub fn`s, so both run from
-`data.lua`. Keep the same string in `item!` / `recipe!` `name` fields (and in
-ingredient/result `name`s) so Factorio links the recipe to the item.
+`register`, `register_recipes`, and `register_technologies` are all `pub fn`s,
+so each runs from `data.lua`. Keep the same string in `item!` / `recipe!` /
+`technology!` `name` fields (and in ingredient/result / `unlock_recipes` names)
+so Factorio links the chain together.
 
 When you want a single Rust source of truth for the item id, hand-write the
-`Recipe` stub and pass `Items::WIDGET` for `results[0].name` (macros currently
-parse component names as string literals only).
+`Recipe` / `Technology` stubs and pass `Items::WIDGET` for recipe result names
+or unlock targets (macros currently parse those names as string literals only).
 
 ## Build check
 
@@ -256,6 +328,7 @@ parse component names as string literals only).
 factorio-rs build
 rg 'type = "item"' dist/lua
 rg 'type = "recipe"' dist/lua
+rg 'type = "technology"' dist/lua
 rg 'my-mod-widget' dist/locale
 ```
 
@@ -263,7 +336,7 @@ rg 'my-mod-widget' dist/locale
 
 - [Package graphics](../recipes/package-graphics/) - assets + `item!` end-to-end
 - [Stages](stages/) - data-stage discovery and `pub fn` entry points
-- [Locale](locale/) - `locale!` + `Items::*` / `Recipes::*` keys
+- [Locale](locale/) - `locale!` + `Items::*` / `Recipes::*` / `Technologies::*` keys
 - [Mod settings](mod-settings/) - same const + register pattern on the settings stage
 - [Macros and attributes](../reference/macros/) - concise macro inventory
 - [API types](api-types/) - sparse struct tables / `Default`

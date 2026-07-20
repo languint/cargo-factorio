@@ -52,6 +52,25 @@ jobs:
       - name: Workspace tests
         run: cargo test --workspace
 
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust 1.85
+        uses: dtolnay/rust-toolchain@1.85
+        with:
+          components: clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Clippy (MSRV)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Workspace tests (MSRV)
+        run: cargo test --workspace
+
   examples:
     runs-on: ubuntu-latest
     steps:
@@ -70,7 +89,7 @@ jobs:
         run: |
           set -euo pipefail
           BIN=./target/debug/factorio-rs
-          for example in hello_world locale_test tracing_test provider mandatory_spaghetti; do
+          for example in hello_world gui_basics locale_test tracing_test provider mandatory_spaghetti; do
             echo "::group::factorio-rs check examples/${example}"
             "$BIN" check --manifest-path "examples/${example}"
             echo "::endgroup::"

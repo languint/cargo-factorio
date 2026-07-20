@@ -112,6 +112,8 @@ Factorio method (rare: `driving`, `zoom_limits`, ...), the writer is named
 style name `&'static str` - Factorio accepts either a `LuaStyle` or a string for
 that attribute; Rust keeps the asymmetric shapes that match typical usage.
 
+End-to-end walkthrough: [GUI basics](../recipes/gui-basics/).
+
 Write-only attributes (for example most `LuaStyle` size/margin helpers) have
 **setters only** - there is no fake `LuaAny` getter.
 

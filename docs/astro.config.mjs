@@ -76,6 +76,10 @@ export default defineConfig({
               slug: "recipes/package-graphics",
             },
             {
+              label: "GUI basics",
+              slug: "recipes/gui-basics",
+            },
+            {
               label: "Share an API between mods",
               slug: "recipes/share-api",
             },
@@ -136,6 +140,7 @@ export default defineConfig({
           label: "Examples",
           items: [
             { label: "hello_world", slug: "examples/hello-world" },
+            { label: "gui_basics", slug: "examples/gui-basics" },
             { label: "locale_test", slug: "examples/locale-test" },
             {
               label: "mandatory_spaghetti",

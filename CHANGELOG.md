@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-07-19
+
+### Added
+
+- `technology!` data-stage macro: declares technologies with `Technologies::*`
+  name constants and `pub fn register_technologies()` via `data.extend`. Unlocks
+  recipes (`type = "unlock-recipe"`); research ingredients emit Factorio
+  `{ "pack", amount }` tuples. Relative `icon` paths rewrite like `item!`.
+- Data-stage `Technology` / `TechnologyUnit` / `TechnologyUnitIngredient` /
+  `UnlockRecipeEffect` stubs (`type = "technology"` / `type = "unlock-recipe"`).
+- Docs: GUI basics recipe (event -> frame -> caption -> `style().set_width`);
+  Prototypes guide covers item -> recipe -> technology + `technology_name` locale.
+- Example: `examples/gui_basics` — `OnPlayerCreated` frame + label + `LuaStyle`.
+- CI: MSRV job on Rust **1.85** (`clippy` + `test --workspace`) alongside stable.
+
 ## [0.1.8] - 2026-07-19
 
 ### Added
@@ -181,7 +196,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `mod_settings!`, `locale!`, events and filters, build profiles, dead-code prune.
 - `format!` / `println!`, thumbnails, documentation site.
 
-[Unreleased]: https://github.com/languint/factorio-rs/compare/v0.1.8...HEAD
+[Unreleased]: https://github.com/languint/factorio-rs/compare/v0.1.9...HEAD
+[0.1.9]: https://github.com/languint/factorio-rs/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/languint/factorio-rs/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/languint/factorio-rs/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/languint/factorio-rs/compare/v0.1.5...v0.1.6

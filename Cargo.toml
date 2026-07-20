@@ -10,6 +10,7 @@ members = [
     "crates/factorio-frontend",
     "crates/factorio-ir",
     "examples/hello_world",
+    "examples/gui_basics",
     "examples/locale_test",
     "examples/mandatory_spaghetti",
     "examples/tracing_test",

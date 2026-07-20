@@ -7,8 +7,8 @@ factorio-rs builds a normal Factorio mod directory. Put graphics under your
 project, list them in `Factorio.toml`, and register items with `item!` so relative
 icon paths become `__mod__/...` and `Items::*` constants wire into `locale!`.
 
-For recipes, hand-written stubs, and the full `item!` / `recipe!` field tables,
-see [Prototypes](../guides/prototypes/).
+For recipes, technologies, hand-written stubs, and the full `item!` / `recipe!` /
+`technology!` field tables, see [Prototypes](../guides/prototypes/).
 
 ## 1. Add files
 
@@ -136,9 +136,9 @@ thumbnail = "assets/thumbnail.png"  # or rely on ./thumbnail.png
 
 ## See also
 
-- [Prototypes](../guides/prototypes/) - `item!` / `recipe!` / typed stubs
+- [Prototypes](../guides/prototypes/) - `item!` / `recipe!` / `technology!` / typed stubs
 - [Getting started](../guides/getting-started/) - install / package
 - [First hour](first-hour/) - end-to-end loop
 - [Stages](../guides/stages/) - data vs control modules
-- [Locale](../guides/locale/) - `locale!` + `Items::*` keys
+- [Locale](../guides/locale/) - `locale!` + `Items::*` / `Technologies::*` keys
 - [Mod settings](../guides/mod-settings/) - same `register` / const pattern

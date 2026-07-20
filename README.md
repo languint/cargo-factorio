@@ -86,6 +86,7 @@ pnpm dev
 | Example                                                           | What it shows                     |
 | ----------------------------------------------------------------- | --------------------------------- |
 | [`hello_world`](examples/hello_world)                             | Minimal control-stage event       |
+| [`gui_basics`](examples/gui_basics)                               | Framed GUI + `LuaStyle`           |
 | [`locale_test`](examples/locale_test)                             | `locale!` and mod settings        |
 | [`provider`](examples/provider) / [`consumer`](examples/consumer) | Cross-mod exports via Cargo       |
 | [`tracing_test`](examples/tracing_test)                           | Optional `tracing` -> `game.print` |

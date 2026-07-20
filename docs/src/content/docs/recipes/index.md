@@ -14,10 +14,12 @@ Language / Concepts / Reference instead.
 | [Filter entity lists](filter-entities/) | `Vec`, ranges, `.map` / `.filter` / `.collect` |
 | [State machines with enums](state-machines/) | Tagged enums + `match` for phases |
 | [Package graphics](package-graphics/) | Assets + `item!` icons -> `__mod__/...` + `locale!` |
+| [GUI basics](gui-basics/) | Event -> frame -> caption -> `style().set_width` |
 | [Share an API between mods](share-api/) | `#[export]` + `factorio-rs add` |
 
-For data-stage `Item` / `Recipe` stubs and the `item!` / `recipe!` macros (not
-just packaging art), see [Prototypes](../guides/prototypes/).
+For data-stage `Item` / `Recipe` / `Technology` stubs and the `item!` /
+`recipe!` / `technology!` macros (not just packaging art), see
+[Prototypes](../guides/prototypes/).
 
 New to the toolchain? Start with [Getting started](../guides/getting-started/),
 then [First hour](first-hour/).

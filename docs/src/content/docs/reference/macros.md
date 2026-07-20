@@ -90,6 +90,36 @@ Required fields: `name`, `ingredients`, `results`. Optional: `energy_required`,
 
 Full guide: [Prototypes](../guides/prototypes/).
 
+## `technology!`
+
+Declare data-stage technology prototypes. Expands to `Technologies` name
+constants and `pub fn register_technologies()` that calls `data.extend` with
+typed `Technology` literals (`type = "technology"`; each unlock effect injects
+`type = "unlock-recipe"`; science packs emit `{ "pack", amount }` tuples).
+
+```rust
+technology! {
+    widget_tech {
+        name = "my-mod-widget",
+        icon = "graphics/technology.png",
+        icon_size = 256,
+        prerequisites = ["automation"],
+        unlock_recipes = ["my-mod-widget"],
+        unit_count = 50,
+        unit_time = 30.0,
+        unit_ingredients = [
+            { name = "automation-science-pack", amount = 1 },
+        ],
+    }
+}
+```
+
+Required fields: `name`, `icon`, `unlock_recipes`, `unit_count`, `unit_time`,
+`unit_ingredients`. Optional: `icon_size`, `prerequisites`, `order`. Relative
+`icon` paths become `__{package.name}__/...` like `item!`.
+
+Full guide: [Prototypes](../guides/prototypes/).
+
 ## `locale!`
 
 See [Locale](../guides/locale/).
@@ -106,7 +136,7 @@ In executable code, **`println!`**, **`format!`**, **`matches!`**, (with the
 - `tracing::info!(...)` / `warn!` / ... -> colored `game.print` (see [Tracing](../guides/tracing/))
 - `serde_json::to_string` / ... -> `helpers.table_to_json` / `string.pack` (see [Serde / JSON](../guides/serde/))
 
-Item macros such as `mod_settings!`, `item!`, `recipe!`, and `locale!` are handled
-separately during module lowering.
+Item macros such as `mod_settings!`, `item!`, `recipe!`, `technology!`, and
+`locale!` are handled separately during module lowering.
 
 Full syntax inventory: [Supported Rust](../guides/language/).

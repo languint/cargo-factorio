@@ -73,3 +73,54 @@ pub struct Recipe {
     /// Sort order within the subgroup.
     pub order: Option<&'static str>,
 }
+
+/// Science-pack entry for a [`TechnologyUnit`].
+///
+/// Emitted as a Factorio research ingredient tuple `{ "pack-name", amount }`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct TechnologyUnitIngredient {
+    /// Tool / science-pack item name (e.g. `"automation-science-pack"`).
+    pub name: &'static str,
+    /// Count consumed per research unit.
+    pub amount: i64,
+}
+
+/// Research cost block for a [`Technology`] (`unit = { count, time, ingredients }`).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct TechnologyUnit {
+    /// How many lab cycles are required.
+    pub count: i64,
+    /// Seconds per cycle.
+    pub time: f64,
+    /// Science packs per cycle.
+    pub ingredients: &'static [TechnologyUnitIngredient],
+}
+
+/// Unlock-recipe modifier (`type = "unlock-recipe"` injected).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct UnlockRecipeEffect {
+    /// Recipe prototype name unlocked when the technology is researched.
+    pub recipe: &'static str,
+}
+
+/// Minimal [`TechnologyPrototype`](https://lua-api.factorio.com/latest/prototypes/TechnologyPrototype.html)
+/// for `data.extend`.
+///
+/// `type = "technology"` is injected by the Lua generator.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Technology {
+    /// Internal prototype name (e.g. `"my-mod-widget"`).
+    pub name: &'static str,
+    /// Packaged tech icon path (e.g. `"__my_mod__/graphics/technology.png"`).
+    pub icon: &'static str,
+    /// Icon pixel size. Technology icons are often `256`.
+    pub icon_size: Option<i64>,
+    /// Prerequisite technology ids.
+    pub prerequisites: &'static [&'static str],
+    /// Effects applied on research (typically unlock-recipe).
+    pub effects: &'static [UnlockRecipeEffect],
+    /// Lab cost.
+    pub unit: TechnologyUnit,
+    /// Sort order string.
+    pub order: Option<&'static str>,
+}
