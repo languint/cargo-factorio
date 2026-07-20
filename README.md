@@ -6,7 +6,7 @@
       <a href="https://crates.io/crates/factorio-rs"><img alt="crates.io" src="https://img.shields.io/crates/v/factorio-rs.svg"></a>
       <a href="https://crates.io/crates/factorio-rs-cli"><img alt="factorio-rs-cli" src="https://img.shields.io/crates/v/factorio-rs-cli.svg"></a>
       <a href="https://languint.github.io/factorio-rs/"><img alt="docs" src="https://img.shields.io/badge/docs-online-blue"></a>
-      <img alt="MSRV" src="https://img.shields.io/badge/MSRV-1.85-blue">
+      <img alt="MSRV" src="https://img.shields.io/badge/MSRV-1.88-blue">
       <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-green"></a>
     </p>
 </div>
@@ -37,7 +37,7 @@ Factorio-oriented subset of Rust; the CLI typechecks against generated API stubs
 
 ## Quick start
 
-Requires **Rust 1.85+** (edition 2024).
+Requires **Rust 1.88+** (edition 2024; let-chains in `if` / `while`).
 
 ```bash
 cargo install factorio-rs-cli

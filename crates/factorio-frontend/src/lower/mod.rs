@@ -27,8 +27,8 @@ pub mod print;
 mod recipes;
 mod serde_json;
 pub mod statements;
-mod technologies;
 pub mod structs;
+mod technologies;
 mod test_steps;
 pub mod tests;
 pub mod types;
@@ -452,8 +452,7 @@ fn lower_top_level_item(
             }
         }
         Item::Macro(mac) if is_known_macro(&mac.mac, "technology") => {
-            let expanded =
-                technologies::expand(mac.mac.tokens.clone(), module_state.mod_name)?;
+            let expanded = technologies::expand(mac.mac.tokens.clone(), module_state.mod_name)?;
             for item in &expanded {
                 lower_top_level_item(item, module_name, module_state, ctx)?;
             }

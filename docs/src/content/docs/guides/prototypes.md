@@ -95,7 +95,7 @@ data.extend({
 | `RecipeProduct` | `"item"` |
 | `Technology` | `"technology"` |
 | `UnlockRecipeEffect` | `"unlock-recipe"` |
-| `TechnologyUnitIngredient` | (tuple `{ "name", amount }` — no `type` field) |
+| `TechnologyUnitIngredient` | (tuple `{ "name", amount }` - no `type` field) |
 | `BoolSetting` / `IntSetting` / ... | `"bool-setting"` / ... (settings stage) |
 
 Factorio 2.0 recipes need the full ingredient/product tables

@@ -260,12 +260,12 @@ impl LuaGenerator {
     ) -> String {
         // Research ingredients are Factorio tuples `{ "pack", amount }`, not named tables.
         if struct_name == Some("TechnologyUnitIngredient") {
-            let name = fields.iter().find_map(|(n, v)| {
-                (n == "name").then(|| self.generate_expression(v))
-            });
-            let amount = fields.iter().find_map(|(n, v)| {
-                (n == "amount").then(|| self.generate_expression(v))
-            });
+            let name = fields
+                .iter()
+                .find_map(|(n, v)| (n == "name").then(|| self.generate_expression(v)));
+            let amount = fields
+                .iter()
+                .find_map(|(n, v)| (n == "amount").then(|| self.generate_expression(v)));
             if let (Some(name), Some(amount)) = (name, amount) {
                 let literal = format!("{{ {name}, {amount} }}");
                 return if let Some((_, table_path)) = &self.struct_table_context {

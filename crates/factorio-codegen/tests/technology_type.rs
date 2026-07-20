@@ -28,7 +28,10 @@ fn injects_technology_unlock_recipe_and_unit_ingredient_tuple() {
                     struct_name: Some("TechnologyUnit".to_string()),
                     fields: vec![
                         ("count".to_string(), Expression::Literal(Literal::Int(50))),
-                        ("time".to_string(), Expression::Literal(Literal::Float(30.0))),
+                        (
+                            "time".to_string(),
+                            Expression::Literal(Literal::Float(30.0)),
+                        ),
                         (
                             "ingredients".to_string(),
                             Expression::Array {

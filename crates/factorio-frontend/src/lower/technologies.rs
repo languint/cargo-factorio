@@ -35,11 +35,7 @@ pub fn expand(tokens: TokenStream, mod_name: Option<&str>) -> FrontendResult<Vec
         let effects = entry
             .unlock_recipes
             .iter()
-            .map(|r| {
-                format!(
-                    "UnlockRecipeEffect {{ recipe: \"{r}\", ..Default::default() }}"
-                )
-            })
+            .map(|r| format!("UnlockRecipeEffect {{ recipe: \"{r}\", ..Default::default() }}"))
             .collect::<Vec<_>>()
             .join(", ");
         let unit_ingredients = entry
@@ -206,7 +202,10 @@ impl Parse for TechnologyProtoEntry {
             icon_size,
             prerequisites: prerequisites.unwrap_or_default(),
             unlock_recipes: unlock_recipes.ok_or_else(|| {
-                syn::Error::new(span, "technology block missing required field `unlock_recipes`")
+                syn::Error::new(
+                    span,
+                    "technology block missing required field `unlock_recipes`",
+                )
             })?,
             unit_count: unit_count.ok_or_else(|| {
                 syn::Error::new(span, "technology block missing required field `unit_count`")

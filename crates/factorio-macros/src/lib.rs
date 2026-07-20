@@ -1278,7 +1278,10 @@ impl Parse for TechnologyProtoEntry {
             icon_size,
             prerequisites: prerequisites.unwrap_or_default(),
             unlock_recipes: unlock_recipes.ok_or_else(|| {
-                syn::Error::new(span, "technology block missing required field `unlock_recipes`")
+                syn::Error::new(
+                    span,
+                    "technology block missing required field `unlock_recipes`",
+                )
             })?,
             unit_count: unit_count.ok_or_else(|| {
                 syn::Error::new(span, "technology block missing required field `unit_count`")

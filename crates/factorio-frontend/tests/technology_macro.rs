@@ -72,8 +72,7 @@ fn technology_macro_emits_technologies_const_and_register_technologies() {
         "expected unlock recipe effect in register_technologies body: {body}"
     );
     assert!(
-        body.contains("TechnologyUnitIngredient")
-            && body.contains("automation-science-pack"),
+        body.contains("TechnologyUnitIngredient") && body.contains("automation-science-pack"),
         "expected unit ingredients in register_technologies body: {body}"
     );
     assert!(

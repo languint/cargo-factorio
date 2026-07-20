@@ -20,7 +20,7 @@ For questions that are not bug reports, prefer the
 
 Requirements:
 
-- **Rust 1.85+** (edition 2024; MSRV is `1.85`)
+- **Rust 1.88+** (edition 2024; MSRV is `1.88` - let-chains in `if` / `while`)
 - Optional: Factorio (for `factorio-rs test`) - see
   [Testing](https://languint.github.io/factorio-rs/guides/testing/)
 - Optional: Node/pnpm for the docs site under `docs/`

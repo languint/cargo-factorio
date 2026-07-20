@@ -76,7 +76,7 @@ Create a new player (or join a map). You should see a titled frame with a label.
   later (`frame["child_name"]` / `children`).
 - Prefer `style().set_*` for width/height/padding; use `set_style("name")` when
   you want a style **prototype**, not one property.
-- `Tags` and choose-elem filters still type as `LuaAny` — escape hatches for
+- `Tags` and choose-elem filters still type as `LuaAny` - escape hatches for
   richer widgets; stick to frame/label/button for starters.
 
 ## See also

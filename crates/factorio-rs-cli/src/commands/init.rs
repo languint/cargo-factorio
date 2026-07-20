@@ -97,7 +97,7 @@ fn cargo_toml_template(package_name: &str) -> String {
 name = "{package_name}"
 version = "{FACTORIO_SDK_VERSION}"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 publish = false
 
 [lib]
