@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-07-20
+
+### Fixed
+
+- Parent-module `use` imports (e.g. `use crate::settings::Settings`) are now
+  lowered into `#[cfg(test)]` suites so tests that reference them no longer
+  miss bindings like `Settings` in `factorio_rs_tests.lua`.
+
 ## [0.2.0] - 2026-07-20
 
 ### Added
@@ -52,9 +60,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `#[cfg(test)]` modules that `use super::*` now resolve the same way.
 - Dyn cast targets peel through `Type::Paren` / `Type::Group`; `&dyn Trait`
   parameter comments render as `&dyn Trait` (not `&unsupported`).
-- `#[cfg(test)]` suites now include parent-module structs, free functions,
-  trait vtables, and `use` imports so `use super::*` tests can call them from
-  `factorio_rs_tests.lua` (event handlers stay out of the suite).
+- `#[cfg(test)]` suites now include parent-module structs, free functions, and
+  trait vtables so `use super::*` tests can call them from `factorio_rs_tests.lua`
+  (event handlers stay out of the suite).
 - Dyn vtables forward-declare private concrete type locals so Lua closures
   capture upvalues instead of nil globals.
 
@@ -261,7 +269,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `mod_settings!`, `locale!`, events and filters, build profiles, dead-code prune.
 - `format!` / `println!`, thumbnails, documentation site.
 
-[Unreleased]: https://github.com/languint/factorio-rs/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/languint/factorio-rs/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/languint/factorio-rs/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/languint/factorio-rs/compare/v0.1.9...v0.2.0
 [0.1.9]: https://github.com/languint/factorio-rs/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/languint/factorio-rs/compare/v0.1.7...v0.1.8
