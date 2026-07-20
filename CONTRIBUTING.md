@@ -9,8 +9,7 @@ or bug reports.
 1. Read the [docs](https://languint.github.io/factorio-rs/) - especially
    [Supported Rust](https://languint.github.io/factorio-rs/guides/language/) and
    [Lints](https://languint.github.io/factorio-rs/guides/lints/).
-2. Skim [ROADMAP.md](ROADMAP.md) so your work matches near-term priorities.
-3. Search [existing issues](https://github.com/languint/factorio-rs/issues) before
+2. Search [existing issues](https://github.com/languint/factorio-rs/issues) before
    opening a new one.
 
 For questions that are not bug reports, prefer the
@@ -66,11 +65,12 @@ pnpm dev
 
 ## What kinds of changes help most
 
-High leverage (see also [ROADMAP.md](ROADMAP.md)):
+High leverage:
 
-- Data-stage prototypes beyond Item/Recipe (especially technology)
-- Docs recipes (GUI, prototypes) and example polish
-- Clearer frontend errors / lints
+- Grow data-stage prototypes beyond the current allowlist (more entity kinds,
+  richer curated fields from `prototype-api.json`)
+- Shrink GUI `Tags` / elem-filter `LuaAny` where enums fit
+- Docs recipes, examples, and clearer frontend errors / lints
 
 Good starter tasks:
 

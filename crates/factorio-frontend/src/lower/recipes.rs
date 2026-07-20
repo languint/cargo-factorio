@@ -1,8 +1,9 @@
 use std::fmt::Write;
 
 use proc_macro2::TokenStream;
+use quote::ToTokens;
 use syn::{
-    Ident, LitBool, LitFloat, LitInt, LitStr, Token,
+    Expr, Ident, LitBool, LitFloat, LitInt, LitStr, Token,
     parse::{Parse, ParseStream},
 };
 
@@ -30,8 +31,10 @@ pub fn expand(tokens: TokenStream) -> FrontendResult<Vec<syn::Item>> {
             .iter()
             .map(|ing| {
                 format!(
-                    "RecipeIngredient {{ name: \"{}\", amount: {}, ..Default::default() }}",
-                    ing.name, ing.amount
+                    "RecipeIngredient {{ name: {}, amount: {}, fluid: {}, ..Default::default() }}",
+                    ing.name.to_src(),
+                    ing.amount,
+                    ing.fluid
                 )
             })
             .collect::<Vec<_>>()
@@ -41,8 +44,9 @@ pub fn expand(tokens: TokenStream) -> FrontendResult<Vec<syn::Item>> {
             .iter()
             .map(|prod| {
                 format!(
-                    "RecipeProduct {{ name: \"{}\", amount: {}, ..Default::default() }}",
-                    prod.name, prod.amount
+                    "RecipeProduct {{ name: {}, amount: {}, ..Default::default() }}",
+                    prod.name.to_src(),
+                    prod.amount
                 )
             })
             .collect::<Vec<_>>()
@@ -83,6 +87,35 @@ fn option_str_src(value: Option<&str>) -> String {
     value.map_or_else(|| "None".to_string(), |v| format!("Some(\"{v}\")"))
 }
 
+pub enum ProtoName {
+    Lit(String),
+    Path(syn::Path),
+}
+
+impl ProtoName {
+    pub fn to_src(&self) -> String {
+        match self {
+            Self::Lit(s) => format!("\"{s}\""),
+            Self::Path(path) => path.to_token_stream().to_string().replace(' ', ""),
+        }
+    }
+
+    pub fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let expr: Expr = input.parse()?;
+        match expr {
+            Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Str(s),
+                ..
+            }) => Ok(Self::Lit(s.value())),
+            Expr::Path(path) => Ok(Self::Path(path.path)),
+            other => Err(syn::Error::new_spanned(
+                other,
+                "expected a string literal or path (e.g. `Items::WIDGET`)",
+            )),
+        }
+    }
+}
+
 struct RecipesMacroInput {
     recipes: Vec<RecipeProtoEntry>,
 }
@@ -100,8 +133,9 @@ struct RecipeProtoEntry {
 }
 
 struct RecipeComponent {
-    name: String,
+    name: ProtoName,
     amount: i64,
+    fluid: bool,
 }
 
 impl Parse for RecipesMacroInput {
@@ -224,26 +258,45 @@ impl Parse for RecipeComponent {
         let content;
         syn::braced!(content in input);
 
-        let mut name: Option<String> = None;
+        let mut name: Option<ProtoName> = None;
         let mut amount: Option<i64> = None;
+        let mut fluid = false;
 
         while !content.is_empty() {
             let field: Ident = content.parse()?;
             let _: Token![=] = content.parse()?;
             match field.to_string().as_str() {
                 "name" => {
-                    let lit: LitStr = content.parse()?;
-                    name = Some(lit.value());
+                    name = Some(ProtoName::parse(&content)?);
                 }
                 "amount" => {
                     let lit: LitInt = content.parse()?;
                     amount = Some(lit.base10_parse()?);
                 }
+                "fluid" => {
+                    let lit: LitBool = content.parse()?;
+                    fluid = lit.value();
+                }
+                "type" => {
+                    let lit: LitStr = content.parse()?;
+                    match lit.value().as_str() {
+                        "fluid" => fluid = true,
+                        "item" => fluid = false,
+                        other => {
+                            return Err(syn::Error::new(
+                                lit.span(),
+                                format!(
+                                    "unknown ingredient type `{other}`; expected `\"item\"` or `\"fluid\"`"
+                                ),
+                            ));
+                        }
+                    }
+                }
                 other => {
                     return Err(syn::Error::new(
                         field.span(),
                         format!(
-                            "unknown recipe component field `{other}`; expected `name` or `amount`"
+                            "unknown recipe component field `{other}`; expected `name`, `amount`, `fluid`, or `type`"
                         ),
                     ));
                 }
@@ -254,6 +307,7 @@ impl Parse for RecipeComponent {
         Ok(Self {
             name: name.ok_or_else(|| syn::Error::new(content.span(), "missing `name`"))?,
             amount: amount.ok_or_else(|| syn::Error::new(content.span(), "missing `amount`"))?,
+            fluid,
         })
     }
 }

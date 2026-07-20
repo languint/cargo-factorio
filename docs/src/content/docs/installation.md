@@ -58,5 +58,4 @@ runtime libraries are present.
 ## Community
 
 Questions that aren’t bugs: [Discord](https://discord.gg/Tq8243rqmn). See also
-[CONTRIBUTING.md](https://github.com/languint/factorio-rs/blob/main/CONTRIBUTING.md)
-and [ROADMAP.md](https://github.com/languint/factorio-rs/blob/main/ROADMAP.md).
+[CONTRIBUTING.md](https://github.com/languint/factorio-rs/blob/main/CONTRIBUTING.md).

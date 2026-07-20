@@ -827,22 +827,24 @@ pub fn recipe(input: TokenStream) -> TokenStream {
         let order = option_str_tokens(entry.order.as_deref());
 
         let ingredients = entry.ingredients.iter().map(|ing| {
-            let n = ing.name.as_str();
+            let name = ing.name.to_tokens();
             let amount = ing.amount;
+            let fluid = ing.fluid;
             quote::quote! {
                 RecipeIngredient {
-                    name: #n,
+                    name: #name,
                     amount: #amount,
+                    fluid: #fluid,
                     ..Default::default()
                 }
             }
         });
         let results = entry.results.iter().map(|prod| {
-            let n = prod.name.as_str();
+            let name = prod.name.to_tokens();
             let amount = prod.amount;
             quote::quote! {
                 RecipeProduct {
-                    name: #n,
+                    name: #name,
                     amount: #amount,
                     ..Default::default()
                 }
@@ -908,8 +910,42 @@ struct RecipeProtoEntry {
 }
 
 struct RecipeComponent {
-    name: String,
+    name: ProtoName,
     amount: i64,
+    fluid: bool,
+}
+
+/// [`LitStr`] or path (`Items::WIDGET`) used for prototype id cross-refs.
+enum ProtoName {
+    Lit(String),
+    Path(syn::Path),
+}
+
+impl ProtoName {
+    fn to_tokens(&self) -> TokenStream2 {
+        match self {
+            Self::Lit(s) => {
+                let s = s.as_str();
+                quote::quote! { #s }
+            }
+            Self::Path(path) => quote::quote! { #path },
+        }
+    }
+
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let expr: syn::Expr = input.parse()?;
+        match expr {
+            syn::Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Str(s),
+                ..
+            }) => Ok(Self::Lit(s.value())),
+            syn::Expr::Path(path) => Ok(Self::Path(path.path)),
+            other => Err(syn::Error::new_spanned(
+                other,
+                "expected a string literal or path (e.g. `Items::WIDGET`)",
+            )),
+        }
+    }
 }
 
 impl Parse for RecipesMacroInput {
@@ -1032,26 +1068,45 @@ impl Parse for RecipeComponent {
         let content;
         syn::braced!(content in input);
 
-        let mut name: Option<String> = None;
+        let mut name: Option<ProtoName> = None;
         let mut amount: Option<i64> = None;
+        let mut fluid = false;
 
         while !content.is_empty() {
             let field: syn::Ident = content.parse()?;
             let _: Token![=] = content.parse()?;
             match field.to_string().as_str() {
                 "name" => {
-                    let lit: LitStr = content.parse()?;
-                    name = Some(lit.value());
+                    name = Some(ProtoName::parse(&content)?);
                 }
                 "amount" => {
                     let lit: syn::LitInt = content.parse()?;
                     amount = Some(lit.base10_parse()?);
                 }
+                "fluid" => {
+                    let lit: syn::LitBool = content.parse()?;
+                    fluid = lit.value();
+                }
+                "type" => {
+                    let lit: LitStr = content.parse()?;
+                    match lit.value().as_str() {
+                        "fluid" => fluid = true,
+                        "item" => fluid = false,
+                        other => {
+                            return Err(syn::Error::new(
+                                lit.span(),
+                                format!(
+                                    "unknown ingredient type `{other}`; expected `\"item\"` or `\"fluid\"`"
+                                ),
+                            ));
+                        }
+                    }
+                }
                 other => {
                     return Err(syn::Error::new(
                         field.span(),
                         format!(
-                            "unknown recipe component field `{other}`; expected `name` or `amount`"
+                            "unknown recipe component field `{other}`; expected `name`, `amount`, `fluid`, or `type`"
                         ),
                     ));
                 }
@@ -1062,6 +1117,7 @@ impl Parse for RecipeComponent {
         Ok(Self {
             name: name.ok_or_else(|| syn::Error::new(content.span(), "missing `name`"))?,
             amount: amount.ok_or_else(|| syn::Error::new(content.span(), "missing `amount`"))?,
+            fluid,
         })
     }
 }
@@ -1109,12 +1165,9 @@ pub fn technology(input: TokenStream) -> TokenStream {
         let unit_count = entry.unit_count;
         let unit_time = entry.unit_time;
 
-        let prerequisites = entry.prerequisites.iter().map(|p| {
-            let s = p.as_str();
-            quote::quote! { #s }
-        });
+        let prerequisites = entry.prerequisites.iter().map(ProtoName::to_tokens);
         let effects = entry.unlock_recipes.iter().map(|recipe| {
-            let r = recipe.as_str();
+            let r = recipe.to_tokens();
             quote::quote! {
                 UnlockRecipeEffect {
                     recipe: #r,
@@ -1123,7 +1176,7 @@ pub fn technology(input: TokenStream) -> TokenStream {
             }
         });
         let unit_ingredients = entry.unit_ingredients.iter().map(|ing| {
-            let n = ing.name.as_str();
+            let n = ing.name.to_tokens();
             let amount = ing.amount;
             quote::quote! {
                 TechnologyUnitIngredient {
@@ -1181,8 +1234,8 @@ struct TechnologyProtoEntry {
     name: String,
     icon: String,
     icon_size: Option<i64>,
-    prerequisites: Vec<String>,
-    unlock_recipes: Vec<String>,
+    prerequisites: Vec<ProtoName>,
+    unlock_recipes: Vec<ProtoName>,
     unit_count: i64,
     unit_time: f64,
     unit_ingredients: Vec<RecipeComponent>,
@@ -1211,8 +1264,8 @@ impl Parse for TechnologyProtoEntry {
         let mut name: Option<String> = None;
         let mut icon: Option<String> = None;
         let mut icon_size: Option<i64> = None;
-        let mut prerequisites: Option<Vec<String>> = None;
-        let mut unlock_recipes: Option<Vec<String>> = None;
+        let mut prerequisites: Option<Vec<ProtoName>> = None;
+        let mut unlock_recipes: Option<Vec<ProtoName>> = None;
         let mut unit_count: Option<i64> = None;
         let mut unit_time: Option<f64> = None;
         let mut unit_ingredients: Option<Vec<RecipeComponent>> = None;
@@ -1235,10 +1288,10 @@ impl Parse for TechnologyProtoEntry {
                     icon_size = Some(lit.base10_parse()?);
                 }
                 "prerequisites" => {
-                    prerequisites = Some(parse_string_list(&content)?);
+                    prerequisites = Some(parse_name_list(&content)?);
                 }
                 "unlock_recipes" => {
-                    unlock_recipes = Some(parse_string_list(&content)?);
+                    unlock_recipes = Some(parse_name_list(&content)?);
                 }
                 "unit_count" => {
                     let lit: syn::LitInt = content.parse()?;
@@ -1300,7 +1353,478 @@ impl Parse for TechnologyProtoEntry {
     }
 }
 
-fn parse_string_list(input: ParseStream<'_>) -> syn::Result<Vec<String>> {
+fn parse_name_list(input: ParseStream<'_>) -> syn::Result<Vec<ProtoName>> {
+    let content;
+    syn::bracketed!(content in input);
+    let mut items = Vec::new();
+    while !content.is_empty() {
+        items.push(ProtoName::parse(&content)?);
+        let _: Option<Token![,]> = content.parse()?;
+    }
+    Ok(items)
+}
+
+/// Declare data-stage fluid prototypes.
+#[proc_macro]
+pub fn fluid(input: TokenStream) -> TokenStream {
+    let FluidsMacroInput { fluids } = parse_macro_input!(input as FluidsMacroInput);
+    let mod_name = std::env::var("CARGO_PKG_NAME").unwrap_or_else(|_| "mod".to_string());
+
+    let mut const_defs = Vec::<TokenStream2>::new();
+    let mut extend_items = Vec::<TokenStream2>::new();
+
+    for entry in &fluids {
+        let const_name = screaming_to_const_ident(&entry.ident);
+        let name_lit = entry.name.as_str();
+        let icon_lit = resolve_icon_path(&entry.icon, &mod_name);
+        let icon_size = option_i64_tokens(entry.icon_size);
+        let subgroup = option_str_tokens(entry.subgroup.as_deref());
+        let order = option_str_tokens(entry.order.as_deref());
+        let hidden = option_bool_tokens(entry.hidden);
+        let default_temperature = entry.default_temperature;
+        let br = entry.base_color.r;
+        let bg = entry.base_color.g;
+        let bb = entry.base_color.b;
+        let ba = option_f64_tokens(entry.base_color.a);
+        let fr = entry.flow_color.r;
+        let fg = entry.flow_color.g;
+        let fb = entry.flow_color.b;
+        let fa = option_f64_tokens(entry.flow_color.a);
+
+        const_defs.push(quote::quote! {
+            pub const #const_name: &'static str = #name_lit;
+        });
+
+        extend_items.push(quote::quote! {
+            Fluid {
+                name: #name_lit,
+                icon: #icon_lit,
+                default_temperature: #default_temperature,
+                base_color: Color { r: #br, g: #bg, b: #bb, a: #ba, ..Default::default() },
+                flow_color: Color { r: #fr, g: #fg, b: #fb, a: #fa, ..Default::default() },
+                icon_size: #icon_size,
+                subgroup: #subgroup,
+                order: #order,
+                hidden: #hidden,
+                ..Default::default()
+            }
+        });
+    }
+
+    TokenStream::from(quote::quote! {
+        pub struct Fluids;
+
+        impl Fluids {
+            #( #const_defs )*
+        }
+
+        pub fn register_fluids() {
+            data.extend([
+                #( #extend_items, )*
+            ]);
+        }
+    })
+}
+
+struct FluidsMacroInput {
+    fluids: Vec<FluidProtoEntry>,
+}
+
+struct FluidProtoEntry {
+    ident: syn::Ident,
+    name: String,
+    icon: String,
+    default_temperature: f64,
+    base_color: ColorLit,
+    flow_color: ColorLit,
+    icon_size: Option<i64>,
+    subgroup: Option<String>,
+    order: Option<String>,
+    hidden: Option<bool>,
+}
+
+struct ColorLit {
+    r: f64,
+    g: f64,
+    b: f64,
+    a: Option<f64>,
+}
+
+impl Parse for FluidsMacroInput {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let mut fluids = Vec::new();
+        while !input.is_empty() {
+            fluids.push(input.parse::<FluidProtoEntry>()?);
+        }
+        if fluids.is_empty() {
+            return Err(input.error("expected at least one fluid block"));
+        }
+        Ok(Self { fluids })
+    }
+}
+
+impl Parse for FluidProtoEntry {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let ident: syn::Ident = input.parse()?;
+        let content;
+        syn::braced!(content in input);
+
+        let mut name: Option<String> = None;
+        let mut icon: Option<String> = None;
+        let mut default_temperature: Option<f64> = None;
+        let mut base_color: Option<ColorLit> = None;
+        let mut flow_color: Option<ColorLit> = None;
+        let mut icon_size: Option<i64> = None;
+        let mut subgroup: Option<String> = None;
+        let mut order: Option<String> = None;
+        let mut hidden: Option<bool> = None;
+
+        while !content.is_empty() {
+            let field: syn::Ident = content.parse()?;
+            let _: Token![=] = content.parse()?;
+            match field.to_string().as_str() {
+                "name" => {
+                    let lit: LitStr = content.parse()?;
+                    name = Some(lit.value());
+                }
+                "icon" => {
+                    let lit: LitStr = content.parse()?;
+                    icon = Some(lit.value());
+                }
+                "default_temperature" => {
+                    default_temperature = Some(parse_f64_lit(&content)?);
+                }
+                "base_color" => {
+                    base_color = Some(parse_color_lit(&content)?);
+                }
+                "flow_color" => {
+                    flow_color = Some(parse_color_lit(&content)?);
+                }
+                "icon_size" => {
+                    let lit: syn::LitInt = content.parse()?;
+                    icon_size = Some(lit.base10_parse()?);
+                }
+                "subgroup" => {
+                    let lit: LitStr = content.parse()?;
+                    subgroup = Some(lit.value());
+                }
+                "order" => {
+                    let lit: LitStr = content.parse()?;
+                    order = Some(lit.value());
+                }
+                "hidden" => {
+                    let lit: syn::LitBool = content.parse()?;
+                    hidden = Some(lit.value());
+                }
+                other => {
+                    return Err(syn::Error::new(
+                        field.span(),
+                        format!(
+                            "unknown fluid field `{other}`; expected `name`, `icon`, `default_temperature`, `base_color`, `flow_color`, `icon_size`, `subgroup`, `order`, or `hidden`"
+                        ),
+                    ));
+                }
+            }
+            let _: Option<Token![,]> = content.parse()?;
+        }
+
+        let span = ident.span();
+        Ok(Self {
+            ident,
+            name: name
+                .ok_or_else(|| syn::Error::new(span, "fluid block missing required field `name`"))?,
+            icon: icon
+                .ok_or_else(|| syn::Error::new(span, "fluid block missing required field `icon`"))?,
+            default_temperature: default_temperature.ok_or_else(|| {
+                syn::Error::new(span, "fluid block missing required field `default_temperature`")
+            })?,
+            base_color: base_color.ok_or_else(|| {
+                syn::Error::new(span, "fluid block missing required field `base_color`")
+            })?,
+            flow_color: flow_color.ok_or_else(|| {
+                syn::Error::new(span, "fluid block missing required field `flow_color`")
+            })?,
+            icon_size,
+            subgroup,
+            order,
+            hidden,
+        })
+    }
+}
+
+fn parse_color_lit(input: ParseStream<'_>) -> syn::Result<ColorLit> {
+    let content;
+    syn::braced!(content in input);
+    let mut r: Option<f64> = None;
+    let mut g: Option<f64> = None;
+    let mut b: Option<f64> = None;
+    let mut a: Option<f64> = None;
+    while !content.is_empty() {
+        let field: syn::Ident = content.parse()?;
+        let _: Token![=] = content.parse()?;
+        match field.to_string().as_str() {
+            "r" => r = Some(parse_f64_lit(&content)?),
+            "g" => g = Some(parse_f64_lit(&content)?),
+            "b" => b = Some(parse_f64_lit(&content)?),
+            "a" => a = Some(parse_f64_lit(&content)?),
+            other => {
+                return Err(syn::Error::new(
+                    field.span(),
+                    format!("unknown color field `{other}`; expected `r`, `g`, `b`, or `a`"),
+                ));
+            }
+        }
+        let _: Option<Token![,]> = content.parse()?;
+    }
+    Ok(ColorLit {
+        r: r.ok_or_else(|| syn::Error::new(content.span(), "missing `r`"))?,
+        g: g.ok_or_else(|| syn::Error::new(content.span(), "missing `g`"))?,
+        b: b.ok_or_else(|| syn::Error::new(content.span(), "missing `b`"))?,
+        a,
+    })
+}
+
+/// Declare data-stage assembling-machine entity prototypes.
+#[proc_macro]
+pub fn assembling_machine(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as AssemblingMachinesMacroInput);
+    let mod_name = std::env::var("CARGO_PKG_NAME").unwrap_or_else(|_| "mod".to_string());
+
+    let mut const_defs = Vec::<TokenStream2>::new();
+    let mut extend_items = Vec::<TokenStream2>::new();
+
+    for entry in &input.machines {
+        let const_name = screaming_to_const_ident(&entry.ident);
+        let name_lit = entry.name.as_str();
+        let icon_lit = resolve_icon_path(&entry.icon, &mod_name);
+        let crafting_speed = entry.crafting_speed;
+        let energy_usage = entry.energy_usage.as_str();
+        let energy_type = entry.energy_type.as_str();
+        let usage_priority = option_str_tokens(entry.usage_priority.as_deref());
+        let icon_size = option_i64_tokens(entry.icon_size);
+        let max_health = option_f64_tokens(entry.max_health);
+        let module_slots = option_i64_tokens(entry.module_slots);
+        let subgroup = option_str_tokens(entry.subgroup.as_deref());
+        let order = option_str_tokens(entry.order.as_deref());
+        let categories = entry.crafting_categories.iter().map(|c| {
+            let s = c.as_str();
+            quote::quote! { #s }
+        });
+        let flags = entry.flags.as_ref().map_or_else(
+            || quote::quote! { None },
+            |flags| {
+                let flags = flags.iter().map(|f| {
+                    let s = f.as_str();
+                    quote::quote! { #s }
+                });
+                quote::quote! { Some(&[ #( #flags ),* ]) }
+            },
+        );
+
+        const_defs.push(quote::quote! {
+            pub const #const_name: &'static str = #name_lit;
+        });
+
+        extend_items.push(quote::quote! {
+            AssemblingMachine {
+                name: #name_lit,
+                icon: #icon_lit,
+                crafting_speed: #crafting_speed,
+                crafting_categories: &[ #( #categories ),* ],
+                energy_usage: #energy_usage,
+                energy_source: EnergySource {
+                    r#type: #energy_type,
+                    usage_priority: #usage_priority,
+                    ..Default::default()
+                },
+                icon_size: #icon_size,
+                flags: #flags,
+                minable: None,
+                max_health: #max_health,
+                collision_box: None,
+                selection_box: None,
+                module_slots: #module_slots,
+                subgroup: #subgroup,
+                order: #order,
+                ..Default::default()
+            }
+        });
+    }
+
+    TokenStream::from(quote::quote! {
+        pub struct AssemblingMachines;
+
+        impl AssemblingMachines {
+            #( #const_defs )*
+        }
+
+        pub fn register_assembling_machines() {
+            data.extend([
+                #( #extend_items, )*
+            ]);
+        }
+    })
+}
+
+struct AssemblingMachinesMacroInput {
+    machines: Vec<AssemblingMachineProtoEntry>,
+}
+
+struct AssemblingMachineProtoEntry {
+    ident: syn::Ident,
+    name: String,
+    icon: String,
+    crafting_speed: f64,
+    crafting_categories: Vec<String>,
+    energy_usage: String,
+    energy_type: String,
+    usage_priority: Option<String>,
+    icon_size: Option<i64>,
+    flags: Option<Vec<String>>,
+    max_health: Option<f64>,
+    module_slots: Option<i64>,
+    subgroup: Option<String>,
+    order: Option<String>,
+}
+
+impl Parse for AssemblingMachinesMacroInput {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let mut machines = Vec::new();
+        while !input.is_empty() {
+            machines.push(input.parse::<AssemblingMachineProtoEntry>()?);
+        }
+        if machines.is_empty() {
+            return Err(input.error("expected at least one assembling_machine block"));
+        }
+        Ok(Self { machines })
+    }
+}
+
+impl Parse for AssemblingMachineProtoEntry {
+    #[allow(clippy::too_many_lines)]
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let ident: syn::Ident = input.parse()?;
+        let content;
+        syn::braced!(content in input);
+
+        let mut name: Option<String> = None;
+        let mut icon: Option<String> = None;
+        let mut crafting_speed: Option<f64> = None;
+        let mut crafting_categories: Option<Vec<String>> = None;
+        let mut energy_usage: Option<String> = None;
+        let mut energy_type: Option<String> = None;
+        let mut usage_priority: Option<String> = None;
+        let mut icon_size: Option<i64> = None;
+        let mut flags: Option<Vec<String>> = None;
+        let mut max_health: Option<f64> = None;
+        let mut module_slots: Option<i64> = None;
+        let mut subgroup: Option<String> = None;
+        let mut order: Option<String> = None;
+
+        while !content.is_empty() {
+            let field: syn::Ident = content.parse()?;
+            let _: Token![=] = content.parse()?;
+            match field.to_string().as_str() {
+                "name" => {
+                    let lit: LitStr = content.parse()?;
+                    name = Some(lit.value());
+                }
+                "icon" => {
+                    let lit: LitStr = content.parse()?;
+                    icon = Some(lit.value());
+                }
+                "crafting_speed" => {
+                    crafting_speed = Some(parse_f64_lit(&content)?);
+                }
+                "crafting_categories" => {
+                    crafting_categories = Some(parse_lit_string_list(&content)?);
+                }
+                "energy_usage" => {
+                    let lit: LitStr = content.parse()?;
+                    energy_usage = Some(lit.value());
+                }
+                "energy_type" => {
+                    let lit: LitStr = content.parse()?;
+                    energy_type = Some(lit.value());
+                }
+                "usage_priority" => {
+                    let lit: LitStr = content.parse()?;
+                    usage_priority = Some(lit.value());
+                }
+                "icon_size" => {
+                    let lit: syn::LitInt = content.parse()?;
+                    icon_size = Some(lit.base10_parse()?);
+                }
+                "flags" => {
+                    flags = Some(parse_lit_string_list(&content)?);
+                }
+                "max_health" => {
+                    max_health = Some(parse_f64_lit(&content)?);
+                }
+                "module_slots" => {
+                    let lit: syn::LitInt = content.parse()?;
+                    module_slots = Some(lit.base10_parse()?);
+                }
+                "subgroup" => {
+                    let lit: LitStr = content.parse()?;
+                    subgroup = Some(lit.value());
+                }
+                "order" => {
+                    let lit: LitStr = content.parse()?;
+                    order = Some(lit.value());
+                }
+                other => {
+                    return Err(syn::Error::new(
+                        field.span(),
+                        format!(
+                            "unknown assembling_machine field `{other}`"
+                        ),
+                    ));
+                }
+            }
+            let _: Option<Token![,]> = content.parse()?;
+        }
+
+        let span = ident.span();
+        Ok(Self {
+            ident,
+            name: name.ok_or_else(|| {
+                syn::Error::new(span, "assembling_machine block missing required field `name`")
+            })?,
+            icon: icon.ok_or_else(|| {
+                syn::Error::new(span, "assembling_machine block missing required field `icon`")
+            })?,
+            crafting_speed: crafting_speed.ok_or_else(|| {
+                syn::Error::new(
+                    span,
+                    "assembling_machine block missing required field `crafting_speed`",
+                )
+            })?,
+            crafting_categories: crafting_categories.ok_or_else(|| {
+                syn::Error::new(
+                    span,
+                    "assembling_machine block missing required field `crafting_categories`",
+                )
+            })?,
+            energy_usage: energy_usage.ok_or_else(|| {
+                syn::Error::new(
+                    span,
+                    "assembling_machine block missing required field `energy_usage`",
+                )
+            })?,
+            energy_type: energy_type.unwrap_or_else(|| "electric".to_string()),
+            usage_priority,
+            icon_size,
+            flags,
+            max_health,
+            module_slots,
+            subgroup,
+            order,
+        })
+    }
+}
+
+fn parse_lit_string_list(input: ParseStream<'_>) -> syn::Result<Vec<String>> {
     let content;
     syn::bracketed!(content in input);
     let mut items = Vec::new();

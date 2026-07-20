@@ -6,6 +6,7 @@ mod event_filters;
 mod events;
 mod ident;
 mod identifications;
+mod prototypes;
 mod types;
 mod unions;
 
@@ -23,5 +24,6 @@ pub use events::{
 pub use identifications::{
     generate_identifications, identification_concept_names, identification_signatures,
 };
+pub use prototypes::{PROTOTYPE_ALLOWLIST, generate_prototypes};
 pub use types::KnownTypes;
 pub use unions::{collect_literal_unions, generate_unions};

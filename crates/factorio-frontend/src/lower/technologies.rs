@@ -7,6 +7,7 @@ use syn::{
 };
 
 use crate::error::{FrontendError, FrontendResult};
+use crate::lower::recipes::ProtoName;
 
 /// Expand `technology! { ... }` into `Technologies` + `pub fn register_technologies()`.
 pub fn expand(tokens: TokenStream, mod_name: Option<&str>) -> FrontendResult<Vec<syn::Item>> {
@@ -29,13 +30,18 @@ pub fn expand(tokens: TokenStream, mod_name: Option<&str>) -> FrontendResult<Vec
         let prerequisites = entry
             .prerequisites
             .iter()
-            .map(|p| format!("\"{p}\""))
+            .map(ProtoName::to_src)
             .collect::<Vec<_>>()
             .join(", ");
         let effects = entry
             .unlock_recipes
             .iter()
-            .map(|r| format!("UnlockRecipeEffect {{ recipe: \"{r}\", ..Default::default() }}"))
+            .map(|r| {
+                format!(
+                    "UnlockRecipeEffect {{ recipe: {}, ..Default::default() }}",
+                    r.to_src()
+                )
+            })
             .collect::<Vec<_>>()
             .join(", ");
         let unit_ingredients = entry
@@ -43,8 +49,9 @@ pub fn expand(tokens: TokenStream, mod_name: Option<&str>) -> FrontendResult<Vec
             .iter()
             .map(|ing| {
                 format!(
-                    "TechnologyUnitIngredient {{ name: \"{}\", amount: {}, ..Default::default() }}",
-                    ing.name, ing.amount
+                    "TechnologyUnitIngredient {{ name: {}, amount: {}, ..Default::default() }}",
+                    ing.name.to_src(),
+                    ing.amount
                 )
             })
             .collect::<Vec<_>>()
@@ -100,8 +107,8 @@ struct TechnologyProtoEntry {
     name: String,
     icon: String,
     icon_size: Option<i64>,
-    prerequisites: Vec<String>,
-    unlock_recipes: Vec<String>,
+    prerequisites: Vec<ProtoName>,
+    unlock_recipes: Vec<ProtoName>,
     unit_count: i64,
     unit_time: f64,
     unit_ingredients: Vec<UnitIngredient>,
@@ -109,7 +116,7 @@ struct TechnologyProtoEntry {
 }
 
 struct UnitIngredient {
-    name: String,
+    name: ProtoName,
     amount: i64,
 }
 
@@ -135,8 +142,8 @@ impl Parse for TechnologyProtoEntry {
         let mut name: Option<String> = None;
         let mut icon: Option<String> = None;
         let mut icon_size: Option<i64> = None;
-        let mut prerequisites: Option<Vec<String>> = None;
-        let mut unlock_recipes: Option<Vec<String>> = None;
+        let mut prerequisites: Option<Vec<ProtoName>> = None;
+        let mut unlock_recipes: Option<Vec<ProtoName>> = None;
         let mut unit_count: Option<i64> = None;
         let mut unit_time: Option<f64> = None;
         let mut unit_ingredients: Option<Vec<UnitIngredient>> = None;
@@ -159,10 +166,10 @@ impl Parse for TechnologyProtoEntry {
                     icon_size = Some(lit.base10_parse()?);
                 }
                 "prerequisites" => {
-                    prerequisites = Some(parse_string_list(&content)?);
+                    prerequisites = Some(parse_name_list(&content)?);
                 }
                 "unlock_recipes" => {
-                    unlock_recipes = Some(parse_string_list(&content)?);
+                    unlock_recipes = Some(parse_name_list(&content)?);
                 }
                 "unit_count" => {
                     let lit: LitInt = content.parse()?;
@@ -234,13 +241,12 @@ fn parse_f64_lit(input: ParseStream<'_>) -> syn::Result<f64> {
     }
 }
 
-fn parse_string_list(input: ParseStream<'_>) -> syn::Result<Vec<String>> {
+fn parse_name_list(input: ParseStream<'_>) -> syn::Result<Vec<ProtoName>> {
     let content;
     syn::bracketed!(content in input);
     let mut items = Vec::new();
     while !content.is_empty() {
-        let lit: LitStr = content.parse()?;
-        items.push(lit.value());
+        items.push(ProtoName::parse(&content)?);
         let _: Option<Token![,]> = content.parse()?;
     }
     Ok(items)
@@ -262,7 +268,7 @@ impl Parse for UnitIngredient {
         let content;
         syn::braced!(content in input);
 
-        let mut name: Option<String> = None;
+        let mut name: Option<ProtoName> = None;
         let mut amount: Option<i64> = None;
 
         while !content.is_empty() {
@@ -270,8 +276,7 @@ impl Parse for UnitIngredient {
             let _: Token![=] = content.parse()?;
             match field.to_string().as_str() {
                 "name" => {
-                    let lit: LitStr = content.parse()?;
-                    name = Some(lit.value());
+                    name = Some(ProtoName::parse(&content)?);
                 }
                 "amount" => {
                     let lit: LitInt = content.parse()?;

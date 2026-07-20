@@ -12,10 +12,12 @@ fn prototype_lua_type(struct_name: &str) -> Option<&'static str> {
         "IntSetting" => Some("int-setting"),
         "DoubleSetting" => Some("double-setting"),
         "StringSetting" => Some("string-setting"),
-        "Item" | "RecipeIngredient" | "RecipeProduct" => Some("item"),
+        "Item" | "RecipeProduct" => Some("item"),
         "Recipe" => Some("recipe"),
         "Technology" => Some("technology"),
         "UnlockRecipeEffect" => Some("unlock-recipe"),
+        "Fluid" => Some("fluid"),
+        "AssemblingMachine" => Some("assembling-machine"),
         _ => None,
     }
 }
@@ -276,16 +278,64 @@ impl LuaGenerator {
             }
         }
 
-        let injected_type = struct_name.and_then(prototype_lua_type);
+        // Bounding box: Factorio expects `{{left_top}, {right_bottom}}`.
+        if struct_name == Some("BoundingBox") {
+            let get = |key: &str| {
+                fields
+                    .iter()
+                    .find_map(|(n, v)| (n == key).then(|| self.generate_expression(v)))
+            };
+            if let (Some(lx), Some(ly), Some(rx), Some(ry)) = (
+                get("left_top_x"),
+                get("left_top_y"),
+                get("right_bottom_x"),
+                get("right_bottom_y"),
+            ) {
+                let literal = format!("{{{{ {lx}, {ly} }}, {{ {rx}, {ry} }}}}");
+                return if let Some((_, table_path)) = &self.struct_table_context {
+                    format!("setmetatable({literal}, {{ __index = {table_path} }})")
+                } else {
+                    literal
+                };
+            }
+        }
+
+        // Recipe ingredients: `type = "item"` or `"fluid"` from the `fluid` bool field.
+        let (injected_type, skip_fields): (Option<&str>, &[&str]) =
+            if struct_name == Some("RecipeIngredient") {
+                let is_fluid = fields.iter().any(|(n, v)| {
+                    n == "fluid"
+                        && matches!(
+                            v,
+                            Expression::Literal(factorio_ir::literal::Literal::Bool(true))
+                        )
+                });
+                (Some(if is_fluid { "fluid" } else { "item" }), &["fluid"])
+            } else {
+                (struct_name.and_then(prototype_lua_type), &[])
+            };
+
         let type_prefix = injected_type.map(|t| format!("type = \"{t}\", "));
 
         let field_strs = fields
             .iter()
             .filter(|(name, value)| {
+                if skip_fields.contains(&name.as_str()) {
+                    return false;
+                }
                 if matches!(
                     value,
                     Expression::Literal(factorio_ir::literal::Literal::Nil)
                 ) {
+                    return false;
+                }
+                // Omit false optional flags that only affect type injection.
+                if name == "fluid"
+                    && matches!(
+                        value,
+                        Expression::Literal(factorio_ir::literal::Literal::Bool(false))
+                    )
+                {
                     return false;
                 }
                 injected_type.is_none() || (name != "type" && name != "r#type")

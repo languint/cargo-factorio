@@ -1,21 +1,24 @@
 ---
 title: Prototypes
-description: Register Factorio data-stage prototypes with typed stubs, item!, recipe!, and technology!.
+description: Register Factorio data-stage prototypes with typed stubs and macros (item, recipe, technology, fluid, assembling-machine).
 ---
 
 Prototype registration happens in the **data** stage (`data.rs`,
 `#[factorio_rs::data]`, or `data_mod!`). factorio-rs gives you:
 
-- typed stub structs (`Item`, `Recipe`, `Technology`, ...) for `data.extend`
-- macros (`item!`, `recipe!`, `technology!`) that expand to name constants + a
-  `pub fn` register helper
+- allowlisted stub structs generated from bundled `prototype-api.json`
+  (`Item`, `Recipe`, `Technology`, `Fluid`, `AssemblingMachine`, …)
+- curated companions (`RecipeIngredient`, `Color`, `EnergySource`, …) for
+  special Lua shapes
+- macros (`item!`, `recipe!`, `technology!`, `fluid!`, `assembling_machine!`)
+  that expand to name constants + a `pub fn` register helper
 - codegen that injects Factorio’s `type = "..."` discriminant from the Rust
   struct name
 
 Every **`pub fn`** in a data-stage module runs from `data.lua` at load time -
 see [Stages](stages/).
 
-## Hand-written stubs
+## Typed stubs
 
 Import from the prelude and call `data.extend` with struct literals. Prefer
 `..Default::default()` so unset optional fields omit as Lua `nil` (sparse
@@ -91,16 +94,19 @@ data.extend({
 | --- | --- |
 | `Item` | `"item"` |
 | `Recipe` | `"recipe"` |
-| `RecipeIngredient` | `"item"` |
+| `RecipeIngredient` | `"item"` or `"fluid"` (from `fluid: bool`) |
 | `RecipeProduct` | `"item"` |
 | `Technology` | `"technology"` |
 | `UnlockRecipeEffect` | `"unlock-recipe"` |
 | `TechnologyUnitIngredient` | (tuple `{ "name", amount }` - no `type` field) |
+| `Fluid` | `"fluid"` |
+| `AssemblingMachine` | `"assembling-machine"` |
 | `BoolSetting` / `IntSetting` / ... | `"bool-setting"` / ... (settings stage) |
 
 Factorio 2.0 recipes need the full ingredient/product tables
 (`{type, name, amount}`); the stubs always emit that shape. Technology research
-ingredients use Factorio’s compact tuple form instead.
+ingredients use Factorio’s compact tuple form instead. Fluid ingredients set
+`fluid: true` (or `type = "fluid"` in `recipe!`).
 
 Use hand-written stubs when you need fields the macros do not expose yet.
 
@@ -246,8 +252,68 @@ technology! {
 Science packs emit Factorio tuples `{ "pack-name", amount }`. Each unlock
 injects `type = "unlock-recipe"`.
 
+Cross-refs in `unlock_recipes`, `prerequisites`, and recipe ingredient `name`
+fields may be string literals **or** paths like `Recipes::CRAFT_WIDGET` /
+`Items::WIDGET`. Declaring macros still require a string literal `name` for
+their own const tables.
+
 Set the matching recipe’s `enabled = false` (or omit `enabled` and keep it
 disabled by default in hand-written stubs) so research gates the craft.
+
+## `fluid!`
+
+Declares fluid prototypes. Expands to `Fluids::*` + `pub fn register_fluids()`.
+
+```rust
+fluid! {
+    coolant {
+        name = "my-mod-coolant",
+        icon = "graphics/fluid.png",
+        default_temperature = 15.0,
+        base_color = { r = 0.2, g = 0.4, b = 0.8 },
+        flow_color = { r = 0.3, g = 0.5, b = 0.9 },
+    }
+}
+```
+
+Required: `name`, `icon`, `default_temperature`, `base_color`, `flow_color`.
+Optional: `icon_size`, `subgroup`, `order`, `hidden`.
+
+Use a fluid in `recipe!` with `fluid = true` or `type = "fluid"` on an
+ingredient:
+
+```rust
+ingredients = [
+    { name = Fluids::COOLANT, amount = 10, fluid = true },
+],
+```
+
+## `assembling_machine!`
+
+First entity-kind macro. Expands to `AssemblingMachines::*` +
+`pub fn register_assembling_machines()`.
+
+```rust
+assembling_machine! {
+    widget_assembler {
+        name = "my-mod-assembler",
+        icon = "graphics/entity.png",
+        crafting_speed = 0.5,
+        crafting_categories = ["crafting"],
+        energy_usage = "150kW",
+        energy_type = "electric",
+        usage_priority = "secondary-input",
+        flags = ["placeable-neutral", "player-creation"],
+        max_health = 300.0,
+    }
+}
+```
+
+Required: `name`, `icon`, `crafting_speed`, `crafting_categories`,
+`energy_usage`. Optional: `energy_type` (default `"electric"`),
+`usage_priority`, `icon_size`, `flags`, `max_health`, `module_slots`,
+`subgroup`, `order`. Collision / selection boxes and `minable` can be set on
+the typed stub when you need them.
 
 ## Items + recipes + technologies
 
@@ -287,7 +353,7 @@ technology! {
         icon = "graphics/technology.png",
         icon_size = 256,
         prerequisites = ["automation"],
-        unlock_recipes = ["my-mod-widget"],
+        unlock_recipes = [Recipes::CRAFT_WIDGET],
         unit_count = 50,
         unit_time = 30.0,
         unit_ingredients = [
@@ -316,7 +382,8 @@ locale! {
 `register`, `register_recipes`, and `register_technologies` are all `pub fn`s,
 so each runs from `data.lua`. Keep the same string in `item!` / `recipe!` /
 `technology!` `name` fields (and in ingredient/result / `unlock_recipes` names)
-so Factorio links the chain together.
+so Factorio links the chain together. Cross-ref fields may also use paths such
+as `Recipes::CRAFT_WIDGET` instead of duplicating the string.
 
 When you want a single Rust source of truth for the item id, hand-write the
 `Recipe` / `Technology` stubs and pass `Items::WIDGET` for recipe result names

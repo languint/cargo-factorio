@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Allowlisted data-stage stubs generated from bundled `prototype-api.json`
+  (`Item`, `Recipe`, `Technology`, `Fluid`, `AssemblingMachine`) with curated
+  companions (`Color`, `BoundingBox`, `EnergySource`, `MinableProperties`, …).
+- `fluid!` and `assembling_machine!` dual-path macros (`Fluids::*` /
+  `AssemblingMachines::*` + register helpers).
+- Recipe fluid ingredients: `RecipeIngredient.fluid` / `recipe!` `fluid = true`
+  (or `type = "fluid"`) injects Lua `type = "fluid"`.
+- Prototype macro cross-refs: ingredient/result/tech unlock and prerequisite
+  `name` fields accept paths (`Items::WIDGET`, `Recipes::CRAFT_WIDGET`) as well
+  as string literals.
+- CONTRIBUTING near-term high-leverage list refreshed.
+
 ## [0.1.9] - 2026-07-19
 
 ### Added

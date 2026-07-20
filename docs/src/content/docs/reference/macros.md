@@ -66,7 +66,9 @@ Assets walkthrough: [Package graphics](../recipes/package-graphics/).
 
 Declare data-stage recipe prototypes. Expands to `Recipes` name constants and
 `pub fn register_recipes()` that calls `data.extend` with typed `Recipe`
-literals (`type = "recipe"`; each ingredient/product injects `type = "item"`).
+literals (`type = "recipe"`; each ingredient/product injects `type = "item"`
+unless the ingredient sets `fluid = true` / `type = "fluid"`). Ingredient and
+result `name` fields accept string literals or paths (`Items::WIDGET`).
 
 ```rust
 recipe! {
@@ -120,6 +122,19 @@ Required fields: `name`, `icon`, `unlock_recipes`, `unit_count`, `unit_time`,
 
 Full guide: [Prototypes](../guides/prototypes/).
 
+## `fluid!`
+
+Declare data-stage fluid prototypes (`Fluids::*` + `register_fluids()`).
+Required: `name`, `icon`, `default_temperature`, `base_color`, `flow_color`.
+
+## `assembling_machine!`
+
+Declare assembling-machine entity prototypes (`AssemblingMachines::*` +
+`register_assembling_machines()`). Required: `name`, `icon`, `crafting_speed`,
+`crafting_categories`, `energy_usage`.
+
+Full guide: [Prototypes](../guides/prototypes/).
+
 ## `locale!`
 
 See [Locale](../guides/locale/).
@@ -136,7 +151,8 @@ In executable code, **`println!`**, **`format!`**, **`matches!`**, (with the
 - `tracing::info!(...)` / `warn!` / ... -> colored `game.print` (see [Tracing](../guides/tracing/))
 - `serde_json::to_string` / ... -> `helpers.table_to_json` / `string.pack` (see [Serde / JSON](../guides/serde/))
 
-Item macros such as `mod_settings!`, `item!`, `recipe!`, `technology!`, and
-`locale!` are handled separately during module lowering.
+Item macros such as `mod_settings!`, `item!`, `recipe!`, `technology!`,
+`fluid!`, `assembling_machine!`, and `locale!` are handled separately during
+module lowering.
 
 Full syntax inventory: [Supported Rust](../guides/language/).

@@ -40,10 +40,13 @@
 
 mod generate;
 mod schema;
+mod schema_prototype;
 
 use std::path::Path;
 
 pub use schema::RuntimeApi;
+pub use schema_prototype::PrototypeApi;
+pub use generate::PROTOTYPE_ALLOWLIST;
 
 pub struct GeneratedApi {
     pub application_version: String,
@@ -124,6 +127,24 @@ pub fn bundled_runtime_api_json() -> &'static str {
 
 pub fn generate_from_bundled_api() -> Result<GeneratedApi, serde_json::Error> {
     generate_from_json(bundled_runtime_api_json())
+}
+
+pub fn parse_prototype_api(json: &str) -> Result<PrototypeApi, serde_json::Error> {
+    serde_json::from_str(json)
+}
+
+pub fn bundled_prototype_api_json() -> &'static str {
+    include_str!("../api/prototype-api.json")
+}
+
+pub fn generate_prototypes_from_bundled() -> Result<String, String> {
+    let api = parse_prototype_api(bundled_prototype_api_json()).map_err(|e| e.to_string())?;
+    generate::generate_prototypes(&api)
+}
+
+pub fn write_generated_prototypes(output_dir: &Path, source: &str) -> std::io::Result<()> {
+    std::fs::create_dir_all(output_dir)?;
+    write_module(output_dir, "prototypes_gen.rs", source)
 }
 
 pub fn write_generated_api(output_dir: &Path, generated: &GeneratedApi) -> std::io::Result<()> {

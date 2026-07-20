@@ -1,43 +1,57 @@
-//! Hand-written prototype stubs for the data stage (`data.extend`).
+//! Hand-written data-stage companions and helpers for generated prototypes.
 //!
-//! These are not generated from `prototype-api.json` yet. They exist so mods can
-//! register common prototypes with typed struct literals; the codegen injects
-//! Factorio's `type = "..."` discriminant from the Rust struct name.
+//! Generated allowlisted stubs (`Item`, `Recipe`, `Technology`, `Fluid`,
+//! `AssemblingMachine`) live in `OUT_DIR/prototypes_gen.rs`. These companions
+//! have special Lua emission rules (ingredient `type`, science-pack tuples, …).
 
-/// Minimal [`ItemPrototype`](https://lua-api.factorio.com/latest/prototypes/ItemPrototype.html)
-/// for `data.extend`.
-///
-/// Required Factorio fields: `name`, `icon` (or `icons`), `stack_size`.
-/// `type = "item"` is injected by the Lua generator.
-///
-/// Optional fields omit as Lua `nil` when `None`. Prefer
-/// `..Default::default()` for fields you do not set (same sparse-table pattern
-/// as other API structs).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct Item {
-    /// Internal prototype name (e.g. `"my-mod-widget"`).
-    pub name: &'static str,
-    /// Packaged icon path (e.g. `"__my_mod__/graphics/icon.png"`).
-    pub icon: &'static str,
-    /// Max items per inventory slot.
-    pub stack_size: i64,
-    /// Icon pixel size. Factorio defaults to `64` when omitted.
-    pub icon_size: Option<i64>,
-    /// Item subgroup id (e.g. `"intermediate-product"`).
-    pub subgroup: Option<&'static str>,
-    /// Sort order within the subgroup.
-    pub order: Option<&'static str>,
+include!(concat!(env!("OUT_DIR"), "/prototypes_gen.rs"));
+
+/// RGBA color for fluid / graphics tables (`{r, g, b, a}`).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Color {
+    pub r: f64,
+    pub g: f64,
+    pub b: f64,
+    pub a: Option<f64>,
 }
 
-/// Item ingredient for a [`Recipe`] (`type = "item"` injected).
+/// Axis-aligned box as two corners (`{{left_top}, {right_bottom}}` in Lua).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct BoundingBox {
+    pub left_top_x: f64,
+    pub left_top_y: f64,
+    pub right_bottom_x: f64,
+    pub right_bottom_y: f64,
+}
+
+/// Simplified entity energy source (`type` + optional priority / buffer fields).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct EnergySource {
+    /// Factorio energy source type (e.g. `"electric"`, `"burner"`, `"void"`).
+    pub r#type: &'static str,
+    /// Electric usage priority (e.g. `"secondary-input"`).
+    pub usage_priority: Option<&'static str>,
+}
+
+/// Simplified minable properties for placeable entities.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct MinableProperties {
+    pub mining_time: f64,
+    pub result: Option<&'static str>,
+}
+
+/// Item or fluid ingredient for a [`Recipe`].
 ///
-/// Factorio 2.0 requires the full `{type, name, amount}` table form.
+/// Factorio 2.0 requires `{type, name, amount}`. Set [`Self::fluid`] to emit
+/// `type = "fluid"`; otherwise `type = "item"` is injected.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct RecipeIngredient {
-    /// Ingredient item prototype name.
+    /// Ingredient prototype name.
     pub name: &'static str,
-    /// Item count consumed.
+    /// Count (items) or amount (fluids).
     pub amount: i64,
+    /// When true, Lua `type = "fluid"`; otherwise `"item"`.
+    pub fluid: bool,
 }
 
 /// Item product for a [`Recipe`] (`type = "item"` injected).
@@ -47,31 +61,6 @@ pub struct RecipeProduct {
     pub name: &'static str,
     /// Item count produced.
     pub amount: i64,
-}
-
-/// Minimal [`RecipePrototype`](https://lua-api.factorio.com/latest/prototypes/RecipePrototype.html)
-/// for `data.extend`.
-///
-/// `type = "recipe"` is injected by the Lua generator. Ingredients and results
-/// use [`RecipeIngredient`] / [`RecipeProduct`] (each injects `type = "item"`).
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct Recipe {
-    /// Internal prototype name (e.g. `"my-mod-widget"`).
-    pub name: &'static str,
-    /// Crafting ingredients.
-    pub ingredients: &'static [RecipeIngredient],
-    /// Crafting products.
-    pub results: &'static [RecipeProduct],
-    /// Crafting energy in seconds. Factorio defaults to `0.5` when omitted.
-    pub energy_required: Option<f64>,
-    /// Recipe category (e.g. `"crafting"`).
-    pub category: Option<&'static str>,
-    /// Whether the recipe is unlocked at start. Defaults to `true` in Factorio when omitted.
-    pub enabled: Option<bool>,
-    /// Item subgroup id.
-    pub subgroup: Option<&'static str>,
-    /// Sort order within the subgroup.
-    pub order: Option<&'static str>,
 }
 
 /// Science-pack entry for a [`TechnologyUnit`].
@@ -101,26 +90,4 @@ pub struct TechnologyUnit {
 pub struct UnlockRecipeEffect {
     /// Recipe prototype name unlocked when the technology is researched.
     pub recipe: &'static str,
-}
-
-/// Minimal [`TechnologyPrototype`](https://lua-api.factorio.com/latest/prototypes/TechnologyPrototype.html)
-/// for `data.extend`.
-///
-/// `type = "technology"` is injected by the Lua generator.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct Technology {
-    /// Internal prototype name (e.g. `"my-mod-widget"`).
-    pub name: &'static str,
-    /// Packaged tech icon path (e.g. `"__my_mod__/graphics/technology.png"`).
-    pub icon: &'static str,
-    /// Icon pixel size. Technology icons are often `256`.
-    pub icon_size: Option<i64>,
-    /// Prerequisite technology ids.
-    pub prerequisites: &'static [&'static str],
-    /// Effects applied on research (typically unlock-recipe).
-    pub effects: &'static [UnlockRecipeEffect],
-    /// Lab cost.
-    pub unit: TechnologyUnit,
-    /// Sort order string.
-    pub order: Option<&'static str>,
 }

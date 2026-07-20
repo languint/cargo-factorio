@@ -10,11 +10,12 @@ documentation.workspace = true
 readme.workspace = true
 keywords.workspace = true
 categories = ["game-development", "development-tools", "api-bindings"]
-description = "Generates Rust Factorio API bindings from runtime-api.json for factorio-rs"
+description = "Generates Rust Factorio API bindings from runtime-api.json and prototype-api.json for factorio-rs"
 include = [
     "src/**/*",
     "tests/**/*",
     "api/runtime-api.json",
+    "api/prototype-api.json",
     "Cargo.toml",
 ]
 

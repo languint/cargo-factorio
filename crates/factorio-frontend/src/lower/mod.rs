@@ -11,10 +11,12 @@ use crate::{
 
 pub mod assert_macros;
 pub mod attrs;
+mod assembling_machines;
 pub mod context;
 pub mod event_filter;
 pub mod event_handler;
 pub mod expressions;
+mod fluids;
 pub mod functions;
 pub mod imports;
 mod items;
@@ -453,6 +455,19 @@ fn lower_top_level_item(
         }
         Item::Macro(mac) if is_known_macro(&mac.mac, "technology") => {
             let expanded = technologies::expand(mac.mac.tokens.clone(), module_state.mod_name)?;
+            for item in &expanded {
+                lower_top_level_item(item, module_name, module_state, ctx)?;
+            }
+        }
+        Item::Macro(mac) if is_known_macro(&mac.mac, "fluid") => {
+            let expanded = fluids::expand(mac.mac.tokens.clone(), module_state.mod_name)?;
+            for item in &expanded {
+                lower_top_level_item(item, module_name, module_state, ctx)?;
+            }
+        }
+        Item::Macro(mac) if is_known_macro(&mac.mac, "assembling_machine") => {
+            let expanded =
+                assembling_machines::expand(mac.mac.tokens.clone(), module_state.mod_name)?;
             for item in &expanded {
                 lower_top_level_item(item, module_name, module_state, ctx)?;
             }
