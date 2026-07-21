@@ -443,6 +443,7 @@ fn lower_test_module_items(
         diagnostics,
         try_hoists: Vec::new(),
         try_tmp_counter: 0,
+        meta_markers: super::meta_markers::collect_module_meta_markers(items),
     };
     super::types::collect_type_aliases(items, &mut ctx.type_aliases)?;
     super::traits::collect_traits(items, &mut ctx.traits)?;

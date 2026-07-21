@@ -44,7 +44,7 @@ pub fn lower_macro_expression(
 
     match name.as_str() {
         "println" => lower_println_macro(mac, ctx, self_type),
-        "format" => lower_format_macro(mac, ctx, self_type),
+        "format" | "format_args" => lower_format_macro(mac, ctx, self_type),
         "matches" => super::statements::lower_matches_macro(mac, ctx, self_type),
         "assert" | "assert_eq" | "assert_ne" | "panic" => {
             let stmts = super::assert_macros::lower_assert_macro_statements(mac, ctx, self_type)?;
@@ -57,6 +57,72 @@ pub fn lower_macro_expression(
             name,
             location: location(mac),
         }),
+    }
+}
+
+/// Lower rustc-expanded `println!` / `format!` forms (`_print(format_args!(...))`, etc.).
+pub fn try_lower_expanded_std_format_call(
+    call: &syn::ExprCall,
+    ctx: &mut LowerContext<'_>,
+    self_type: Option<&str>,
+) -> Option<FrontendResult<factorio_ir::expression::Expression>> {
+    let Expr::Path(func_path) = call.func.as_ref() else {
+        return None;
+    };
+    let name = func_path
+        .path
+        .segments
+        .last()
+        .map(|segment| segment.ident.to_string())?;
+
+    match name.as_str() {
+        "_print" | "print" => {
+            let arg = call.args.first()?;
+            let mac = format_args_macro(arg)?;
+            Some(
+                lower_format_macro_message(mac, ctx, self_type)
+                    .map(|message| game_print_call(message, None)),
+            )
+        }
+        "format" => {
+            let arg = call.args.first()?;
+            let mac = format_args_macro(arg)?;
+            Some(lower_format_macro_message(mac, ctx, self_type))
+        }
+        "must_use" => {
+            let arg = call.args.first()?;
+            let inner = peel_block_expr(arg)?;
+            Some(lower_expression(inner, ctx, self_type))
+        }
+        _ => None,
+    }
+}
+
+fn format_args_macro(expr: &Expr) -> Option<&ExprMacro> {
+    let Expr::Macro(mac) = expr else {
+        return None;
+    };
+    if macro_name(&mac.mac.path) == "format_args" {
+        Some(mac)
+    } else {
+        None
+    }
+}
+
+fn peel_block_expr(expr: &Expr) -> Option<&Expr> {
+    match expr {
+        Expr::Block(block) => {
+            let mut stmts = block.block.stmts.iter();
+            let stmt = stmts.next()?;
+            if stmts.next().is_some() {
+                return None;
+            }
+            match stmt {
+                syn::Stmt::Expr(inner, _) => Some(inner),
+                _ => None,
+            }
+        }
+        other => Some(other),
     }
 }
 

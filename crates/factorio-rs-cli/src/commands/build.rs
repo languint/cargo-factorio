@@ -2,8 +2,9 @@ use std::path::{Path, PathBuf};
 
 use factorio_codegen::LuaGenerator;
 use factorio_frontend::{
-    ParseOptions, discover_modules, display_filename, eprint_diagnostic, eprint_frontend_error,
-    lua_output_path, parse_discovered_module_with_options, resolve_project_locales,
+    ParseOptions, collect_locales_from_sources, discover_modules_from_expanded, display_filename,
+    eprint_diagnostic, eprint_frontend_error, lua_output_path,
+    parse_discovered_module_with_options, resolve_project_locales,
 };
 use factorio_ir::{module::Module, prune::prune_modules};
 
@@ -18,7 +19,7 @@ use crate::{
         StageModules, collect_event_registrations, collect_remote_exports, collect_shared_consts,
         collect_shared_exports, collect_stage_module, write_mod_manifests,
     },
-    progress::{self, BuildFinish, BuildProgress},
+    progress::{BuildFinish, BuildProgress},
 };
 
 /// Options that select how a project is transpiled.
@@ -63,7 +64,8 @@ pub fn check(project_root: &Path, options: &BuildOptions) -> CliResult<()> {
     if !options.skip_typecheck {
         typecheck::cargo_check(project_root)?;
     }
-    let _ = lower_project(project_root, None)?;
+    let expanded = super::expand::expand_crate(project_root)?;
+    let _ = lower_project(project_root, &expanded, None)?;
     Ok(())
 }
 
@@ -112,8 +114,11 @@ fn build_with_progress(
     let lua_dir = output_dir.join("lua");
     let mut outputs = Vec::new();
 
+    progress.begin("Expand");
+    let expanded = super::expand::expand_crate(project_root)?;
+
     progress.begin("Lower");
-    let mut discovered_modules = lower_project(project_root, Some(progress))?;
+    let mut discovered_modules = lower_project(project_root, &expanded, Some(progress))?;
 
     progress.begin("Emit");
     purge_output_dir(&output_dir)?;
@@ -206,8 +211,14 @@ fn build_with_progress(
 }
 
 /// Discover, lower, and lint every source module (no disk writes).
+///
+/// `expanded` is the rustc `-Zunpretty=expanded` dump so `macro_rules!` and
+/// dependency proc macros are visible. `locale!` is collected from original
+/// sources because its proc macro only typechecks.
+#[allow(clippy::too_many_lines)]
 fn lower_project(
     project_root: &Path,
+    expanded: &str,
     mut progress: Option<&mut BuildProgress>,
 ) -> CliResult<Vec<(factorio_frontend::DiscoveredModule, Module)>> {
     let config = Config::load(project_root)?;
@@ -231,12 +242,16 @@ fn lower_project(
         source_contents.push((source_path.clone(), source));
     }
 
+    let locales_by_module = load_project_locales(&source_dir, &source_contents)?;
+
+    let expanded_path = project_root.join("<expanded>");
+    let expanded_filename = display_filename(&expanded_path);
+
     let package = CargoPackage::load(project_root)?;
     let lint_config = config.lints.resolve()?;
     let lua_module_prefix = config.emit.lua_module_prefix.as_deref().unwrap_or("");
     let trait_catalog = factorio_frontend::build_trait_catalog(&source_contents, &source_dir)
         .map_err(|err| {
-            // Surface catalog errors with the first source file for path context.
             if let Some((path, source)) = source_contents.first() {
                 let filename = display_filename(path);
                 let _ = eprint_frontend_error(&filename, source, &err);
@@ -252,48 +267,47 @@ fn lower_project(
     let mut discovered_modules = Vec::new();
     let mut failed = false;
 
-    let file_count = u64::try_from(source_contents.len()).unwrap_or(u64::MAX);
+    let discovered = discover_modules_from_expanded(expanded)?;
+    let file_count = u64::try_from(discovered.len()).unwrap_or(u64::MAX);
     if let Some(progress) = progress.as_deref_mut() {
         progress.start_files(file_count, "Lower");
     }
 
-    for (source_path, source) in &source_contents {
+    for module_spec in discovered {
         if let Some(progress) = progress.as_deref() {
-            progress.tick_file(progress::display_rel(project_root, source_path));
+            progress.tick_file(&module_spec.module_name);
         }
 
-        let discovered = discover_modules(&source_dir, source_path, source)?;
-        let filename = display_filename(source_path);
-
-        for module_spec in discovered {
-            let mut file_diagnostics = Vec::new();
-            match parse_discovered_module_with_options(
-                &module_spec,
-                &parse_options,
-                &mut file_diagnostics,
-            ) {
-                Ok(module) => {
-                    for diagnostic in &file_diagnostics {
-                        with_progress_suspended(progress.as_deref(), || {
-                            let _ = eprint_diagnostic(&filename, source, diagnostic);
-                        });
-                        if diagnostic.is_error() {
-                            failed = true;
-                        }
-                    }
-                    discovered_modules.push((module_spec, module));
+        let mut file_diagnostics = Vec::new();
+        match parse_discovered_module_with_options(
+            &module_spec,
+            &parse_options,
+            &mut file_diagnostics,
+        ) {
+            Ok(mut module) => {
+                if let Some(pending) = locales_by_module.get(&module_spec.module_name) {
+                    module.pending_locales.extend(pending.clone());
                 }
-                Err(err) => {
-                    for diagnostic in &file_diagnostics {
-                        with_progress_suspended(progress.as_deref(), || {
-                            let _ = eprint_diagnostic(&filename, source, diagnostic);
-                        });
-                    }
+                for diagnostic in &file_diagnostics {
                     with_progress_suspended(progress.as_deref(), || {
-                        let _ = eprint_frontend_error(&filename, source, &err);
+                        let _ = eprint_diagnostic(&expanded_filename, expanded, diagnostic);
                     });
-                    failed = true;
+                    if diagnostic.is_error() {
+                        failed = true;
+                    }
                 }
+                discovered_modules.push((module_spec, module));
+            }
+            Err(err) => {
+                for diagnostic in &file_diagnostics {
+                    with_progress_suspended(progress.as_deref(), || {
+                        let _ = eprint_diagnostic(&expanded_filename, expanded, diagnostic);
+                    });
+                }
+                with_progress_suspended(progress.as_deref(), || {
+                    let _ = eprint_frontend_error(&expanded_filename, expanded, &err);
+                });
+                failed = true;
             }
         }
     }
@@ -320,6 +334,19 @@ fn lower_project(
     }
 
     Ok(discovered_modules)
+}
+
+fn load_project_locales(
+    source_dir: &Path,
+    source_contents: &[(PathBuf, String)],
+) -> CliResult<std::collections::HashMap<String, Vec<factorio_ir::locale::PendingLocaleFile>>> {
+    collect_locales_from_sources(source_dir, source_contents).map_err(|err| {
+        if let Some((path, source)) = source_contents.first() {
+            let filename = display_filename(path);
+            let _ = eprint_frontend_error(&filename, source, &err);
+        }
+        CliError::Frontend(err)
+    })
 }
 
 fn with_progress_suspended(progress: Option<&BuildProgress>, f: impl FnOnce()) {

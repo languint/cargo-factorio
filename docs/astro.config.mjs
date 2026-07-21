@@ -93,6 +93,7 @@ export default defineConfig({
           label: "Language",
           items: [
             { label: "Supported Rust", slug: "guides/language" },
+            { label: "Authoring macros", slug: "guides/authoring-macros" },
             { label: "Option and Result", slug: "guides/option-and-result" },
             { label: "Enums", slug: "language/enums" },
             {

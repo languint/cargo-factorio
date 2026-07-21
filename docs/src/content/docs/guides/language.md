@@ -3,7 +3,7 @@ title: Supported Rust
 description: Inventory of Rust syntax factorio-rs can transpile to Lua.
 ---
 
-factorio-rs does **not** implement a full Rust dialect. It lowers a Factorio-oriented subset of Rust into Lua. `factorio-rs check` / `build` run `cargo check` against the SDK stubs, then only accept constructs the frontend knows how to lower.
+factorio-rs does **not** implement a full Rust dialect. It lowers a Factorio-oriented subset of Rust into Lua. `factorio-rs check` / `build` run `cargo check` against the SDK stubs, **expand macros with rustc**, then only accept constructs the frontend knows how to lower.
 
 This page is the **inventory**. Prefer recipes and focused language pages when
 learning a feature:
@@ -14,6 +14,7 @@ learning a feature:
 | User `enum` + `match` | [Enums](../language/enums/) - [State machines](../recipes/state-machines/) |
 | `Vec`, ranges, `.map`/`.filter`/`.collect` | [Collections](../language/collections/) - [Filter entities](../recipes/filter-entities/) |
 | `type` aliases | [Type aliases](../language/type-aliases/) |
+| Writing `macro_rules!` / proc-macro DSLs | [Authoring macros](authoring-macros/) |
 
 Lua has no native traits or borrow checker. Option-like values are usually
 **value or `nil`**; Results are tagged `{ ok }` / `{ err }` tables. Tables also
@@ -33,11 +34,12 @@ tables (and dyn fat pointers); see [Traits](#traits).
 | `use crate::...`            | Binding crates with `[package.metadata.factorio]` also lower; see [Sharing code between mods](dependencies/). `crate::` paths become `require`s |
 | `#[factorio_rs::export]`      | Publishes a fn via remote (control) or require (shared); see [Sharing code between mods](dependencies/) |
 | `mod name;`                 | Declares a submodule file                                        |
-| Prototype / locale macros   | `mod_settings!`, `item!`, `recipe!`, `technology!`, `fluid!`, `assembling_machine!`, `container!`, ... - see [Macros](../reference/macros/) |
+| Prototype / locale macros   | `mod_settings!`, `item!`, `recipe!`, … - see [Macros](../reference/macros/) |
+| User / dep macros           | `macro_rules!` and dependency proc macros - [Authoring macros](authoring-macros/) |
 | Doc comments                | Emitted as Lua comments when debug comments are on               |
 
-**Not supported (yet):** `static`, tuple structs, unknown macros at item position,
-trait generics / supertraits / associated-type bounds or defaults.
+**Not supported (yet):** `static`, tuple structs, trait generics / supertraits /
+associated-type bounds or defaults.
 
 `type` aliases, enums, and collection iterators have dedicated pages (links in
 the table above).
@@ -279,8 +281,10 @@ only**.
 
 ## Expression macros
 
-Only **`println!`**, **`format!`**, assertion macros, **`panic!`**, and (CLI
-default) **`tracing::*!`** level macros are lowered:
+`factorio-rs build` / `check` expand macros with rustc before lowering, so
+**`macro_rules!` and dependency proc macros** work when their expansion is
+supported Rust. Built-in helpers are still recognized both unexpanded and in
+their rustc-expanded forms:
 
 | Macro | Lua |
 | --- | --- |
@@ -304,7 +308,8 @@ Supported template forms: `{}`, `{0}`, `{name}`, `{:?}` / `{:#?}` / `{name:?}`,
 and `{{` / `}}` escapes. Other format specs after `:` (e.g. `{:.2}`) trigger the
 `format_spec` lint (default **warn**; see [Lints](lints/)).
 
-Other macros in expression position fail with `UnsupportedMacro`.
+Macros whose expansion uses unsupported Rust still fail at lower time. For
+writing your own macros, see [Authoring macros](authoring-macros/).
 
 ## Safety
 
@@ -340,7 +345,7 @@ still fails the build as unsupported syntax when known unsafe.
 | `let binding requires an initializer` | `let x;` without value |
 | `event handlers are only allowed in control-stage modules` | Move handler to control |
 | `could not resolve locale key` | `Settings::FOO` not in this module |
-| `unsupported macro` | Only `println!` / `format!` / asserts / `panic!` / `tracing::*!` in expressions |
+| `unsupported macro` | Expansion produced unsupported Rust, or a non-allowlisted helper in unit tests |
 
 ## See also
 

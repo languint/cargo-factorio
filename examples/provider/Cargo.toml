@@ -12,6 +12,7 @@ dependencies = ["provider >= 0.3.0"]
 module_root = "lua"
 interface = "provider"
 remote_fns = ["greet"]
+inline_fns = ["add"]
 
 [lib]
 path = "src/lib.rs"

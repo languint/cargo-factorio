@@ -234,6 +234,7 @@ fn file_bar_style() -> ProgressStyle {
 
 /// Display path relative to `root` when possible.
 #[must_use]
+#[allow(dead_code)]
 pub fn display_rel(root: &Path, path: &Path) -> String {
     path.strip_prefix(root).map_or_else(
         |_| path.display().to_string(),

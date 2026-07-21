@@ -19,6 +19,46 @@ use crate::{
     paths::split_crate_path,
 };
 
+/// Collect `locale!` pending files from unexpanded sources (keyed by module name).
+///
+/// The `locale!` proc macro only typechecks; locale data must be read from source
+/// before rustc expansion.
+///
+/// # Errors
+/// Propagates discovery / locale parse failures.
+pub fn collect_locales_from_sources(
+    source_dir: &std::path::Path,
+    source_contents: &[(std::path::PathBuf, String)],
+) -> FrontendResult<std::collections::HashMap<String, Vec<PendingLocaleFile>>> {
+    let mut locales = std::collections::HashMap::<String, Vec<_>>::new();
+    for (source_path, source) in source_contents {
+        let discovered = crate::discover_modules(source_dir, source_path, source)?;
+        for module_spec in discovered {
+            for item in &module_spec.items {
+                let syn::Item::Macro(mac) = item else {
+                    continue;
+                };
+                let name = mac
+                    .mac
+                    .path
+                    .segments
+                    .last()
+                    .map(|segment| segment.ident.to_string())
+                    .unwrap_or_default();
+                if name != "locale" {
+                    continue;
+                }
+                let pending = parse_pending(mac.mac.tokens.clone())?;
+                locales
+                    .entry(module_spec.module_name.clone())
+                    .or_default()
+                    .extend(pending);
+            }
+        }
+    }
+    Ok(locales)
+}
+
 /// Parse a `locale!` invocation into pending locale files (keys unresolved).
 ///
 /// # Errors

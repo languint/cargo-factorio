@@ -1,6 +1,7 @@
 pub mod add;
 pub mod build;
 pub mod deploy;
+pub mod expand;
 pub mod hot_reload;
 pub mod init;
 pub mod install;

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Arbitrary macros**: `factorio-rs check` / `build` expand the crate with rustc
+  (`-Zunpretty=expanded`) before lowering, so same-crate `macro_rules!` and
+  dependency proc macros (e.g. a future `gui!` DSL) work when their expansion is
+  supported Rust.
+- Docs: [Authoring macros](docs/src/content/docs/guides/authoring-macros.md)
+  (pipeline, limitations, `macro_rules!` / proc-macro examples).
+
 ## [0.3.0] - 2026-07-21
 
 ### Added

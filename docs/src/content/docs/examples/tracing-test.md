@@ -31,4 +31,4 @@ factorio-rs install --open   # optional
 Requires a CLI build with the default `tracing` feature (included in normal
 `cargo install factorio-rs-cli`).
 
-See [Tracing](../guides/tracing/) for colors, format limits, and feature wiring.
+See [Tracing](../../guides/tracing/) for colors, format limits, and feature wiring.

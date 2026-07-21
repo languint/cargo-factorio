@@ -101,12 +101,22 @@ fn lower_function_parts(
     ctx: &mut LowerContext<'_>,
     self_type: Option<&str>,
 ) -> FrontendResult<factorio_ir::function::Function> {
-    let event_attr = resolve_event_handler(function);
+    let fn_name = function.sig.ident.to_string();
+    let event_attr = resolve_event_handler(function).or_else(|| {
+        ctx.meta_markers.events.get(&fn_name).map(|filter| {
+            super::event_handler::ParsedEventHandler {
+                event_name: fn_name.clone(),
+                filter: filter.clone(),
+            }
+        })
+    });
     let export = function
         .attrs
         .iter()
-        .find_map(parse_factorio_export_attribute);
-    let inline = function.attrs.iter().any(parse_factorio_inline_attribute);
+        .find_map(parse_factorio_export_attribute)
+        .or_else(|| ctx.meta_markers.exports.get(&fn_name).cloned());
+    let inline = function.attrs.iter().any(parse_factorio_inline_attribute)
+        || ctx.meta_markers.inlines.contains(&fn_name);
     let export = if inline && export.is_none() {
         Some(factorio_ir::function::ExportMeta { interface: None })
     } else {

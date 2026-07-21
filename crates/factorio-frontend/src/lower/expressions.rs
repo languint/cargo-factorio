@@ -242,6 +242,10 @@ fn lower_call_expression(
     ctx: &mut LowerContext<'_>,
     self_type: Option<&str>,
 ) -> FrontendResult<factorio_ir::expression::Expression> {
+    if let Some(result) = super::print::try_lower_expanded_std_format_call(call, ctx, self_type) {
+        return result;
+    }
+
     // `Some(x)` / `Option::Some(x)` -> `x` (Option is value-or-nil in Lua).
     if is_option_some_constructor(&call.func) {
         let mut args = call.args.iter();

@@ -5,7 +5,7 @@ description: Control-stage example that opens a framed GUI with LuaStyle on play
 
 Path: `examples/gui_basics`.
 
-Mirrors the [GUI basics](../recipes/gui-basics/) recipe: on `OnPlayerCreated`, add a
+Mirrors the [GUI basics](../../recipes/gui-basics/) recipe: on `OnPlayerCreated`, add a
 screen frame + label, then tune layout with `style().set_width` / `set_padding`.
 
 ```rust
@@ -51,5 +51,5 @@ Create a new player (or join a map). You should see a titled frame with a label.
 
 Mod id: Cargo package name `gui_basics`.
 
-See also: [GUI basics](../recipes/gui-basics/), [API types](../guides/api-types/),
-[Events](../guides/events/), [First hour](../recipes/first-hour/).
+See also: [GUI basics](../../recipes/gui-basics/), [API types](../../guides/api-types/),
+[Events](../../guides/events/), [First hour](../../recipes/first-hour/).

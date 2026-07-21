@@ -55,4 +55,4 @@ In-game (change language under Settings -> Interface to see other locales):
 /greet 3
 ```
 
-See [Locale](../guides/locale/) for `locale!` and runtime `LocalisedString` usage.
+See [Locale](../../guides/locale/) for `locale!` and runtime `LocalisedString` usage.

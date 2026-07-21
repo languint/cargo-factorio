@@ -36,7 +36,7 @@ pub struct SharedExport {
     pub module: String,
     pub function: String,
     pub params: Vec<(String, Option<String>)>,
-    /// `#[factorio_rs::inline]` — hot path; dependents use `require`, never remote.
+    /// `#[factorio_rs::inline]` - hot path; dependents use `require`, never remote.
     pub inline: bool,
 }
 

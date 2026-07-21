@@ -102,6 +102,140 @@ pub fn discover_modules(
     Ok(discovered)
 }
 
+/// Discover transpilable modules from a rustc-expanded crate (`-Zunpretty=expanded`).
+///
+/// Walks nested `mod` items, inferring stage from `__factorio_rs_stage` markers,
+/// stage attributes, or the dotted module path (`control`, `shared.api`, ...).
+///
+/// # Errors
+/// Returns `Err` if parsing the expanded Rust source fails.
+pub fn discover_modules_from_expanded(source: &str) -> FrontendResult<Vec<DiscoveredModule>> {
+    let file = syn::parse_file(source)?;
+    let mut discovered = Vec::new();
+
+    if let Some(stage) = root_stage_from_markers(&file.items) {
+        let items: Vec<Item> = file
+            .items
+            .iter()
+            .filter(|item| !matches!(item, Item::Mod(_) | Item::ExternCrate(_) | Item::Use(_)))
+            .cloned()
+            .collect();
+        if items.iter().any(is_lowerable_item) {
+            discovered.push(DiscoveredModule {
+                module_name: stage.default_module_name().to_string(),
+                stage,
+                items,
+                default_export: file.attrs.iter().find_map(parse_factorio_export_attribute),
+            });
+        }
+    }
+
+    walk_expanded_items(&file.items, "", None, &mut discovered);
+    Ok(discovered)
+}
+
+fn root_stage_from_markers(items: &[Item]) -> Option<Stage> {
+    crate::lower::meta_markers::collect_module_meta_markers(items)
+        .stage
+        .as_deref()
+        .and_then(stage_from_marker)
+}
+
+fn is_lowerable_item(item: &Item) -> bool {
+    match item {
+        Item::Mod(_) | Item::Use(_) | Item::ExternCrate(_) | Item::Verbatim(_) => false,
+        Item::Const(c) if crate::lower::meta_markers::is_meta_marker_const(c) => false,
+        Item::Macro(mac) if mac.mac.path.is_ident("macro_rules") => false,
+        _ => true,
+    }
+}
+
+fn walk_expanded_items(
+    items: &[Item],
+    prefix: &str,
+    inherited_stage: Option<Stage>,
+    discovered: &mut Vec<DiscoveredModule>,
+) {
+    for item in items {
+        let Item::Mod(item_mod) = item else {
+            continue;
+        };
+        let name = item_mod.ident.to_string();
+        if name == "factorio_exports" {
+            continue;
+        }
+        let module_name = if prefix.is_empty() {
+            name.clone()
+        } else {
+            format!("{prefix}.{name}")
+        };
+
+        let Some((_, content)) = &item_mod.content else {
+            continue;
+        };
+
+        let stage = extract_factorio_stage(&item_mod.attrs)
+            .or_else(|| {
+                crate::lower::meta_markers::collect_module_meta_markers(content)
+                    .stage
+                    .as_deref()
+                    .and_then(stage_from_marker)
+            })
+            .or_else(|| Stage::from_module_name(&module_name))
+            .or(inherited_stage);
+
+        let has_nested_mods = content.iter().any(|nested| matches!(nested, Item::Mod(_)));
+        let has_lowerable = content.iter().any(is_lowerable_item);
+
+        if has_lowerable && let Some(stage) = stage {
+            let items: Vec<Item> = content
+                .iter()
+                .map(|nested| match nested {
+                    // Keep `mod child;` so the parent still emits requires; bodies are
+                    // discovered separately via recursion.
+                    Item::Mod(item_mod) => Item::Mod(syn::ItemMod {
+                        attrs: item_mod.attrs.clone(),
+                        vis: item_mod.vis.clone(),
+                        unsafety: item_mod.unsafety,
+                        mod_token: item_mod.mod_token,
+                        ident: item_mod.ident.clone(),
+                        content: None,
+                        semi: Some(syn::token::Semi::default()),
+                    }),
+                    other => other.clone(),
+                })
+                .collect();
+            discovered.push(DiscoveredModule {
+                module_name: module_name.clone(),
+                stage,
+                items,
+                default_export: item_mod
+                    .attrs
+                    .iter()
+                    .find_map(parse_factorio_export_attribute),
+            });
+        }
+
+        if has_nested_mods {
+            walk_expanded_items(content, &module_name, stage, discovered);
+        }
+    }
+}
+
+fn stage_from_marker(marker: &str) -> Option<Stage> {
+    match marker {
+        "settings" => Some(Stage::Settings),
+        "settings_updates" => Some(Stage::SettingsUpdates),
+        "settings_final_fixes" => Some(Stage::SettingsFinalFixes),
+        "data" => Some(Stage::Data),
+        "data_updates" => Some(Stage::DataUpdates),
+        "data_final_fixes" => Some(Stage::DataFinalFixes),
+        "control" => Some(Stage::Control),
+        "shared" => Some(Stage::Shared),
+        _ => None,
+    }
+}
+
 fn parse_macro_items(tokens: proc_macro2::TokenStream) -> FrontendResult<Vec<Item>> {
     let file = syn::parse2::<File>(tokens).map_err(FrontendError::from)?;
     Ok(file.items)

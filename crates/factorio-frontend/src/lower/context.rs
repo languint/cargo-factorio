@@ -87,6 +87,8 @@ pub struct LowerContext<'a> {
     pub try_hoists: Vec<factorio_ir::statement::Statement>,
     /// Monotonic counter for `__try_N` temporaries.
     pub try_tmp_counter: usize,
+    /// Expansion-surviving export / event / inline markers for this module.
+    pub meta_markers: super::meta_markers::ModuleMetaMarkers,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -68,6 +68,9 @@ pub enum CliError {
     #[error("typecheck failed (`cargo check`)")]
     TypecheckFailed,
 
+    #[error("macro expansion failed: {message}")]
+    MacroExpandFailed { message: String },
+
     #[error("failed to parse `{path}`: {source}")]
     CargoManifestParse {
         path: PathBuf,

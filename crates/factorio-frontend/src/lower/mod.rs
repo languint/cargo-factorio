@@ -23,7 +23,10 @@ pub mod imports;
 mod items;
 pub mod iterators;
 mod locale;
-pub use locale::{parse_pending as parse_locale_pending, resolve_project_locales};
+pub use locale::{
+    collect_locales_from_sources, parse_pending as parse_locale_pending, resolve_project_locales,
+};
+pub mod meta_markers;
 pub mod metadata;
 mod mod_settings;
 pub mod print;
@@ -285,6 +288,7 @@ pub fn lower_items(
         diagnostics,
         try_hoists: Vec::new(),
         try_tmp_counter: 0,
+        meta_markers: meta_markers::collect_module_meta_markers(items),
     };
     types::collect_type_aliases(items, &mut ctx.type_aliases)?;
     traits::collect_traits(items, &mut ctx.traits)?;
@@ -371,7 +375,13 @@ fn lower_top_level_item(
 ) -> FrontendResult<()> {
     match item {
         Item::Fn(function) => lower_top_level_fn(function, module_state, ctx)?,
-        Item::Const(item_const) => lower_top_level_const(item_const, module_state, ctx)?,
+        Item::Const(item_const) => {
+            if meta_markers::is_meta_marker_const(item_const) || item_const.ident == "_" {
+                // Expansion markers and typecheck-only `const _: () = ...` from macros.
+                return Ok(());
+            }
+            lower_top_level_const(item_const, module_state, ctx)?;
+        }
         Item::Struct(item_struct) => {
             lower_struct_item(item_struct, module_state.structs, module_state.enums, ctx)?;
         }
@@ -390,6 +400,9 @@ fn lower_top_level_item(
         }
         Item::Mod(item_mod) => {
             lower_inline_mod(item_mod, module_name, module_state, ctx)?;
+        }
+        Item::Macro(mac) if mac.mac.path.is_ident("macro_rules") => {
+            // Definitions remain after rustc expansion; invocations are already expanded.
         }
         Item::Macro(mac) => {
             lower_known_macro(mac, module_name, module_state, ctx)?;

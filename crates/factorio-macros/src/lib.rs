@@ -92,9 +92,25 @@ pub fn event(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
             });
 
+    let event_marker = syn::Ident::new(
+        &format!("__factorio_rs_event__{}", function.sig.ident),
+        function.sig.ident.span(),
+    );
+    let filter_lit = event_args.filter.as_ref().map_or_else(
+        || LitStr::new("", proc_macro2::Span::call_site()),
+        |expr| {
+            let tokens = quote::quote! { #expr };
+            LitStr::new(&tokens.to_string(), proc_macro2::Span::call_site())
+        },
+    );
+
     TokenStream::from(quote::quote! {
         #[allow(dead_code)]
         #function
+
+        #[doc(hidden)]
+        #[allow(non_upper_case_globals)]
+        pub const #event_marker: &str = #filter_lit;
 
         #filter_check
     })
@@ -182,37 +198,37 @@ fn lookup_event_filter_type(type_name: &str) -> Option<&'static str> {
 
 #[proc_macro_attribute]
 pub fn settings(_args: TokenStream, input: TokenStream) -> TokenStream {
-    input
+    inject_stage_marker("settings", input)
 }
 
 #[proc_macro_attribute]
 pub fn settings_updates(_args: TokenStream, input: TokenStream) -> TokenStream {
-    input
+    inject_stage_marker("settings_updates", input)
 }
 
 #[proc_macro_attribute]
 pub fn settings_final_fixes(_args: TokenStream, input: TokenStream) -> TokenStream {
-    input
+    inject_stage_marker("settings_final_fixes", input)
 }
 
 #[proc_macro_attribute]
 pub fn data(_args: TokenStream, input: TokenStream) -> TokenStream {
-    input
+    inject_stage_marker("data", input)
 }
 
 #[proc_macro_attribute]
 pub fn data_updates(_args: TokenStream, input: TokenStream) -> TokenStream {
-    input
+    inject_stage_marker("data_updates", input)
 }
 
 #[proc_macro_attribute]
 pub fn data_final_fixes(_args: TokenStream, input: TokenStream) -> TokenStream {
-    input
+    inject_stage_marker("data_final_fixes", input)
 }
 
 #[proc_macro_attribute]
 pub fn control(_args: TokenStream, input: TokenStream) -> TokenStream {
-    input
+    inject_stage_marker("control", input)
 }
 
 /// Marks a file or inline `mod` as shared-stage code for transpilation.
@@ -220,7 +236,36 @@ pub fn control(_args: TokenStream, input: TokenStream) -> TokenStream {
 /// Shared modules may be required by any other stage.
 #[proc_macro_attribute]
 pub fn shared(_args: TokenStream, input: TokenStream) -> TokenStream {
-    input
+    inject_stage_marker("shared", input)
+}
+
+/// Emit a durable `__factorio_rs_stage` marker that survives `-Zunpretty=expanded`.
+fn inject_stage_marker(stage: &str, input: TokenStream) -> TokenStream {
+    let stage_lit = LitStr::new(stage, proc_macro2::Span::call_site());
+    let marker: syn::Item = syn::parse_quote! {
+        #[doc(hidden)]
+        #[allow(non_upper_case_globals)]
+        const __factorio_rs_stage: &str = #stage_lit;
+    };
+
+    if let Ok(mut item) = syn::parse::<syn::Item>(input.clone()) {
+        if let syn::Item::Mod(module) = &mut item
+            && let Some((_, items)) = &mut module.content
+        {
+            items.insert(0, marker);
+            return TokenStream::from(quote::quote! { #item });
+        }
+        return TokenStream::from(quote::quote! {
+            #marker
+            #item
+        });
+    }
+
+    let body = proc_macro2::TokenStream::from(input);
+    TokenStream::from(quote::quote! {
+        #marker
+        #body
+    })
 }
 
 /// Publishes a function (or every `pub fn` in a module) as part of this mod's
@@ -238,10 +283,17 @@ pub fn shared(_args: TokenStream, input: TokenStream) -> TokenStream {
 /// needing a per-fn attribute.
 #[proc_macro_attribute]
 pub fn export(args: TokenStream, input: TokenStream) -> TokenStream {
-    if !args.is_empty() {
-        let _ = parse_macro_input!(args as ExportAttributeArgs);
-    }
-    input
+    let interface = if args.is_empty() {
+        None
+    } else {
+        let parsed = parse_macro_input!(args as ExportAttributeArgs);
+        match parsed.interface {
+            Some(ExportInterfaceArg::Named(lit)) => Some(lit.value()),
+            Some(ExportInterfaceArg::Default) | None => None,
+        }
+    };
+    let interface_lit = interface.unwrap_or_default();
+    inject_fn_or_mod_marker("__factorio_rs_export__", &interface_lit, input)
 }
 
 /// Marks a **shared-stage** function as a hot-path library API.
@@ -249,10 +301,59 @@ pub fn export(args: TokenStream, input: TokenStream) -> TokenStream {
 /// Dependents call it via Lua `require` (same as a shared `#[factorio_rs::export]`),
 /// never `remote.call`. Implies export for Cargo / Factorio packaging.
 ///
-/// Invalid outside `shared` — move pure helpers there for near-native calls.
+/// Invalid outside `shared` - move pure helpers there for near-native calls.
 #[proc_macro_attribute]
 pub fn inline(_args: TokenStream, input: TokenStream) -> TokenStream {
-    input
+    inject_fn_or_mod_marker("__factorio_rs_inline__", "", input)
+}
+
+/// Emit `__factorio_rs_export__*` / `__factorio_rs_inline__*` consts that survive expansion.
+fn inject_fn_or_mod_marker(prefix: &str, value: &str, input: TokenStream) -> TokenStream {
+    let Ok(item) = syn::parse::<syn::Item>(input.clone()) else {
+        return input;
+    };
+
+    match item {
+        syn::Item::Fn(function) => {
+            let marker = syn::Ident::new(
+                &format!("{prefix}{}", function.sig.ident),
+                function.sig.ident.span(),
+            );
+            let value_lit = LitStr::new(value, proc_macro2::Span::call_site());
+            TokenStream::from(quote::quote! {
+                #[doc(hidden)]
+                #[allow(non_upper_case_globals)]
+                pub const #marker: &str = #value_lit;
+
+                #function
+            })
+        }
+        syn::Item::Mod(mut module) => {
+            if let Some((_, items)) = &mut module.content {
+                let mut marked_items = Vec::with_capacity(items.len() * 2);
+                for nested in std::mem::take(items) {
+                    if let syn::Item::Fn(function) = nested {
+                        let marker = syn::Ident::new(
+                            &format!("{prefix}{}", function.sig.ident),
+                            function.sig.ident.span(),
+                        );
+                        let value_lit = LitStr::new(value, proc_macro2::Span::call_site());
+                        marked_items.push(syn::parse_quote! {
+                            #[doc(hidden)]
+                            #[allow(non_upper_case_globals)]
+                            pub const #marker: &str = #value_lit;
+                        });
+                        marked_items.push(syn::Item::Fn(function));
+                    } else {
+                        marked_items.push(nested);
+                    }
+                }
+                *items = marked_items;
+            }
+            TokenStream::from(quote::quote! { #module })
+        }
+        other => TokenStream::from(quote::quote! { #other }),
+    }
 }
 
 /// Parsed `#[export(...)]` interface argument (validation-only today).
