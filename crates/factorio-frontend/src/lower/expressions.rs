@@ -621,6 +621,20 @@ fn lower_method_call(
         return lower_expression(&call.receiver, ctx, self_type);
     }
 
+    // `LuaFunction::invoke` / `invoke0` -> direct Lua call `receiver(args...)`.
+    if matches!(method.as_str(), "invoke" | "invoke0") {
+        let func = lower_expression(&call.receiver, ctx, self_type)?;
+        let args = call
+            .args
+            .iter()
+            .map(|arg| lower_expression(arg, ctx, self_type))
+            .collect::<FrontendResult<Vec<_>>>()?;
+        return Ok(factorio_ir::expression::Expression::Call {
+            func: Box::new(func),
+            args,
+        });
+    }
+
     // Result methods that do not overlap Option names (safe without type info).
     if matches!(method.as_str(), "is_ok" | "is_err" | "map_err")
         && let Some(expr) = lower_result_method(call, ctx, self_type)?

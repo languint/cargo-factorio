@@ -188,7 +188,15 @@ fn lower_expression_statement(
             return lower_match_statements(match_expr, ctx, self_type);
         }
         // rustc-expanded `println!` becomes `{ ::std::io::_print(...); };`
+        // rustc-expanded `tracing::info!` becomes a block with inner `use` + callsite.
         Expr::Block(block) => {
+            if let Some(result) = super::print::try_lower_expanded_tracing_event_block(
+                &block.block.stmts,
+                ctx,
+                self_type,
+            ) {
+                return result;
+            }
             return lower_block_statements(&block.block.stmts, ctx, self_type);
         }
         _ => {}

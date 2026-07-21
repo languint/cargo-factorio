@@ -107,6 +107,16 @@ impl LuaFunction {
     pub const fn new() -> Self {
         Self
     }
+
+    /// Call this Lua function with no arguments. Lowers to `self()`.
+    #[must_use]
+    pub fn invoke0<R>(&self) -> R {
+        loop {}
+    }
+
+    /// Call this Lua function with one argument. Lowers to `self(arg)`.
+    #[allow(unused_variables)]
+    pub fn invoke<A>(&self, _arg: A) {}
 }
 
 impl From<LuaFunction> for LuaAny {

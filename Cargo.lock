@@ -329,6 +329,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "factorio-rs-gui"
+version = "0.1.0"
+dependencies = [
+ "factorio-rs",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -384,6 +391,14 @@ name = "gui_basics"
 version = "0.3.0"
 dependencies = [
  "factorio-rs",
+]
+
+[[package]]
+name = "gui_counter"
+version = "0.3.0"
+dependencies = [
+ "factorio-rs",
+ "factorio-rs-gui",
 ]
 
 [[package]]

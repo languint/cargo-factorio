@@ -232,11 +232,10 @@ fn walk_expanded_items(
 
 /// `control_mod!` / `data_mod!` / … expand to `mod __factorio_{stage}`.
 fn stage_from_bang_wrapper(name: &str) -> Option<Stage> {
-    name.strip_prefix("__factorio_")
-        .and_then(stage_from_marker)
+    name.strip_prefix("__factorio_").and_then(stage_from_marker)
 }
 
-/// Map `__factorio_control` / `__factorio_control.nested` → `control` / `control.nested`.
+/// Map `__factorio_control` / `__factorio_control.nested` -> `control` / `control.nested`.
 fn canonicalize_bang_wrapper_name(module_name: &str, stage: Stage) -> String {
     let wrapper = format!("__factorio_{}", stage.default_module_name());
     if module_name == wrapper {
@@ -321,12 +320,12 @@ mod tests {
     fn discovers_expanded_control_mod_bang_wrapper_by_name_alone() {
         // Even without the stage marker const, the `__factorio_{stage}` wrapper
         // name is enough to recover the stage.
-        let expanded = r#"
+        let expanded = r"
             #[doc(hidden)]
             mod __factorio_control {
                 pub fn on_singleplayer_init() {}
             }
-        "#;
+        ";
 
         let modules = discover_modules_from_expanded(expanded).unwrap();
         assert_eq!(modules.len(), 1);

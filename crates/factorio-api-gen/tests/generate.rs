@@ -182,6 +182,12 @@ fn emits_attribute_setters_without_write_only_getters() {
         classes_compact.contains("pubfnset_style(&self,value:&'staticstr)"),
         "LuaGuiElement.set_style should take a style name string"
     );
+    assert!(
+        classes.replace(' ', "").contains("pubdirection:Option<")
+            && classes.contains("LuaGuiElementAddParams")
+            && classes.contains("direction"),
+        "LuaGuiElementAddParams should include variant field `direction`"
+    );
     let lookup = generated.attribute_setters.replace(' ', "");
     assert!(
         lookup.contains("\"set_caption\"=>Some(\"caption\")"),

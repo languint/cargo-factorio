@@ -4,6 +4,54 @@ use factorio_ir::expression::Expression;
 
 use crate::{LuaGenerator, attribute_property_for_setter, prototype_lua_typename};
 
+/// Zero-arg methods that must be invoked (not read as properties).
+const ZERO_ARG_METHOD_CALLS: &[&str] = &[
+    "clear",
+    "destroy",
+    "focus",
+    "bring_to_front",
+    "scroll_to_top",
+    "scroll_to_bottom",
+    "scroll_to_left",
+    "scroll_to_right",
+    "get",
+    "as_widget",
+    "die",
+    "auto_center",
+    "force_auto_center",
+];
+
+/// User-struct / metatable methods need `:method(...)` so Lua passes `self`.
+/// Everything else uses `.method(...)` (Factorio `LuaObject` style — colon would
+/// pass an extra argument and error at runtime).
+const USER_COLON_METHODS: &[&str] = &[
+    "get",
+    "set",
+    "as_widget",
+    "caption",
+    "name",
+    "child",
+    "direction",
+    "align_horizontal",
+    "align_vertical",
+    "auto_center",
+    "on_click",
+    "mount",
+    "use_state",
+    "from_frame",
+    "from_text",
+    "from_button",
+    "new",
+];
+
+fn method_call_sep(method: &str) -> &'static str {
+    if USER_COLON_METHODS.contains(&method) {
+        ":"
+    } else {
+        "."
+    }
+}
+
 impl LuaGenerator {
     #[must_use]
     pub fn generate_expression(&self, expression: &Expression) -> String {
@@ -51,8 +99,17 @@ impl LuaGenerator {
             Expression::Literal(literal) => Self::generate_literal(literal),
             Expression::Identifier(name) => self.generate_identifier(name),
             Expression::FieldAccess { base, field } => {
-                let base = self.generate_expression(base);
-                format!("{base}.{field}")
+                let base_lua = self.generate_expression(base);
+                // Inside `impl` methods, `self.field` must not fall through `__index` to a
+                // method of the same name (unset `name` -> `:name` function -> Factorio
+                // "Value (function) can't be saved in property tree").
+                if self.struct_table_context.is_some()
+                    && matches!(base.as_ref(), Expression::Identifier(name) if name == "self")
+                {
+                    format!("rawget({base_lua}, \"{field}\")")
+                } else {
+                    format!("{base_lua}.{field}")
+                }
             }
             Expression::QualifiedPath { segments } => self.generate_qualified_path(segments),
             Expression::Call { func, args } => self.generate_call(func, args),
@@ -141,6 +198,14 @@ impl LuaGenerator {
                 return table_path.clone();
             }
             return format!("{table_path}.{suffix}");
+        }
+
+        // Same-module `Widget.from_frame` / `State.new` -> `sharedWidget.Widget.from_frame`.
+        if let Some(module_table) = &self.current_module_table
+            && let Some(first) = segments.first()
+            && self.module_type_names.contains(first)
+        {
+            return format!("{module_table}.{}", segments.join("."));
         }
 
         segments.join(".")
@@ -236,12 +301,18 @@ impl LuaGenerator {
         let trimmed = trim_trailing_nils(args);
         if trimmed.is_empty() {
             let receiver = self.generate_expression(receiver);
-            // Zero-arg API attributes are property reads (`entity.surface`).
+            // Zero-arg API *attributes* are property reads (`entity.surface`).
+            // Zero-arg *actions* still need a call (`element:clear()`).
             // Calls that only passed trailing `None`s stay invocations (`entity.die()`).
             if args.is_empty() {
+                if ZERO_ARG_METHOD_CALLS.contains(&method) {
+                    let sep = method_call_sep(method);
+                    return format!("{receiver}{sep}{method}()");
+                }
                 return format!("{receiver}.{method}");
             }
-            return format!("{receiver}.{method}()");
+            let sep = method_call_sep(method);
+            return format!("{receiver}{sep}{method}()");
         }
 
         // Attribute writers (`set_caption` / `write_driving`) -> property assign.
@@ -256,7 +327,10 @@ impl LuaGenerator {
 
         let receiver = self.generate_expression(receiver);
         let args_lua = self.generate_arg_list(trimmed);
-        format!("{receiver}.{method}({args_lua})")
+        let sep = method_call_sep(method);
+        // Factorio LuaObjects: `.method(args)` (engine binds self).
+        // User structs / cross-mod builders: `:method(args)` via `__index`.
+        format!("{receiver}{sep}{method}({args_lua})")
     }
 
     /// Join call arguments, omitting trailing `nil` so Factorio optional params stay unset.
@@ -274,7 +348,7 @@ impl LuaGenerator {
         fields: &[(String, Expression)],
     ) -> String {
         if let Some(literal) = self.try_special_struct_literal(struct_name, fields) {
-            return self.maybe_struct_metatable(literal);
+            return self.maybe_struct_metatable(literal, struct_name);
         }
 
         // Recipe ingredients: `type = "item"` or `"fluid"` from the `fluid` bool field.
@@ -332,7 +406,7 @@ impl LuaGenerator {
             Some(prefix) => prefix.trim_end_matches(", ").to_string(),
             None => field_strs,
         };
-        self.maybe_struct_metatable(format!("{{ {inner} }}"))
+        self.maybe_struct_metatable(format!("{{ {inner} }}"), struct_name)
     }
 
     /// Special Factorio shapes (tech ingredients, flag sets, `Tags`, `BoundingBox`).
@@ -387,8 +461,17 @@ impl LuaGenerator {
         None
     }
 
-    fn maybe_struct_metatable(&self, literal: String) -> String {
-        if let Some((_, table_path)) = &self.struct_table_context {
+    fn maybe_struct_metatable(&self, literal: String, struct_name: Option<&str>) -> String {
+        let Some((ctx_name, table_path)) = &self.struct_table_context else {
+            return literal;
+        };
+        // Only `Self { ... }` / `Frame { ... }` inside `impl Frame` get the method
+        // table — not unrelated structs like `LuaGuiElementAddParams { ... }`.
+        let applies = match struct_name {
+            None => true,
+            Some(name) => name == ctx_name,
+        };
+        if applies {
             format!("setmetatable({literal}, {{ __index = {table_path} }})")
         } else {
             literal

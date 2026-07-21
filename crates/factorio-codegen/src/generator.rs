@@ -30,6 +30,8 @@ pub struct LuaGenerator {
     profile: Option<String>,
     exported_functions: std::collections::HashSet<String>,
     current_module_table: Option<String>,
+    /// Type names declared in the current module (`Type.method` -> `module.Type.method`).
+    module_type_names: std::collections::HashSet<String>,
     /// Locals forward-declared before vtables so closures capture upvalues.
     forward_declared_locals: std::collections::HashSet<String>,
 }
@@ -59,6 +61,7 @@ impl LuaGenerator {
             profile: None,
             exported_functions: std::collections::HashSet::new(),
             current_module_table: None,
+            module_type_names: std::collections::HashSet::new(),
             forward_declared_locals: std::collections::HashSet::new(),
         }
     }
@@ -76,6 +79,7 @@ impl LuaGenerator {
             profile: None,
             exported_functions: std::collections::HashSet::new(),
             current_module_table: None,
+            module_type_names: std::collections::HashSet::new(),
             forward_declared_locals: std::collections::HashSet::new(),
         }
     }
@@ -93,6 +97,7 @@ impl LuaGenerator {
             profile: None,
             exported_functions: std::collections::HashSet::new(),
             current_module_table: None,
+            module_type_names: std::collections::HashSet::new(),
             forward_declared_locals: std::collections::HashSet::new(),
         }
     }
@@ -129,6 +134,7 @@ impl LuaGenerator {
             profile: self.profile.clone(),
             exported_functions: self.exported_functions.clone(),
             current_module_table: self.current_module_table.clone(),
+            module_type_names: self.module_type_names.clone(),
             forward_declared_locals: self.forward_declared_locals.clone(),
         }
     }
@@ -251,11 +257,32 @@ impl LuaGenerator {
         self.output.clear();
         self.indent_level = 0;
         self.exported_functions.clear();
+        self.module_type_names.clear();
         self.forward_declared_locals.clear();
 
         for symbol in &module.symbols {
-            if let Statement::FunctionDecl(function) = &symbol.statement {
-                self.exported_functions.insert(function.name.clone());
+            match &symbol.statement {
+                Statement::FunctionDecl(function) => {
+                    self.exported_functions.insert(function.name.clone());
+                }
+                Statement::StructDecl(struct_decl) => {
+                    self.module_type_names.insert(struct_decl.name.clone());
+                }
+                Statement::EnumDecl(enum_decl) => {
+                    self.module_type_names.insert(enum_decl.name.clone());
+                }
+                _ => {}
+            }
+        }
+        for statement in &module.body.statements {
+            match statement {
+                Statement::StructDecl(struct_decl) => {
+                    self.module_type_names.insert(struct_decl.name.clone());
+                }
+                Statement::EnumDecl(enum_decl) => {
+                    self.module_type_names.insert(enum_decl.name.clone());
+                }
+                _ => {}
             }
         }
 
@@ -270,6 +297,11 @@ impl LuaGenerator {
 
         self.generate_imports(&module.imports);
 
+        // Declare the module table before private body code so same-module type
+        // paths (`sharedWidget.Widget.from_frame`) capture it as an upvalue.
+        let (exporter_start, exporter_end) = Self::generate_symbol_exporter(&module_name);
+        self.write_line(&exporter_start);
+
         // Forward-declare private concrete type locals so vtable closures capture
         // upvalues when structs are assigned later in the body.
         self.generate_vtables(&module.vtables, Some(&module_name), module);
@@ -277,9 +309,6 @@ impl LuaGenerator {
         for statement in &module.body.statements {
             self.generate_statement(statement, Some(module), None, Scope::Private)?;
         }
-
-        let (exporter_start, exporter_end) = Self::generate_symbol_exporter(&module_name);
-        self.write_line(&exporter_start);
 
         if !module.submodules.is_empty() {
             self.write_line(&format!(
@@ -302,6 +331,7 @@ impl LuaGenerator {
         self.write_line(&exporter_end);
         self.current_module_table = None;
         self.exported_functions.clear();
+        self.module_type_names.clear();
 
         Ok(self.output.clone())
     }

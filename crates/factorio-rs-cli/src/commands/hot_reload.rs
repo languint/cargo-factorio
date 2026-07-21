@@ -69,7 +69,12 @@ pub fn inject_hot_reload(
     output_dir: &Path,
     mod_name: &str,
 ) -> CliResult<HotReloadInject> {
-    inject_hot_reload_with(project_root, output_dir, mod_name, HotReloadOptions::default())
+    inject_hot_reload_with(
+        project_root,
+        output_dir,
+        mod_name,
+        HotReloadOptions::default(),
+    )
 }
 
 /// Like [`inject_hot_reload`] with explicit probe / publish behaviour.
@@ -268,13 +273,13 @@ fn stage_fingerprint(output_dir: &Path) -> CliResult<String> {
 fn generate_probe_lua(mod_name: &str, mode: ReloadProbeMode) -> String {
     let second_reload = match mode {
         ReloadProbeMode::Once => String::new(),
-        ReloadProbeMode::Twice => r#"
+        ReloadProbeMode::Twice => r"
     if storage.__frs_reload_again then
       storage.__frs_reload_again = nil
       game.reload_mods()
       return
     end
-"#
+"
         .to_string(),
     };
     let arm_second = match mode {

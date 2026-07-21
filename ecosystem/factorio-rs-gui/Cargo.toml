@@ -1,0 +1,31 @@
+[package]
+name = "factorio-rs-gui"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme = "README.md"
+description = "High-level GUI helpers for factorio-rs Factorio mods"
+keywords = ["factorio", "lua", "modding", "gamedev", "gui"]
+categories = ["game-development"]
+
+[package.metadata]
+
+[package.metadata.factorio]
+mod_name = "factorio-rs-gui"
+dependencies = ["factorio-rs-gui >= 0.1.0"]
+module_root = "lua"
+interface = "factorio-rs-gui"
+inline_fns = ["hook_key", "mount", "rebuild", "next_element_name", "register_click", "dispatch_click", "flush_dirty"]
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+factorio-rs = { workspace = true }
+
+[lints]
+workspace = true

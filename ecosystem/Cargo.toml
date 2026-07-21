@@ -1,0 +1,26 @@
+[workspace]
+resolver = "3"
+members = ["factorio-rs-gui"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+repository = "https://github.com/languint/factorio-rs"
+homepage = "https://languint.github.io/factorio-rs/"
+documentation = "https://languint.github.io/factorio-rs/"
+
+[workspace.dependencies]
+factorio-rs = { version = "0.3.0", path = "../crates/factorio-rs" }
+
+[workspace.lints.clippy]
+pedantic = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+unimplemented = "deny"
+todo = "deny"
+panic_in_result_fn = "deny"
+panic = "deny"
+exit = "deny"
+as_conversions = "deny"

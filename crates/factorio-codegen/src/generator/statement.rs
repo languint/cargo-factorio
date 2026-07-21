@@ -54,9 +54,22 @@ impl LuaGenerator {
                 self.write_line(&line);
             }
             Statement::Assignment { target, value } => {
-                let target = self.generate_expression(target);
                 let value = self.generate_expression(value);
-                self.write_line(&format!("{target} = {value}"));
+                // `self.field = value` inside impl methods: use rawset so we don't
+                // emit invalid `rawget(self, "field") = value` (field reads use rawget).
+                if let factorio_ir::expression::Expression::FieldAccess { base, field } = target
+                    && self.struct_table_context.is_some()
+                    && matches!(
+                        base.as_ref(),
+                        factorio_ir::expression::Expression::Identifier(name) if name == "self"
+                    )
+                {
+                    let base_lua = self.generate_expression(base);
+                    self.write_line(&format!("rawset({base_lua}, \"{field}\", {value})"));
+                } else {
+                    let target = self.generate_expression(target);
+                    self.write_line(&format!("{target} = {value}"));
+                }
             }
             Statement::Conditional {
                 condition,

@@ -8,8 +8,8 @@ use crate::{
         build::{BuildOptions, build},
         deploy::{DeployMode, deploy_mod, mod_dest},
         hot_reload::{
-            HotReloadOptions, ReloadProbeMode, inject_hot_reload_with, note_stage_restart_if_needed,
-            publish_reload_gen,
+            HotReloadOptions, ReloadProbeMode, inject_hot_reload_with,
+            note_stage_restart_if_needed, publish_reload_gen,
         },
     },
     config::Config,

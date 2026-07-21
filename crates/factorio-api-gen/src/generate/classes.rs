@@ -349,6 +349,26 @@ pub fn generate_attribute_setter_lookup(api: &RuntimeApi) -> String {
 
 type TakesTableMap = HashMap<(String, String), proc_macro2::Ident>;
 
+fn takes_table_field(
+    parameter: &crate::schema::Parameter,
+    known: &KnownTypes<'_>,
+    optional: bool,
+) -> TokenStream {
+    let ident = make_ident(&parameter.name);
+    let base = map_field_type_unboxed(&parameter.type_name, known);
+    let ty = if optional {
+        quote!(Option<#base>)
+    } else {
+        base
+    };
+    if parameter.description.is_empty() {
+        quote! { pub #ident: #ty, }
+    } else {
+        let doc = sanitize_doc(&parameter.description);
+        quote! { #[doc = #doc] pub #ident: #ty, }
+    }
+}
+
 fn build_takes_table_structs(
     api: &RuntimeApi,
     known: &KnownTypes<'_>,
@@ -366,21 +386,25 @@ fn build_takes_table_structs(
             let struct_name = format!("{}{}Params", class.name, pascal_method);
             let struct_ident = make_ident(&struct_name);
 
-            let fields = method.parameters.iter().map(|p| {
-                let ident = make_ident(&p.name);
-                let base = map_field_type_unboxed(&p.type_name, known);
-                let ty = if p.optional {
-                    quote!(Option<#base>)
-                } else {
-                    base
-                };
-                if p.description.is_empty() {
-                    quote! { pub #ident: #ty, }
-                } else {
-                    let doc = sanitize_doc(&p.description);
-                    quote! { #[doc = #doc] pub #ident: #ty, }
+            let mut seen_names = HashSet::new();
+            let mut fields: Vec<TokenStream> = Vec::new();
+
+            for p in &method.parameters {
+                seen_names.insert(p.name.clone());
+                fields.push(takes_table_field(p, known, p.optional));
+            }
+
+            // Flatten variant groups (e.g. LuaGuiElement.add `direction`) into the
+            // same params struct so callers can set create-time-only fields.
+            // Always `Option<_>`: applicability depends on `type`.
+            for group in &method.variant_parameter_groups {
+                for p in &group.parameters {
+                    if !seen_names.insert(p.name.clone()) {
+                        continue;
+                    }
+                    fields.push(takes_table_field(p, known, true));
                 }
-            });
+            }
 
             let doc_attr = if method.description.is_empty() {
                 quote!()

@@ -83,10 +83,23 @@ pub struct Method {
     pub description: String,
     #[serde(default)]
     pub parameters: Vec<Parameter>,
+    /// Extra `add`-style fields that apply only for certain `type` values.
+    #[serde(default)]
+    pub variant_parameter_groups: Vec<VariantParameterGroup>,
     #[serde(default)]
     pub return_values: Vec<Parameter>,
     #[serde(default)]
     pub format: MethodFormat,
+}
+
+/// Factorio `variant_parameter_groups` entry on a takes-table method.
+#[derive(Debug, Deserialize)]
+pub struct VariantParameterGroup {
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub parameters: Vec<Parameter>,
 }
 
 #[derive(Debug, Default, Deserialize)]

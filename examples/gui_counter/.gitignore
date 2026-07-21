@@ -1,0 +1,8 @@
+/target
+/dist
+/.factorio-rs/exports.json
+/.factorio-rs/test-run/
+/.factorio-rs/reload_gen
+/.factorio-rs/reload_content_fp
+/.factorio-rs/sync_stage_fp
+/*.zip

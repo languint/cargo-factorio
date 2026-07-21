@@ -829,3 +829,30 @@ pub fn f(frame: LuaGuiElement) {
         "expected Index, got {value:?}"
     );
 }
+
+#[test]
+fn lowers_clear_method_call() {
+    let source = r#"
+pub fn f(parent: LuaGuiElement) {
+    parent.clear();
+}
+"#;
+    let module = must_ok_parse(parse_module(source, "control.clear"));
+    let Statement::FunctionDecl(function) = &module.symbols[0].statement else {
+        panic!("expected function");
+    };
+    let Statement::Expr(expr) = &function.body.statements[0] else {
+        panic!("expected expr stmt, got {:?}", function.body.statements[0]);
+    };
+    assert!(
+        matches!(expr, Expression::MethodCall { method, .. } if method == "clear"),
+        "expected MethodCall clear, got {expr:?}"
+    );
+    let lua = factorio_codegen::LuaGenerator::new()
+        .generate_module(&module)
+        .expect("lua");
+    assert!(
+        lua.contains("clear()"),
+        "expected clear() call in lua, got:\n{lua}"
+    );
+}

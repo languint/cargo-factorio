@@ -11,6 +11,7 @@ members = [
     "crates/factorio-ir",
     "examples/hello_world",
     "examples/gui_basics",
+    "examples/gui_counter",
     "examples/locale_test",
     "examples/mandatory_spaghetti",
     "examples/tracing_test",

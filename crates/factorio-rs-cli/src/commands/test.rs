@@ -157,15 +157,10 @@ pub fn run_tests(project_root: &Path, options: &TestOptions) -> CliResult<()> {
     ensure_work_dir(&work_dir, &output_dir, &package, prefer_symlink)?;
     if let Some(generation) = pending_gen {
         publish_reload_gen(&output_dir, generation)?;
-        let mod_path = mod_dest(
-            &work_dir.join("mods"),
-            &package.name,
-            &package.version,
-        );
+        let mod_path = mod_dest(&work_dir.join("mods"), &package.name, &package.version);
         if !mod_path
             .symlink_metadata()
-            .map(|m| m.file_type().is_symlink())
-            .unwrap_or(false)
+            .is_ok_and(|m| m.file_type().is_symlink())
         {
             publish_reload_gen(&mod_path, generation)?;
         }

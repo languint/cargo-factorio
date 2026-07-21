@@ -1,5 +1,5 @@
 use syn::parse::{Parse, ParseStream};
-use syn::{Expr, ExprMacro, LitStr, Path};
+use syn::{Expr, ExprMacro, Item, LitStr, Path, Stmt};
 
 use crate::error::{FrontendError, FrontendResult};
 
@@ -198,16 +198,19 @@ fn tracing_level_from_path(path: &Path) -> Option<TracingLevel> {
 
     let level = match segments.as_slice() {
         [name] => name.as_str(),
+        // `tracing::info!` macro path
         [.., mid, name] if mid == "tracing" => name.as_str(),
+        // Expanded `::tracing::Level::INFO` (and `tracing_core::Level::INFO`)
+        [.., mid, name] if mid == "Level" => name.as_str(),
         _ => return None,
     };
 
     match level {
-        "error" => Some(TracingLevel::Error),
-        "warn" => Some(TracingLevel::Warn),
-        "info" => Some(TracingLevel::Info),
-        "debug" => Some(TracingLevel::Debug),
-        "trace" => Some(TracingLevel::Trace),
+        "error" | "ERROR" => Some(TracingLevel::Error),
+        "warn" | "WARN" => Some(TracingLevel::Warn),
+        "info" | "INFO" => Some(TracingLevel::Info),
+        "debug" | "DEBUG" => Some(TracingLevel::Debug),
+        "trace" | "TRACE" => Some(TracingLevel::Trace),
         _ => None,
     }
 }
@@ -304,6 +307,273 @@ fn print_settings_color((r, g, b, a): (f64, f64, f64, f64)) -> factorio_ir::expr
 #[cfg(feature = "tracing")]
 const fn float_lit(value: f64) -> factorio_ir::expression::Expression {
     factorio_ir::expression::Expression::Literal(factorio_ir::literal::Literal::Float(value))
+}
+
+/// rustc-expanded `tracing::info!` / `error!` / … becomes a block with inner `use`
+/// + callsite statics. Recognize that shape and lower to colored `game.print`.
+#[cfg(feature = "tracing")]
+pub fn try_lower_expanded_tracing_event_block(
+    stmts: &[Stmt],
+    ctx: &mut LowerContext<'_>,
+    self_type: Option<&str>,
+) -> Option<FrontendResult<Vec<factorio_ir::statement::Statement>>> {
+    if !is_expanded_tracing_event_block(stmts) {
+        return None;
+    }
+    Some(lower_expanded_tracing_event_block(stmts, ctx, self_type))
+}
+
+#[cfg(not(feature = "tracing"))]
+pub fn try_lower_expanded_tracing_event_block(
+    _stmts: &[Stmt],
+    _ctx: &mut LowerContext<'_>,
+    _self_type: Option<&str>,
+) -> Option<FrontendResult<Vec<factorio_ir::statement::Statement>>> {
+    None
+}
+
+#[cfg(feature = "tracing")]
+fn is_expanded_tracing_event_block(stmts: &[Stmt]) -> bool {
+    stmts.iter().any(|stmt| match stmt {
+        Stmt::Item(Item::Use(item_use)) => use_mentions_tracing_callsite(item_use),
+        _ => false,
+    })
+}
+
+#[cfg(feature = "tracing")]
+fn use_mentions_tracing_callsite(item_use: &syn::ItemUse) -> bool {
+    let mut path = Vec::new();
+    fn walk(tree: &syn::UseTree, path: &mut Vec<String>, found: &mut bool) {
+        match tree {
+            syn::UseTree::Path(p) => {
+                path.push(p.ident.to_string());
+                walk(&p.tree, path, found);
+                path.pop();
+            }
+            syn::UseTree::Name(n) => {
+                path.push(n.ident.to_string());
+                if path.iter().any(|s| s == "tracing" || s == "tracing_core")
+                    && path.iter().any(|s| s == "Callsite" || s == "__macro_support")
+                {
+                    *found = true;
+                }
+                path.pop();
+            }
+            syn::UseTree::Rename(r) => {
+                path.push(r.ident.to_string());
+                if path.iter().any(|s| s == "tracing" || s == "tracing_core")
+                    && (r.ident == "Callsite"
+                        || path.iter().any(|s| s == "Callsite" || s == "__macro_support"))
+                {
+                    *found = true;
+                }
+                path.pop();
+            }
+            syn::UseTree::Glob(_) => {
+                if path.iter().any(|s| s == "tracing" || s == "tracing_core") {
+                    *found = true;
+                }
+            }
+            syn::UseTree::Group(g) => {
+                for item in &g.items {
+                    walk(item, path, found);
+                }
+            }
+        }
+    }
+    let mut found = false;
+    walk(&item_use.tree, &mut path, &mut found);
+    found
+}
+
+#[cfg(feature = "tracing")]
+fn lower_expanded_tracing_event_block(
+    stmts: &[Stmt],
+    ctx: &mut LowerContext<'_>,
+    self_type: Option<&str>,
+) -> FrontendResult<Vec<factorio_ir::statement::Statement>> {
+    let level = find_tracing_level_in_stmts(stmts).ok_or_else(|| FrontendError::UnsupportedMacro {
+        name: "tracing::event".to_string(),
+        location: factorio_ir::span::SourceLoc::default()
+            .with_note("expanded tracing event (could not find Level::*)"),
+    })?;
+    let mac = find_format_args_macro_in_stmts(stmts).ok_or_else(|| {
+        FrontendError::UnsupportedMacro {
+            name: "tracing::event".to_string(),
+            location: factorio_ir::span::SourceLoc::default()
+                .with_note("expanded tracing event (could not find format_args! message)"),
+        }
+    })?;
+    let message = lower_format_macro_message(mac, ctx, self_type)?;
+    let prefixed = prepend_literal(level.label(), message);
+    Ok(vec![factorio_ir::statement::Statement::Expr(game_print_call(
+        prefixed,
+        Some(print_settings_color(level.color())),
+    ))])
+}
+
+#[cfg(feature = "tracing")]
+fn find_tracing_level_in_stmts(stmts: &[Stmt]) -> Option<TracingLevel> {
+    for stmt in stmts {
+        if let Some(level) = find_tracing_level_in_stmt(stmt) {
+            return Some(level);
+        }
+    }
+    None
+}
+
+#[cfg(feature = "tracing")]
+fn find_tracing_level_in_stmt(stmt: &Stmt) -> Option<TracingLevel> {
+    match stmt {
+        Stmt::Local(local) => local.init.as_ref().and_then(|init| find_tracing_level_in_expr(&init.expr)),
+        Stmt::Item(Item::Static(item)) => find_tracing_level_in_expr(&item.expr),
+        Stmt::Item(Item::Const(item)) => find_tracing_level_in_expr(&item.expr),
+        Stmt::Expr(expr, _) => find_tracing_level_in_expr(expr),
+        Stmt::Macro(_) => None,
+        Stmt::Item(_) => None,
+    }
+}
+
+#[cfg(feature = "tracing")]
+fn find_tracing_level_in_expr(expr: &Expr) -> Option<TracingLevel> {
+    match expr {
+        Expr::Path(path) => tracing_level_from_path(&path.path),
+        Expr::Call(call) => {
+            if let Some(level) = find_tracing_level_in_expr(&call.func) {
+                return Some(level);
+            }
+            call.args.iter().find_map(find_tracing_level_in_expr)
+        }
+        Expr::MethodCall(call) => {
+            if let Some(level) = find_tracing_level_in_expr(&call.receiver) {
+                return Some(level);
+            }
+            call.args.iter().find_map(find_tracing_level_in_expr)
+        }
+        Expr::Reference(reference) => find_tracing_level_in_expr(&reference.expr),
+        Expr::Paren(paren) => find_tracing_level_in_expr(&paren.expr),
+        Expr::Group(group) => find_tracing_level_in_expr(&group.expr),
+        Expr::Block(block) => block
+            .block
+            .stmts
+            .iter()
+            .find_map(find_tracing_level_in_stmt),
+        Expr::If(if_expr) => {
+            if let Some(level) = find_tracing_level_in_expr(&if_expr.cond) {
+                return Some(level);
+            }
+            if let Some(level) = if_expr
+                .then_branch
+                .stmts
+                .iter()
+                .find_map(find_tracing_level_in_stmt)
+            {
+                return Some(level);
+            }
+            match if_expr.else_branch.as_ref() {
+                Some((_, else_expr)) => find_tracing_level_in_expr(else_expr),
+                None => None,
+            }
+        }
+        Expr::Binary(bin) => find_tracing_level_in_expr(&bin.left)
+            .or_else(|| find_tracing_level_in_expr(&bin.right)),
+        Expr::Unary(unary) => find_tracing_level_in_expr(&unary.expr),
+        Expr::Field(field) => find_tracing_level_in_expr(&field.base),
+        Expr::Tuple(tuple) => tuple.elems.iter().find_map(find_tracing_level_in_expr),
+        Expr::Array(array) => array.elems.iter().find_map(find_tracing_level_in_expr),
+        Expr::Repeat(repeat) => find_tracing_level_in_expr(&repeat.expr),
+        Expr::Struct(s) => s
+            .fields
+            .iter()
+            .find_map(|f| find_tracing_level_in_expr(&f.expr)),
+        Expr::Closure(closure) => match closure.body.as_ref() {
+            Expr::Block(block) => block
+                .block
+                .stmts
+                .iter()
+                .find_map(find_tracing_level_in_stmt),
+            other => find_tracing_level_in_expr(other),
+        },
+        Expr::Macro(_) | Expr::Lit(_) | Expr::Infer(_) => None,
+        _ => None,
+    }
+}
+
+#[cfg(feature = "tracing")]
+fn find_format_args_macro_in_stmts(stmts: &[Stmt]) -> Option<&ExprMacro> {
+    stmts.iter().find_map(find_format_args_macro_in_stmt)
+}
+
+#[cfg(feature = "tracing")]
+fn find_format_args_macro_in_stmt(stmt: &Stmt) -> Option<&ExprMacro> {
+    match stmt {
+        Stmt::Local(local) => local
+            .init
+            .as_ref()
+            .and_then(|init| find_format_args_macro_in_expr(&init.expr)),
+        Stmt::Item(Item::Static(item)) => find_format_args_macro_in_expr(&item.expr),
+        Stmt::Item(Item::Const(item)) => find_format_args_macro_in_expr(&item.expr),
+        Stmt::Expr(expr, _) => find_format_args_macro_in_expr(expr),
+        _ => None,
+    }
+}
+
+#[cfg(feature = "tracing")]
+fn find_format_args_macro_in_expr(expr: &Expr) -> Option<&ExprMacro> {
+    match expr {
+        Expr::Macro(mac) if macro_name(&mac.mac.path) == "format_args" => Some(mac),
+        Expr::Call(call) => {
+            if let Some(mac) = find_format_args_macro_in_expr(&call.func) {
+                return Some(mac);
+            }
+            call.args.iter().find_map(find_format_args_macro_in_expr)
+        }
+        Expr::MethodCall(call) => {
+            if let Some(mac) = find_format_args_macro_in_expr(&call.receiver) {
+                return Some(mac);
+            }
+            call.args.iter().find_map(find_format_args_macro_in_expr)
+        }
+        Expr::Reference(reference) => find_format_args_macro_in_expr(&reference.expr),
+        Expr::Paren(paren) => find_format_args_macro_in_expr(&paren.expr),
+        Expr::Group(group) => find_format_args_macro_in_expr(&group.expr),
+        Expr::Cast(cast) => find_format_args_macro_in_expr(&cast.expr),
+        Expr::Block(block) => block
+            .block
+            .stmts
+            .iter()
+            .find_map(find_format_args_macro_in_stmt),
+        Expr::If(if_expr) => if_expr
+            .then_branch
+            .stmts
+            .iter()
+            .find_map(find_format_args_macro_in_stmt)
+            .or_else(|| {
+                if_expr
+                    .else_branch
+                    .as_ref()
+                    .and_then(|(_, else_expr)| find_format_args_macro_in_expr(else_expr))
+            }),
+        Expr::Binary(bin) => find_format_args_macro_in_expr(&bin.left)
+            .or_else(|| find_format_args_macro_in_expr(&bin.right)),
+        Expr::Unary(unary) => find_format_args_macro_in_expr(&unary.expr),
+        Expr::Field(field) => find_format_args_macro_in_expr(&field.base),
+        Expr::Tuple(tuple) => tuple.elems.iter().find_map(find_format_args_macro_in_expr),
+        Expr::Array(array) => array.elems.iter().find_map(find_format_args_macro_in_expr),
+        Expr::Struct(s) => s
+            .fields
+            .iter()
+            .find_map(|f| find_format_args_macro_in_expr(&f.expr)),
+        Expr::Closure(closure) => match closure.body.as_ref() {
+            Expr::Block(block) => block
+                .block
+                .stmts
+                .iter()
+                .find_map(find_format_args_macro_in_stmt),
+            other => find_format_args_macro_in_expr(other),
+        },
+        _ => None,
+    }
 }
 
 fn lower_format_macro_message(
