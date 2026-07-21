@@ -246,6 +246,9 @@ sleep 30
         .current_dir(project_root)
         .env("FACTORIO_PATH", &fake_bin)
         .env("FACTORIO_RS_NO_STEAM_RUN", "1")
+        .env("CARGO_TERM_COLOR", "never")
+        .env_remove("CLICOLOR_FORCE")
+        .env_remove("NO_COLOR")
         .output()
         .unwrap();
 
