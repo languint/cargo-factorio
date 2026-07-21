@@ -79,7 +79,10 @@ pub fn generate_debug_types(api: &RuntimeApi, known: &KnownTypes<'_>) -> String 
         #[must_use]
         pub fn is_payload_ctor_type(name: &str) -> bool {
             is_identification_type(name)
-                || matches!(name, "MapGenSize" | "RenderLayer" | "IndexOrName")
+                || matches!(
+                    name,
+                    "MapGenSize" | "RenderLayer" | "IndexOrName" | "ElemValue"
+                )
         }
 
         /// Field type key for generated event/concept structs (last path segment form).

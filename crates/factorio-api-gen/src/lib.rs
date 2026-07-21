@@ -74,7 +74,8 @@ pub fn parse_runtime_api(json: &str) -> Result<RuntimeApi, serde_json::Error> {
 pub fn generate_runtime_api(api: &RuntimeApi) -> GeneratedApi {
     let mappings = generate::collect_event_mappings(api);
     let class_names = generate::class_names(api);
-    let filter_concept_names = generate::event_filter_concept_names(api);
+    let mut filter_concept_names = generate::event_filter_concept_names(api);
+    filter_concept_names.extend(generate::prototype_filter_concept_names(api));
     let identification_names = generate::identification_concept_names(api, &filter_concept_names);
     let identification_signatures = generate::identification_signatures(api, &identification_names);
     let mut concept_names = generate::generatable_concept_names(api, &filter_concept_names);

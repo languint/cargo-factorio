@@ -463,7 +463,9 @@ pub mod lua_libs;
 pub mod prototypes;
 pub mod settings;
 
-pub use event_filters::{EventFilterEntry, FilterMethodSpec, filter_method_spec};
+pub use event_filters::{
+    EventFilterEntry, FilterMethodSpec, PrototypeFilterEntry, filter_method_spec,
+};
 pub use lua_libs::{LuaMath, LuaStringLib, LuaTableLib};
 pub use map::{event_filter_type, event_type_to_name};
 pub use unions::literal_enum_variant_str;

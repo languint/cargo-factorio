@@ -326,3 +326,58 @@ fn function_parameters_use_lua_function() {
         "add_command parameters should follow Factorio order (name, help, function), got:\n{add_command}"
     );
 }
+
+#[test]
+fn controller_state_setters_use_inline_structs() {
+    let generated = generate_from_bundled_api().expect("generate");
+    let classes = &generated.classes;
+    assert!(
+        classes.contains("fn set_walking_state")
+            && (classes.contains("value : LuaControlWalkingState")
+                || classes.contains("value: LuaControlWalkingState")),
+        "set_walking_state should take LuaControlWalkingState, not LuaAny"
+    );
+    assert!(
+        !classes.contains("fn set_walking_state(& self , value : crate :: LuaAny)")
+            && !classes.contains("fn set_walking_state(&self, value: crate::LuaAny)"),
+        "set_walking_state must not take LuaAny"
+    );
+}
+
+#[test]
+fn elem_value_and_filters_are_typed() {
+    let generated = generate_from_bundled_api().expect("generate");
+    let classes = &generated.classes;
+    let concepts = &generated.concepts;
+    let filters = &generated.event_filters;
+
+    assert!(
+        concepts.contains("enum ElemValue") || concepts.contains("pub enum ElemValue"),
+        "concepts should emit ElemValue"
+    );
+    assert!(
+        classes.contains("ElemValue")
+            && (classes.contains("fn elem_value") || classes.contains("fn set_elem_value")),
+        "elem_value should use ElemValue"
+    );
+    assert!(
+        !classes.contains("fn set_elem_value(& self , value : crate :: LuaAny)")
+            && !classes.contains("fn set_elem_value(&self, value: crate::LuaAny)"),
+        "set_elem_value must not take LuaAny"
+    );
+    assert!(
+        classes.contains("PrototypeFilterEntry")
+            && (classes.contains("fn elem_filters") || classes.contains("fn set_elem_filters")),
+        "elem_filters should use PrototypeFilterEntry"
+    );
+    assert!(
+        filters.contains("struct PrototypeFilterEntry")
+            || filters.contains("pub struct PrototypeFilterEntry"),
+        "event_filters should define PrototypeFilterEntry"
+    );
+    assert!(
+        filters.contains("struct EntityPrototypeFilter")
+            || filters.contains("pub struct EntityPrototypeFilter"),
+        "should emit EntityPrototypeFilter builders"
+    );
+}

@@ -77,8 +77,11 @@ Create a new player (or join a map). You should see a titled frame with a label.
   later (`frame["child_name"]` / `children`).
 - Prefer `style().set_*` for width/height/padding; use `set_style("name")` when
   you want a style **prototype**, not one property.
-- `Tags` uses `Tags { pairs: &[TagPair { .. }] }` for string values; choose-elem
-  filters are still sparse - stick to frame/label/button for starters.
+- `Tags` uses `Tags { pairs: &[TagPair { .. }] }` for string values.
+- Choose-elem: `elem_value` is `ElemValue` (`Name` / `Signal` / `Prototype`);
+  `elem_filters` is `Vec<PrototypeFilterEntry>` via builders such as
+  `EntityPrototypeFilter::type_("furnace")` (family must match `elem_type`).
+  Nested `elem_filters` on some item filter variants are not typed yet.
 
 ## See also
 

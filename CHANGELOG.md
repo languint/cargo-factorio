@@ -28,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Option<Vec<EventFilterEntry>>`.
 - **`SettingsDictionary`** accessors: `get_bool` / `get_int` / `get_double` /
   `get_string` (plus existing generic `.get::<T>()`).
+- Choose-elem **`ElemValue`** (`Name` / `Signal` / `Prototype`) for `elem_value`.
+- Choose-elem **`elem_filters`** as `Vec<PrototypeFilterEntry>` with
+  `*PrototypeFilter` builders (same table lowering as event filters).
+- Controller state setters (`walking_state`, `mining_state`, `shooting_state`,
+  `repair_state`) take the same inline structs as the getters.
 
 ### Changed
 

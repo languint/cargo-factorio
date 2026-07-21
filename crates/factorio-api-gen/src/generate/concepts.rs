@@ -25,6 +25,8 @@ const EXTRA_CONCEPTS: &[&str] = &[
     "RenderLayer",
     "PropertyExpressionNames",
     "EventFilter",
+    "PrototypeFilter",
+    "ElemValue",
     "MouseButtonFlags",
     "SelectionModeFlags",
     "EntityPrototypeFlags",
@@ -90,9 +92,11 @@ pub fn generate_concepts(
         }
         generate_concept(concept, known)
     });
+    let elem_value = generate_elem_value();
     let flag_helper = generate_flag_set_helper(known);
     let tokens = quote! {
         #( #items )*
+        #elem_value
         #flag_helper
     };
     format!("{header}{tokens}")
@@ -139,8 +143,8 @@ fn generate_concept(concept: &Concept, known: &KnownTypes<'_>) -> Option<TokenSt
         Some(sanitize_doc(&concept.description))
     };
 
-    if concept.name == "EventFilter" {
-        // Typed as `Vec<EventFilterEntry>` via `map_simple_type`; no struct.
+    if concept.name == "EventFilter" || concept.name == "PrototypeFilter" {
+        // Typed as `Vec<*FilterEntry>` via `map_simple_type`; no struct.
         return None;
     }
 
@@ -234,6 +238,49 @@ fn generate_concept(concept: &Concept, known: &KnownTypes<'_>) -> Option<TokenSt
             }
         },
     })
+}
+
+fn generate_elem_value() -> TokenStream {
+    quote! {
+        /// Value for [`LuaGuiElement::elem_value`](crate::classes::LuaGuiElement::elem_value):
+        /// a prototype name, [`SignalID`], or [`PrototypeWithQuality`].
+        #[derive(Debug, Clone, Copy, PartialEq)]
+        pub enum ElemValue {
+            Name(&'static str),
+            Signal(crate::concepts::SignalID),
+            Prototype(crate::concepts::PrototypeWithQuality),
+        }
+
+        impl Default for ElemValue {
+            fn default() -> Self {
+                Self::Name("")
+            }
+        }
+
+        impl From<&'static str> for ElemValue {
+            fn from(value: &'static str) -> Self {
+                Self::Name(value)
+            }
+        }
+
+        impl From<crate::concepts::SignalID> for ElemValue {
+            fn from(value: crate::concepts::SignalID) -> Self {
+                Self::Signal(value)
+            }
+        }
+
+        impl From<crate::concepts::PrototypeWithQuality> for ElemValue {
+            fn from(value: crate::concepts::PrototypeWithQuality) -> Self {
+                Self::Prototype(value)
+            }
+        }
+
+        impl From<ElemValue> for crate::LuaAny {
+            fn from(_: ElemValue) -> Self {
+                crate::LuaAny
+            }
+        }
+    }
 }
 
 fn generate_flag_set_concept(concept_name: &str, doc: Option<&str>) -> TokenStream {

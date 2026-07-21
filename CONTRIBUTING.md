@@ -69,7 +69,8 @@ High leverage:
 
 - Richer prototype companions / more dual-path macros / language surface
   (traits already exist same-module; cross-module traits welcome via issue first)
-- Shrink remaining choose-elem filter / graphics `LuaAny` where concrete types fit
+- Shrink remaining prototype-graphics `LuaAny` where concrete types fit
+  (`opened` / nested choose-elem `elem_filters` still open)
 - Docs recipes, examples, and clearer frontend errors / lints
 
 Good starter tasks:

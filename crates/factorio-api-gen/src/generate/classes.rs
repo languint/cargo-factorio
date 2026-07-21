@@ -243,7 +243,12 @@ fn generate_attribute(
         }
 
         let setter_ident = make_ident(&setter_name_str);
-        let value_ty = map_setter_value_type(write_ty, known);
+        // Prefer the same inline table struct the getter uses (e.g. walking_state).
+        let value_ty = if let Some(type_ident) = inline_types.get(&attribute.name) {
+            quote!(#type_ident)
+        } else {
+            map_setter_value_type(write_ty, known)
+        };
         let prop = attribute.name.as_str();
         let doc = if attribute.description.is_empty() {
             format!("Set the `{prop}` attribute (Lua: `self.{prop} = value`).")

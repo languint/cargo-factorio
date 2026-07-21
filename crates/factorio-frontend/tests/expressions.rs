@@ -757,3 +757,55 @@ pub fn bad() {
         "{msg}"
     );
 }
+
+#[test]
+fn lowers_elem_value_name_to_payload() {
+    let source = r#"
+pub fn f() {
+    let _v = ElemValue::Name("iron-plate");
+}
+"#;
+    let module = must_ok_parse(parse_module(source, "control"));
+    let Statement::FunctionDecl(function) = &module.symbols[0].statement else {
+        panic!("expected function");
+    };
+    let Statement::VariableDecl { value, .. } = &function.body.statements[0] else {
+        panic!("expected let");
+    };
+    assert!(matches!(
+        value,
+        Expression::Literal(Literal::String(s)) if s == "iron-plate"
+    ));
+}
+
+#[test]
+fn lowers_prototype_filter_builder_call() {
+    let source = r#"
+pub fn f() {
+    let _f = EntityPrototypeFilter::name("furnace");
+}
+"#;
+    let module = must_ok_parse(parse_module(source, "control"));
+    let Statement::FunctionDecl(function) = &module.symbols[0].statement else {
+        panic!("expected function");
+    };
+    let Statement::VariableDecl { value, .. } = &function.body.statements[0] else {
+        panic!("expected let");
+    };
+    let Expression::StructLiteral { fields, .. } = value else {
+        panic!("expected struct literal, got {value:?}");
+    };
+    assert_eq!(
+        fields,
+        &[
+            (
+                "filter".to_string(),
+                Expression::Literal(Literal::String("name".to_string()))
+            ),
+            (
+                "name".to_string(),
+                Expression::Literal(Literal::String("furnace".to_string()))
+            ),
+        ]
+    );
+}

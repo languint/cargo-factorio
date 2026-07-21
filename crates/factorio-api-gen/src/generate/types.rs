@@ -75,6 +75,7 @@ pub fn return_stub_for_type(api_type: &ApiType, known: &KnownTypes<'_>) -> Retur
             "string" => ReturnStub::Str,
             "LocalisedString" | "LuaLazyLoadedValueLocalisedString" => ReturnStub::Default,
             "EventFilter" => ReturnStub::Vec(Box::new(ReturnStub::Default)),
+            "PrototypeFilter" => ReturnStub::Vec(Box::new(ReturnStub::Default)),
             // Exact integer types - stub with `{ 0 }` (inferred by Rust to the return type).
             "uint8" | "uint16" | "uint32" | "uint64" | "uint" | "int8" | "int16" | "int32"
             | "int64" | "int" | "MapTick" | "Tick" | "ItemStackIndex" | "ItemCountType"
@@ -126,7 +127,13 @@ pub fn return_stub_for_type(api_type: &ApiType, known: &KnownTypes<'_>) -> Retur
                     }
                 }
                 _ => {
-                    if let Some(enum_name) = known.union_registry.resolve(api_type) {
+                    if is_elem_value_union(&non_nil) {
+                        if has_nil {
+                            ReturnStub::Option(Box::new(ReturnStub::Default))
+                        } else {
+                            ReturnStub::Default
+                        }
+                    } else if let Some(enum_name) = known.union_registry.resolve(api_type) {
                         let _ = enum_name;
                         if has_nil {
                             ReturnStub::Option(Box::new(ReturnStub::Default))
@@ -348,6 +355,7 @@ fn map_simple_type(name: &str, known: &KnownTypes<'_>) -> TokenStream {
             quote!(crate::LocalisedString)
         }
         "EventFilter" => quote!(Vec<crate::EventFilterEntry>),
+        "PrototypeFilter" => quote!(Vec<crate::PrototypeFilterEntry>),
         "boolean" => quote!(bool),
         "nil" | "void" => quote!(()),
         n if is_integer_api_type(n) || matches!(n, "float" | "double" | "number") => {
@@ -465,6 +473,12 @@ fn map_union_type(
         return if has_nil { quote!(Option<#ty>) } else { ty };
     }
 
+    // Choose-elem `string | SignalID | PrototypeWithQuality`.
+    if is_elem_value_union(&non_nil) {
+        let ty = quote!(crate::concepts::ElemValue);
+        return if has_nil { quote!(Option<#ty>) } else { ty };
+    }
+
     match non_nil.len() {
         0 => quote!(()),
         1 => {
@@ -553,6 +567,25 @@ fn map_index_or_name_union(arms: &[&ApiType]) -> Option<TokenStream> {
         return Some(quote!(crate::IndexOrName));
     }
     None
+}
+
+/// `string | SignalID | PrototypeWithQuality` (LuaGuiElement.elem_value).
+fn is_elem_value_union(arms: &[&ApiType]) -> bool {
+    if arms.len() != 3 {
+        return false;
+    }
+    let mut names: Vec<String> = arms
+        .iter()
+        .filter_map(|arm| {
+            let arm = unwrap_type_ref(arm);
+            arm.as_simple_name().map(str::to_string)
+        })
+        .collect();
+    if names.len() != 3 {
+        return false;
+    }
+    names.sort_unstable();
+    names == ["PrototypeWithQuality", "SignalID", "string"]
 }
 
 /// If arms are exactly `T` and `array<T>` (either order), return `T`.
@@ -657,6 +690,7 @@ fn map_simple_field_type(name: &str, known: &KnownTypes<'_>) -> TokenStream {
         // Use owned String for struct fields - &str needs a lifetime parameter.
         "string" | "LocalisedString" | "LuaLazyLoadedValueLocalisedString" => quote!(String),
         "EventFilter" => quote!(Vec<crate::EventFilterEntry>),
+        "PrototypeFilter" => quote!(Vec<crate::PrototypeFilterEntry>),
         "boolean" => quote!(bool),
         "nil" | "void" => quote!(()),
         n if is_integer_api_type(n) || matches!(n, "float" | "double" | "number") => {
@@ -681,6 +715,7 @@ fn map_simple_field_type_unboxed(name: &str, known: &KnownTypes<'_>) -> TokenStr
     match name {
         "string" | "LocalisedString" | "LuaLazyLoadedValueLocalisedString" => quote!(String),
         "EventFilter" => quote!(Vec<crate::EventFilterEntry>),
+        "PrototypeFilter" => quote!(Vec<crate::PrototypeFilterEntry>),
         "boolean" => quote!(bool),
         "nil" | "void" => quote!(()),
         n if is_integer_api_type(n) || matches!(n, "float" | "double" | "number") => {
@@ -707,6 +742,7 @@ pub fn map_simple_copy_field_type(name: &str, known: &KnownTypes<'_>) -> TokenSt
             quote!(crate::LocalisedString)
         }
         "EventFilter" => quote!(&'static [crate::EventFilterEntry]),
+        "PrototypeFilter" => quote!(&'static [crate::PrototypeFilterEntry]),
         "boolean" => quote!(bool),
         "nil" | "void" => quote!(()),
         n if is_integer_api_type(n) || matches!(n, "float" | "double" | "number") => {

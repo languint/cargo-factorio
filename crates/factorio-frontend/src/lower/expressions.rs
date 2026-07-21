@@ -263,6 +263,11 @@ fn lower_call_expression(
         return lower_result_constructor(call, kind, ctx, self_type);
     }
 
+    // `EntityPrototypeFilter::name("furnace")` / event filter builders -> Lua filter tables.
+    if let Some(result) = super::event_filter::try_lower_filter_builder_call(call) {
+        return result;
+    }
+
     if let Expr::Path(path) = call.func.as_ref() {
         let segments = lower_path_segments(path, self_type)?;
         if let Some((enum_name, variant, super::context::EnumVariantFields::Tuple(count))) =

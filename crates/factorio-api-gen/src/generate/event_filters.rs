@@ -108,14 +108,32 @@ fn collect_filter_methods(concept: &Concept) -> Vec<FilterMethodSpec> {
         let Some(group_name) = group.get("name").and_then(|value| value.as_str()) else {
             continue;
         };
-        let arg_count = group
+        let parameters = group
             .get("parameters")
             .and_then(|value| value.as_array())
-            .map_or(0, |parameters| parameters.len());
+            .cloned()
+            .unwrap_or_default();
+        // Nested choose-elem `elem_filters` — leave for a later pass.
+        if parameters.iter().any(is_nested_elem_filters_param) {
+            continue;
+        }
+        let arg_count = parameters.len().max(1);
+        let value_field = value_field_for_filter(group_name)
+            .map(str::to_string)
+            .or_else(|| {
+                if parameters.len() == 1 {
+                    parameters[0]
+                        .get("name")
+                        .and_then(|value| value.as_str())
+                        .map(str::to_string)
+                } else {
+                    None
+                }
+            });
         methods.push(FilterMethodSpec {
             filter: group_name.to_string(),
-            value_field: value_field_for_filter(group_name).map(str::to_string),
-            arg_count: arg_count.max(1),
+            value_field,
+            arg_count,
         });
     }
 
@@ -124,17 +142,68 @@ fn collect_filter_methods(concept: &Concept) -> Vec<FilterMethodSpec> {
     methods
 }
 
-pub fn generate_event_filters(api: &RuntimeApi) -> String {
-    let filter_names: std::collections::BTreeSet<String> = api
-        .events
-        .iter()
-        .filter_map(|event| event.filter.clone())
-        .collect();
+fn is_nested_elem_filters_param(parameter: &serde_json::Value) -> bool {
+    if parameter.get("name").and_then(|value| value.as_str()) == Some("elem_filters") {
+        return true;
+    }
+    let Some(ty) = parameter.get("type") else {
+        return false;
+    };
+    if ty.as_str() == Some("PrototypeFilter") {
+        return true;
+    }
+    if ty.get("complex_type").and_then(|value| value.as_str()) == Some("array") {
+        let value = ty.get("value");
+        if value.and_then(|v| v.as_str()) == Some("PrototypeFilter") {
+            return true;
+        }
+        if value
+            .and_then(|v| v.get("complex_type"))
+            .and_then(|v| v.as_str())
+            == Some("type")
+            && value
+                .and_then(|v| v.get("value"))
+                .and_then(|v| v.as_str())
+                == Some("PrototypeFilter")
+        {
+            return true;
+        }
+    }
+    false
+}
 
+/// Concept names used as [`PrototypeFilter`] array arms (choose-elem filters).
+pub fn prototype_filter_concept_names(api: &RuntimeApi) -> std::collections::BTreeSet<String> {
+    let Some(concept) = api.concepts.iter().find(|c| c.name == "PrototypeFilter") else {
+        return std::collections::BTreeSet::new();
+    };
+    let Some(value) = concept.type_name.child_type("value") else {
+        return std::collections::BTreeSet::new();
+    };
+    value
+        .non_nil_options()
+        .into_iter()
+        .filter_map(|arm| {
+            let arm = if arm.complex_type() == Some("type") {
+                arm.child_type("value").unwrap_or(arm)
+            } else {
+                arm
+            };
+            arm.as_simple_name().map(str::to_string)
+        })
+        .collect()
+}
+
+fn emit_filter_type_builders(
+    filter_names: &std::collections::BTreeSet<String>,
+    api: &RuntimeApi,
+    entry_ty: &str,
+) -> (Vec<proc_macro2::TokenStream>, Vec<FilterMethodSpec>) {
+    let entry_ident = make_ident(entry_ty);
     let mut all_methods = Vec::new();
     let mut filter_types = Vec::new();
 
-    for filter_name in &filter_names {
+    for filter_name in filter_names {
         let Some(concept) = api
             .concepts
             .iter()
@@ -151,15 +220,15 @@ pub fn generate_event_filters(api: &RuntimeApi) -> String {
             let method_ident = make_ident(&method_name_for_spec(method));
             if method.arg_count == 0 {
                 quote! {
-                    pub const fn #method_ident() -> EventFilterEntry { EventFilterEntry }
+                    pub const fn #method_ident() -> #entry_ident { #entry_ident }
                 }
             } else if method.arg_count == 1 {
                 quote! {
-                    pub const fn #method_ident(_value: &str) -> EventFilterEntry { EventFilterEntry }
+                    pub const fn #method_ident(_value: &str) -> #entry_ident { #entry_ident }
                 }
             } else {
                 quote! {
-                    pub fn #method_ident(_comparison: &str, _value: f64) -> EventFilterEntry { EventFilterEntry }
+                    pub fn #method_ident(_comparison: &str, _value: f64) -> #entry_ident { #entry_ident }
                 }
             }
         });
@@ -174,14 +243,19 @@ pub fn generate_event_filters(api: &RuntimeApi) -> String {
         });
     }
 
-    all_methods.sort_by(|left, right| left.filter.cmp(&right.filter));
-    all_methods.dedup_by(|left, right| {
+    (filter_types, all_methods)
+}
+
+fn lookup_arms_for_methods(all_methods: &[FilterMethodSpec]) -> Vec<proc_macro2::TokenStream> {
+    let mut methods = all_methods.to_vec();
+    methods.sort_by(|left, right| left.filter.cmp(&right.filter));
+    methods.dedup_by(|left, right| {
         left.filter == right.filter
             && left.value_field == right.value_field
             && left.arg_count == right.arg_count
     });
 
-    let lookup_arms: Vec<_> = all_methods
+    methods
         .iter()
         .flat_map(|method| {
             let filter = &method.filter;
@@ -224,13 +298,35 @@ pub fn generate_event_filters(api: &RuntimeApi) -> String {
                 }
             })
         })
+        .collect()
+}
+
+pub fn generate_event_filters(api: &RuntimeApi) -> String {
+    let event_filter_names: std::collections::BTreeSet<String> = api
+        .events
+        .iter()
+        .filter_map(|event| event.filter.clone())
         .collect();
+    let prototype_filter_names = prototype_filter_concept_names(api);
+
+    let (event_types, event_methods) =
+        emit_filter_type_builders(&event_filter_names, api, "EventFilterEntry");
+    let (proto_types, proto_methods) =
+        emit_filter_type_builders(&prototype_filter_names, api, "PrototypeFilterEntry");
+
+    let mut all_methods = event_methods;
+    all_methods.extend(proto_methods);
+    let lookup_arms = lookup_arms_for_methods(&all_methods);
 
     let types_tokens = quote! {
         #[derive(Copy, Clone, Debug, PartialEq, Eq)]
         pub struct EventFilterEntry;
 
-        #( #filter_types )*
+        #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+        pub struct PrototypeFilterEntry;
+
+        #( #event_types )*
+        #( #proto_types )*
 
         pub struct FilterMethodSpec {
             pub filter: &'static str,
