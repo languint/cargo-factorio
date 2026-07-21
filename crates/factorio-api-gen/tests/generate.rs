@@ -330,17 +330,31 @@ fn function_parameters_use_lua_function() {
 #[test]
 fn controller_state_setters_use_inline_structs() {
     let generated = generate_from_bundled_api().expect("generate");
-    let classes = &generated.classes;
+    let classes = generated.classes.replace(' ', "");
+    for setter in [
+        "set_walking_state",
+        "set_mining_state",
+        "set_shooting_state",
+        "set_repair_state",
+    ] {
+        let needle = format!("fn{setter}");
+        let mut from = 0;
+        let mut hits = 0;
+        while let Some(rel) = classes[from..].find(&needle) {
+            let at = from + rel;
+            let window = &classes[at..classes.len().min(at + 80)];
+            assert!(
+                !window.contains("value:crate::LuaAny") && !window.contains("value:LuaAny"),
+                "{setter} must not take LuaAny, got: {window}"
+            );
+            hits += 1;
+            from = at + needle.len();
+        }
+        assert!(hits >= 1, "expected at least one {setter}");
+    }
     assert!(
-        classes.contains("fn set_walking_state")
-            && (classes.contains("value : LuaControlWalkingState")
-                || classes.contains("value: LuaControlWalkingState")),
-        "set_walking_state should take LuaControlWalkingState, not LuaAny"
-    );
-    assert!(
-        !classes.contains("fn set_walking_state(& self , value : crate :: LuaAny)")
-            && !classes.contains("fn set_walking_state(&self, value: crate::LuaAny)"),
-        "set_walking_state must not take LuaAny"
+        classes.contains("value:LuaControlWalkingState"),
+        "set_walking_state should take LuaControlWalkingState"
     );
 }
 
@@ -379,5 +393,25 @@ fn elem_value_and_filters_are_typed() {
         filters.contains("struct EntityPrototypeFilter")
             || filters.contains("pub struct EntityPrototypeFilter"),
         "should emit EntityPrototypeFilter builders"
+    );
+}
+
+#[test]
+fn opened_uses_opened_target() {
+    let generated = generate_from_bundled_api().expect("generate");
+    let classes = generated.classes.replace(' ', "");
+    let concepts = &generated.concepts;
+    assert!(
+        concepts.contains("enum OpenedTarget") || concepts.contains("pub enum OpenedTarget"),
+        "concepts should emit OpenedTarget"
+    );
+    assert!(
+        classes.contains("Option<crate::concepts::OpenedTarget>")
+            || classes.contains("Option<crate::concepts::OpenedTarget>"),
+        "opened should be Option<OpenedTarget>"
+    );
+    assert!(
+        !classes.contains("fnset_opened(&self,value:crate::LuaAny)"),
+        "set_opened must not take LuaAny"
     );
 }

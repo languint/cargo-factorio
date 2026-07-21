@@ -243,8 +243,13 @@ fn generate_attribute(
         }
 
         let setter_ident = make_ident(&setter_name_str);
-        // Prefer the same inline table struct the getter uses (e.g. walking_state).
+        // Prefer the same inline table struct the getter uses (e.g. walking_state),
+        // including when the attr is inherited from `defining_class`.
         let value_ty = if let Some(type_ident) = inline_types.get(&attribute.name) {
+            quote!(#type_ident)
+        } else if write_ty.complex_type() == Some("table") {
+            let pascal = to_pascal_case(&attribute.name);
+            let type_ident = make_ident(&format!("{defining_class}{pascal}"));
             quote!(#type_ident)
         } else {
             map_setter_value_type(write_ty, known)

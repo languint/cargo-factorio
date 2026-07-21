@@ -58,6 +58,7 @@ fn generates_numeric_ipairs_and_collect_iife() {
                 event: None,
                 event_filter: None,
                 export: None,
+                inline: false,
             }),
         }],
     };

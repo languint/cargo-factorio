@@ -3,7 +3,7 @@ use syn::{Expr, ExprClosure, ItemFn, Pat, PatType, Signature};
 use crate::error::{FrontendError, FrontendResult};
 
 use super::{
-    attrs::parse_factorio_export_attribute,
+    attrs::{parse_factorio_export_attribute, parse_factorio_inline_attribute},
     context::LowerContext,
     event_handler::resolve_event_handler,
     expressions::lower_expression,
@@ -106,6 +106,12 @@ fn lower_function_parts(
         .attrs
         .iter()
         .find_map(parse_factorio_export_attribute);
+    let inline = function.attrs.iter().any(parse_factorio_inline_attribute);
+    let export = if inline && export.is_none() {
+        Some(factorio_ir::function::ExportMeta { interface: None })
+    } else {
+        export
+    };
     let binding_snapshot = ctx.binding_types.clone();
     let option_snapshot = ctx.option_bindings.clone();
     let dyn_snapshot = ctx.dyn_locals.clone();
@@ -131,6 +137,7 @@ fn lower_function_parts(
         event: event_attr.as_ref().map(|event| event.event_name.clone()),
         event_filter: event_attr.and_then(|event| event.filter),
         export,
+        inline,
     })
 }
 

@@ -204,8 +204,8 @@ mod tests {
 
     #[test]
     fn lowers_entity_prototype_filter_name() {
-        let expr = parse_str::<Expr>(r#"[EntityPrototypeFilter::name("furnace")]"#)
-            .expect("filter expr");
+        let expr =
+            parse_str::<Expr>(r#"[EntityPrototypeFilter::name("furnace")]"#).expect("filter expr");
 
         let lowered = lower_event_filter_list(&expr).expect("lower filter");
         let Expression::Array { elements } = lowered else {

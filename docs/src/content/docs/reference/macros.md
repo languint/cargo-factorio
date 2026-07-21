@@ -49,6 +49,22 @@ pub fn greet(name: &str) {}
 pub fn ping() {}
 ```
 
+## `#[factorio_rs::inline]`
+
+Marks a **shared-stage** function as a hot-path library API. Dependents call it
+via Lua `require` (same as a shared export), never `remote.call`. Implies
+export. Invalid outside `shared`.
+
+```rust
+// in src/shared/...
+#[factorio_rs::inline]
+pub fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+```
+
+See [Sharing code between mods](../guides/dependencies/).
+
 ## `mod_settings!`
 
 See [Mod settings](../guides/mod-settings/).

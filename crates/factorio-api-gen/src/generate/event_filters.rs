@@ -161,9 +161,7 @@ fn is_nested_elem_filters_param(parameter: &serde_json::Value) -> bool {
             .and_then(|v| v.get("complex_type"))
             .and_then(|v| v.as_str())
             == Some("type")
-            && value
-                .and_then(|v| v.get("value"))
-                .and_then(|v| v.as_str())
+            && value.and_then(|v| v.get("value")).and_then(|v| v.as_str())
                 == Some("PrototypeFilter")
         {
             return true;

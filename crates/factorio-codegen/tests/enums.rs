@@ -46,6 +46,7 @@ fn generates_tagged_enum_tables_and_methods() {
                     event: None,
                     event_filter: None,
                     export: None,
+                    inline: false,
                 }],
                 doc: None,
                 debug: None,

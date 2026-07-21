@@ -56,6 +56,7 @@ fn generates_format_concat_for_println() {
                 event: None,
                 event_filter: None,
                 export: None,
+                inline: false,
             }),
         }],
     };

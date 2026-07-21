@@ -58,10 +58,29 @@ After `factorio-rs build`, factorio-rs:
 | Where you export | How other mods call it |
 | --- | --- |
 | Control stage (`#[factorio_rs::control]`) | Live call into your mod: `remote.call` |
-| Shared stage (`shared/...`) | Load your Lua module: `require` |
+| Shared stage (`shared/...`) + `#[factorio_rs::export]` | Load your Lua module: `require` |
+| Shared stage + `#[factorio_rs::inline]` | Same `require` path (hot helpers; never remote) |
+
+Use **`#[factorio_rs::inline]`** on pure shared helpers (for example `add(a, b)`) so dependents
+bind via `require` instead of paying `remote.call`. It implies export and is **only
+valid in `shared`**. Stateful cross-mod APIs stay on control with `#[factorio_rs::export]`.
 
 Optional: rename the Factorio remote interface with
 `#[factorio_rs::export(interface = "math")]` or bare `#[factorio_rs::export(interface)]`.
+
+```rust
+// provider/src/shared/api.rs
+#[factorio_rs::inline]
+pub fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+```
+
+```rust
+// consumer
+use provider::shared::api;
+let n = api::add(2, 3); // -> require("__provider__/lua/shared/api"); api.add(2, 3)
+```
 
 ## Depend through Cargo
 

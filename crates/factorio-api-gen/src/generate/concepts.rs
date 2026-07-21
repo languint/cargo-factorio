@@ -27,6 +27,7 @@ const EXTRA_CONCEPTS: &[&str] = &[
     "EventFilter",
     "PrototypeFilter",
     "ElemValue",
+    "OpenedTarget",
     "MouseButtonFlags",
     "SelectionModeFlags",
     "EntityPrototypeFlags",
@@ -93,10 +94,12 @@ pub fn generate_concepts(
         generate_concept(concept, known)
     });
     let elem_value = generate_elem_value();
+    let opened_target = generate_opened_target();
     let flag_helper = generate_flag_set_helper(known);
     let tokens = quote! {
         #( #items )*
         #elem_value
+        #opened_target
         #flag_helper
     };
     format!("{header}{tokens}")
@@ -277,6 +280,94 @@ fn generate_elem_value() -> TokenStream {
 
         impl From<ElemValue> for crate::LuaAny {
             fn from(_: ElemValue) -> Self {
+                crate::LuaAny
+            }
+        }
+    }
+}
+
+fn generate_opened_target() -> TokenStream {
+    quote! {
+        /// Target for [`LuaControl::opened`](crate::classes::LuaControl::opened) /
+        /// [`set_opened`](crate::classes::LuaControl::set_opened).
+        ///
+        /// Pass [`None`] to close the opened GUI.
+        #[derive(Debug, Clone, Copy, PartialEq)]
+        pub enum OpenedTarget {
+            Entity(crate::classes::LuaEntity),
+            ItemStack(crate::classes::LuaItemStack),
+            Equipment(crate::classes::LuaEquipment),
+            EquipmentGrid(crate::classes::LuaEquipmentGrid),
+            Player(crate::classes::LuaPlayer),
+            GuiElement(crate::classes::LuaGuiElement),
+            Inventory(crate::classes::LuaInventory),
+            LogisticNetwork(crate::classes::LuaLogisticNetwork),
+            /// `defines.gui_type` string constant.
+            GuiType(&'static str),
+        }
+
+        impl Default for OpenedTarget {
+            fn default() -> Self {
+                Self::GuiType("")
+            }
+        }
+
+        impl From<crate::classes::LuaEntity> for OpenedTarget {
+            fn from(value: crate::classes::LuaEntity) -> Self {
+                Self::Entity(value)
+            }
+        }
+
+        impl From<crate::classes::LuaItemStack> for OpenedTarget {
+            fn from(value: crate::classes::LuaItemStack) -> Self {
+                Self::ItemStack(value)
+            }
+        }
+
+        impl From<crate::classes::LuaEquipment> for OpenedTarget {
+            fn from(value: crate::classes::LuaEquipment) -> Self {
+                Self::Equipment(value)
+            }
+        }
+
+        impl From<crate::classes::LuaEquipmentGrid> for OpenedTarget {
+            fn from(value: crate::classes::LuaEquipmentGrid) -> Self {
+                Self::EquipmentGrid(value)
+            }
+        }
+
+        impl From<crate::classes::LuaPlayer> for OpenedTarget {
+            fn from(value: crate::classes::LuaPlayer) -> Self {
+                Self::Player(value)
+            }
+        }
+
+        impl From<crate::classes::LuaGuiElement> for OpenedTarget {
+            fn from(value: crate::classes::LuaGuiElement) -> Self {
+                Self::GuiElement(value)
+            }
+        }
+
+        impl From<crate::classes::LuaInventory> for OpenedTarget {
+            fn from(value: crate::classes::LuaInventory) -> Self {
+                Self::Inventory(value)
+            }
+        }
+
+        impl From<crate::classes::LuaLogisticNetwork> for OpenedTarget {
+            fn from(value: crate::classes::LuaLogisticNetwork) -> Self {
+                Self::LogisticNetwork(value)
+            }
+        }
+
+        impl From<&'static str> for OpenedTarget {
+            fn from(value: &'static str) -> Self {
+                Self::GuiType(value)
+            }
+        }
+
+        impl From<OpenedTarget> for crate::LuaAny {
+            fn from(_: OpenedTarget) -> Self {
                 crate::LuaAny
             }
         }

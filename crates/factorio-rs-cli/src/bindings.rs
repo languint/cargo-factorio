@@ -20,6 +20,9 @@ struct FactorioPackageMetadata {
     interface: Option<String>,
     #[serde(default)]
     remote_fns: Vec<String>,
+    /// Shared `#[factorio_rs::inline]` symbols (require hot path; never remote).
+    #[serde(default)]
+    inline_fns: Vec<String>,
 }
 
 fn default_module_root() -> String {
@@ -129,6 +132,7 @@ pub fn discover_bindings(project_root: &Path) -> CliResult<BindingRegistry> {
 
         let crate_name = rust_crate_name(package);
         let remote_fns: BTreeSet<String> = factorio.remote_fns.into_iter().collect();
+        let inline_fns: BTreeSet<String> = factorio.inline_fns.into_iter().collect();
         bindings.insert(
             crate_name.clone(),
             FactorioBinding {
@@ -138,6 +142,7 @@ pub fn discover_bindings(project_root: &Path) -> CliResult<BindingRegistry> {
                 module_root: factorio.module_root,
                 interface: factorio.interface,
                 remote_fns,
+                inline_fns,
             },
         );
     }

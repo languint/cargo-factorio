@@ -61,6 +61,7 @@ fn generates_while_continue_and_break() {
                 event: None,
                 event_filter: None,
                 export: None,
+                inline: false,
             }),
         }],
     };

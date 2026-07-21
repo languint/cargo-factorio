@@ -809,3 +809,23 @@ pub fn f() {
         ]
     );
 }
+
+#[test]
+fn lowers_gui_element_child_index() {
+    let source = r#"
+pub fn f(frame: LuaGuiElement) {
+    let _child = frame["title"];
+}
+"#;
+    let module = must_ok_parse(parse_module(source, "control"));
+    let Statement::FunctionDecl(function) = &module.symbols[0].statement else {
+        panic!("expected function");
+    };
+    let Statement::VariableDecl { value, .. } = &function.body.statements[0] else {
+        panic!("expected let");
+    };
+    assert!(
+        matches!(value, Expression::Index { .. }),
+        "expected Index, got {value:?}"
+    );
+}

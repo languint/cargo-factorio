@@ -32,7 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Choose-elem **`elem_filters`** as `Vec<PrototypeFilterEntry>` with
   `*PrototypeFilter` builders (same table lowering as event filters).
 - Controller state setters (`walking_state`, `mining_state`, `shooting_state`,
-  `repair_state`) take the same inline structs as the getters.
+  `repair_state`) take the same inline structs as the getters (including on
+  `LuaPlayer` / `LuaEntity`).
+- **`OpenedTarget`** for `opened` / `set_opened` (`Option`; `None` closes).
+- **`LuaGuiElement`**: `Index<&str>` for children by name (`frame["child"]`).
+- **`#[factorio_rs::inline]`**: shared-stage hot helpers; dependents bind via
+  `require` (never `remote.call`). Implies export.
 
 ### Changed
 

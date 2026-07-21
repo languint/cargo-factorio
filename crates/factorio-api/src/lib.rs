@@ -459,6 +459,20 @@ impl LuaAny {
 
 include!(concat!(env!("OUT_DIR"), "/mod.rs"));
 
+/// Stub for [`std::ops::Index`] on [`classes::LuaGuiElement`] (children by name).
+const LUA_GUI_ELEMENT: classes::LuaGuiElement = classes::LuaGuiElement;
+
+impl std::ops::Index<&str> for classes::LuaGuiElement {
+    type Output = classes::LuaGuiElement;
+
+    /// Index children by name (`frame["child"]`). Missing children are Factorio
+    /// `nil` at runtime; rustc still sees a stub handle (same honesty as
+    /// [`LuaStorage`] indexing).
+    fn index(&self, _name: &str) -> &classes::LuaGuiElement {
+        &LUA_GUI_ELEMENT
+    }
+}
+
 pub mod lua_libs;
 pub mod prototypes;
 pub mod settings;

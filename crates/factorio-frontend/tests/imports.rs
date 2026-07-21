@@ -164,6 +164,7 @@ pub fn on_init() {
             module_root: "lua".to_string(),
             interface: None,
             remote_fns: BTreeSet::new(),
+            inline_fns: BTreeSet::default(),
         },
     );
 
@@ -202,6 +203,7 @@ pub fn on_init() {
             module_root: "lua".to_string(),
             interface: None,
             remote_fns: BTreeSet::new(),
+            inline_fns: BTreeSet::default(),
         },
     );
 
@@ -239,6 +241,7 @@ pub fn on_init() {
             module_root: "lua".to_string(),
             interface: Some("provider".to_string()),
             remote_fns: BTreeSet::from(["greet".to_string()]),
+            inline_fns: BTreeSet::default(),
         },
     );
 
@@ -277,6 +280,7 @@ pub fn on_init() {
             module_root: "lua".to_string(),
             interface: Some("provider".to_string()),
             remote_fns: BTreeSet::from(["greet".to_string()]),
+            inline_fns: BTreeSet::default(),
         },
     );
 
@@ -317,6 +321,7 @@ pub fn on_init() {
             module_root: "lua".to_string(),
             interface: Some("provider".to_string()),
             remote_fns: BTreeSet::from(["greet".to_string()]),
+            inline_fns: BTreeSet::default(),
         },
     );
 

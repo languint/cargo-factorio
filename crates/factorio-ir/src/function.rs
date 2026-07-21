@@ -28,4 +28,7 @@ pub struct Function {
     pub event_filter: Option<crate::expression::Expression>,
     /// Present when marked with `#[factorio_rs::export]`.
     pub export: Option<ExportMeta>,
+    /// `#[factorio_rs::inline]`: shared-stage hot path; dependents bind via `require`
+    /// (never `remote.call`). Implies [`Self::export`].
+    pub inline: bool,
 }

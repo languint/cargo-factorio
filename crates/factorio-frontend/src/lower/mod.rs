@@ -416,6 +416,12 @@ fn lower_top_level_fn(
         &function.vis,
         module_state.default_export.as_ref(),
     );
+    if lowered.inline && module_state.stage != factorio_ir::stage::Stage::Shared {
+        return Err(FrontendError::InlineOutsideShared {
+            module: module_state.module_name.to_string(),
+            function: lowered.name.clone(),
+        });
+    }
     let statement = factorio_ir::statement::Statement::FunctionDecl(lowered);
     if let factorio_ir::statement::Statement::FunctionDecl(ref func) = statement
         && func.event.is_some()

@@ -17,6 +17,8 @@ pub struct FactorioBinding {
     pub interface: Option<String>,
     /// Crate-root function names that lower to `remote.call` (not require).
     pub remote_fns: BTreeSet<String>,
+    /// Shared `#[factorio_rs::inline]` names (require only; never remote).
+    pub inline_fns: BTreeSet<String>,
 }
 
 /// Registry keyed by Rust crate name (`provider_api`).

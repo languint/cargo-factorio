@@ -33,6 +33,7 @@ fn generates_module_with_private_helper_and_exported_handler() {
                 event: None,
                 event_filter: None,
                 export: None,
+                inline: false,
             })],
         },
         imports: vec![],
@@ -62,6 +63,7 @@ fn generates_module_with_private_helper_and_exported_handler() {
                 event: None,
                 event_filter: None,
                 export: None,
+                inline: false,
             }),
         }],
     };
@@ -106,6 +108,7 @@ fn omits_unreachable_private_helper_when_pruned() {
                 event: None,
                 event_filter: None,
                 export: None,
+                inline: false,
             })],
         },
         imports: vec![],
@@ -135,6 +138,7 @@ fn omits_unreachable_private_helper_when_pruned() {
                 event: Some("on_init".to_string()),
                 event_filter: None,
                 export: None,
+                inline: false,
             }),
         }],
     };
@@ -180,6 +184,7 @@ fn qualifies_exported_function_identifiers_used_as_values() {
                     event: None,
                     event_filter: None,
                     export: None,
+                    inline: false,
                 }),
             },
             Symbol {
@@ -202,6 +207,7 @@ fn qualifies_exported_function_identifiers_used_as_values() {
                     event: Some("on_init".to_string()),
                     event_filter: None,
                     export: None,
+                    inline: false,
                 }),
             },
         ],

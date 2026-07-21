@@ -36,6 +36,8 @@ pub struct SharedExport {
     pub module: String,
     pub function: String,
     pub params: Vec<(String, Option<String>)>,
+    /// `#[factorio_rs::inline]` — hot path; dependents use `require`, never remote.
+    pub inline: bool,
 }
 
 /// A public shared-stage const included in the export catalog.
@@ -86,6 +88,9 @@ pub fn collect_remote_exports(module: &Module, default_interface: &str) -> Vec<R
                 return None;
             }
             let export = function.export.as_ref()?;
+            if function.inline {
+                return None;
+            }
             Some(RemoteExport {
                 module: module.name.clone(),
                 function: function.name.clone(),
@@ -125,6 +130,7 @@ pub fn collect_shared_exports(module: &Module) -> Vec<SharedExport> {
                     .iter()
                     .map(|param| (param.name.clone(), param.source_type.clone()))
                     .collect(),
+                inline: function.inline,
             })
         })
         .collect()
@@ -559,6 +565,7 @@ mod tests {
                     event: Some(event.to_string()),
                     event_filter: None,
                     export: None,
+                    inline: false,
                 }),
             }],
         }
@@ -628,6 +635,7 @@ mod tests {
                         }],
                     }),
                     export: None,
+                    inline: false,
                 }),
             }],
         };

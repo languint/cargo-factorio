@@ -48,6 +48,11 @@ pub enum FrontendError {
     #[error("event handlers are only allowed in control-stage modules, found in `{module}`")]
     EventOutsideControlStage { module: String },
 
+    #[error(
+        "`#[factorio_rs::inline]` is only allowed in shared-stage modules (found `{function}` in `{module}`); move hot helpers to `shared` so dependents call them via require, not remote"
+    )]
+    InlineOutsideShared { module: String, function: String },
+
     #[error("invalid event filter at {location}")]
     InvalidEventFilter { location: SourceLoc },
 
@@ -98,6 +103,7 @@ impl FrontendError {
             Self::Syn(_)
             | Self::InvalidModuleStage { .. }
             | Self::EventOutsideControlStage { .. }
+            | Self::InlineOutsideShared { .. }
             | Self::LocaleKeyUnresolved { .. }
             | Self::InvalidLocale { .. }
             | Self::ItemIconNeedsModName { .. } => None,
@@ -135,6 +141,11 @@ impl FrontendError {
             Self::EventOutsideControlStage { module } => {
                 format!(
                     "event handlers are only allowed in control-stage modules, found in `{module}`"
+                )
+            }
+            Self::InlineOutsideShared { module, function } => {
+                format!(
+                    "`#[factorio_rs::inline]` on `{function}` is only allowed in shared-stage modules (found in `{module}`)"
                 )
             }
             Self::InvalidEventFilter { .. } => "invalid event filter".to_string(),

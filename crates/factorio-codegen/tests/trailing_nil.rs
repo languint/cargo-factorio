@@ -49,6 +49,7 @@ fn omit_trailing_nil_args_from_calls() {
                 event: None,
                 event_filter: None,
                 export: None,
+                inline: false,
             }),
         }],
     };

@@ -42,6 +42,7 @@ fn generates_require_statements() {
                 event: None,
                 event_filter: None,
                 export: None,
+                inline: false,
             }),
         }],
     };

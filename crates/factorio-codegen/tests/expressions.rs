@@ -64,6 +64,7 @@ fn generates_binary_ops_and_conditionals() {
                 event: None,
                 event_filter: None,
                 export: None,
+                inline: false,
             }),
         }],
     };

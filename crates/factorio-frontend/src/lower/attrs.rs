@@ -97,6 +97,11 @@ pub fn parse_factorio_export_attribute(
     }
 }
 
+/// Parses `#[factorio_rs::inline]` (shared-stage require hot path; implies export).
+pub fn parse_factorio_inline_attribute(attr: &Attribute) -> bool {
+    is_factorio_path_segment(attr.path(), "inline")
+}
+
 struct ExportAttributeArgs {
     /// `None` for bare `#[export]` / `#[export(interface)]` (default at emit).
     /// `Some(name)` for `#[export(interface = "name")]`.

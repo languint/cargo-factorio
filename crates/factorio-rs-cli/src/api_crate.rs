@@ -47,6 +47,9 @@ pub struct ManifestSharedFn {
     pub module: String,
     pub function: String,
     pub params: Vec<ManifestParam>,
+    /// `#[factorio_rs::inline]` shared hot path (require, not remote).
+    #[serde(default)]
+    pub inline: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -407,6 +410,19 @@ fn write_cargo_factorio_metadata(project_root: &Path, manifest: &ExportsManifest
         factorio.insert("remote_fns", Item::Value(Value::Array(remote_fns)));
     }
 
+    let mut inline_fns = Array::new();
+    let mut inline_seen = BTreeSet::new();
+    for shared in &manifest.shared_fns {
+        if shared.inline && inline_seen.insert(shared.function.as_str()) {
+            inline_fns.push(shared.function.as_str());
+        }
+    }
+    if inline_fns.is_empty() {
+        factorio.remove("inline_fns");
+    } else {
+        factorio.insert("inline_fns", Item::Value(Value::Array(inline_fns)));
+    }
+
     let rendered = doc.to_string();
     write_if_changed(&path, &rendered)?;
     Ok(())
@@ -481,6 +497,7 @@ fn build_manifest(
                         ty: ty.clone(),
                     })
                     .collect(),
+                inline: export.inline,
             })
             .collect(),
         shared_consts: shared_consts

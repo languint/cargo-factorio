@@ -273,6 +273,7 @@ impl LowerContext<'_> {
             && let Some(binding) = self.bindings.get(&segments[0])
             && let Some(interface) = binding.interface.as_ref()
             && binding.remote_fns.contains(&segments[1])
+            && !binding.inline_fns.contains(&segments[1])
         {
             return Some((interface.clone(), segments[1].clone()));
         }

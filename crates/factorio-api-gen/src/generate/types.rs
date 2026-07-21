@@ -133,6 +133,9 @@ pub fn return_stub_for_type(api_type: &ApiType, known: &KnownTypes<'_>) -> Retur
                         } else {
                             ReturnStub::Default
                         }
+                    } else if is_opened_target_union(&non_nil) {
+                        // Attribute is optional; stubs always use Option.
+                        ReturnStub::Option(Box::new(ReturnStub::Default))
                     } else if let Some(enum_name) = known.union_registry.resolve(api_type) {
                         let _ = enum_name;
                         if has_nil {
@@ -479,6 +482,11 @@ fn map_union_type(
         return if has_nil { quote!(Option<#ty>) } else { ty };
     }
 
+    // `LuaControl.opened`: class / defines.gui_type union (attribute is optional).
+    if is_opened_target_union(&non_nil) {
+        return quote!(Option<crate::concepts::OpenedTarget>);
+    }
+
     match non_nil.len() {
         0 => quote!(()),
         1 => {
@@ -586,6 +594,31 @@ fn is_elem_value_union(arms: &[&ApiType]) -> bool {
     }
     names.sort_unstable();
     names == ["PrototypeWithQuality", "SignalID", "string"]
+}
+
+/// `LuaControl.opened` write/read union (classes + `defines.gui_type`).
+fn is_opened_target_union(arms: &[&ApiType]) -> bool {
+    let mut names: Vec<String> = arms
+        .iter()
+        .filter_map(|arm| {
+            let arm = unwrap_type_ref(arm);
+            arm.as_simple_name().map(str::to_string)
+        })
+        .collect();
+    names.sort_unstable();
+    names.dedup();
+    names
+        == [
+            "LuaEntity".to_string(),
+            "LuaEquipment".to_string(),
+            "LuaEquipmentGrid".to_string(),
+            "LuaGuiElement".to_string(),
+            "LuaInventory".to_string(),
+            "LuaItemStack".to_string(),
+            "LuaLogisticNetwork".to_string(),
+            "LuaPlayer".to_string(),
+            "defines.gui_type".to_string(),
+        ]
 }
 
 /// If arms are exactly `T` and `array<T>` (either order), return `T`.

@@ -244,6 +244,17 @@ pub fn export(args: TokenStream, input: TokenStream) -> TokenStream {
     input
 }
 
+/// Marks a **shared-stage** function as a hot-path library API.
+///
+/// Dependents call it via Lua `require` (same as a shared `#[factorio_rs::export]`),
+/// never `remote.call`. Implies export for Cargo / Factorio packaging.
+///
+/// Invalid outside `shared` — move pure helpers there for near-native calls.
+#[proc_macro_attribute]
+pub fn inline(_args: TokenStream, input: TokenStream) -> TokenStream {
+    input
+}
+
 /// Parsed `#[export(...)]` interface argument (validation-only today).
 #[allow(dead_code)]
 enum ExportInterfaceArg {

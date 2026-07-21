@@ -33,6 +33,7 @@ fn rejects_exported_local_functions() {
                 event: None,
                 event_filter: None,
                 export: None,
+                inline: false,
             }),
         }],
     };

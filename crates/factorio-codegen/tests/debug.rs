@@ -56,6 +56,7 @@ fn debug_level_one_adds_type_comments_to_functions() {
                 event: None,
                 event_filter: None,
                 export: None,
+                inline: false,
             }),
         }],
     };
@@ -102,6 +103,7 @@ fn debug_level_zero_adds_header_without_inline_types() {
                 event: None,
                 event_filter: None,
                 export: None,
+                inline: false,
             }),
         }],
     };

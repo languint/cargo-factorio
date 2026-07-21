@@ -81,7 +81,7 @@ pub fn generate_debug_types(api: &RuntimeApi, known: &KnownTypes<'_>) -> String 
             is_identification_type(name)
                 || matches!(
                     name,
-                    "MapGenSize" | "RenderLayer" | "IndexOrName" | "ElemValue"
+                    "MapGenSize" | "RenderLayer" | "IndexOrName" | "ElemValue" | "OpenedTarget"
                 )
         }
 

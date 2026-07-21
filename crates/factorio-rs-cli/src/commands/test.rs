@@ -1222,6 +1222,7 @@ mod tests {
                 event: None,
                 event_filter: None,
                 export: None,
+                inline: false,
             },
         }];
         let lua = generate_harness_lua("hello_world", &tests, false);

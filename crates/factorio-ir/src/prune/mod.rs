@@ -68,6 +68,7 @@ mod tests {
                     event: None,
                     event_filter: None,
                     export: None,
+                    inline: false,
                 })],
             },
             imports: vec![],
@@ -86,6 +87,7 @@ mod tests {
                     event: Some("on_init".to_string()),
                     event_filter: None,
                     export: None,
+                    inline: false,
                 }),
             }],
         }];
@@ -120,6 +122,7 @@ mod tests {
                     event: None,
                     event_filter: None,
                     export: None,
+                    inline: false,
                 })],
             },
             imports: vec![],
@@ -149,6 +152,7 @@ mod tests {
                     event: Some("on_init".to_string()),
                     event_filter: None,
                     export: None,
+                    inline: false,
                 }),
             }],
         }];
@@ -188,6 +192,7 @@ mod tests {
                         event: None,
                         event_filter: None,
                         export: None,
+                        inline: false,
                     }),
                 },
                 Symbol {
@@ -201,6 +206,7 @@ mod tests {
                         event: Some("on_init".to_string()),
                         event_filter: None,
                         export: None,
+                        inline: false,
                     }),
                 },
             ],

@@ -48,6 +48,7 @@ fn generates_vtable_and_fat_pointer() {
                     event: None,
                     event_filter: None,
                     export: None,
+                    inline: false,
                 }],
                 doc: None,
                 debug: None,
@@ -96,6 +97,7 @@ fn generates_vtable_and_fat_pointer() {
                 event: None,
                 event_filter: None,
                 export: None,
+                inline: false,
             }),
         }],
     };
