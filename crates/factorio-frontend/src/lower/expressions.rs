@@ -1665,6 +1665,9 @@ fn enum_variant_from_segments(
 ) -> Option<(String, String, super::context::EnumVariantFields)> {
     let variant = segments.last()?.clone();
     let enum_name = segments.get(segments.len().checked_sub(2)?)?.clone();
+    // Only catalogued enums become `EnumLiteral`. Cross-module unit paths such as
+    // `Phase::Idle` stay `QualifiedPath` (e.g. `Phase.Idle`) so associated items
+    // like `MyPlayer::DEFAULT_HEALTH` are not misread as variants.
     ctx.enum_variant(&enum_name, &variant)
         .map(|fields| (enum_name, variant, fields))
 }
