@@ -405,6 +405,26 @@ pub fn on_singleplayer_init() {
     assert!(map.contains_key("locale/en/settings.cfg"));
 }
 
+const FULL_MOD_PROTOTYPES: &str = r#"
+item! {
+widget {
+name = "playground-widget",
+icon = "graphics/icon.png",
+stack_size = 50,
+icon_size = 64,
+}
+}
+
+locale! {
+file = "item-names",
+en {
+"item-name" {
+Items::WIDGET = "Playground Widget",
+}
+}
+}
+"#;
+
 #[test]
 fn full_mod() {
     let map = ok(
@@ -421,28 +441,7 @@ mod_settings! {
 }
 "#,
             ),
-            (
-                "data/prototypes.rs",
-                r#"
-item! {
-    widget {
-        name = "playground-widget",
-        icon = "graphics/icon.png",
-        stack_size = 50,
-        icon_size = 64,
-    }
-}
-
-locale! {
-    file = "item-names",
-    en {
-        "item-name" {
-            Items::WIDGET = "Playground Widget",
-        }
-    }
-}
-"#,
-            ),
+            ("data/prototypes.rs", FULL_MOD_PROTOTYPES),
             (
                 "shared/phase.rs",
                 r"
