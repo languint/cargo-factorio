@@ -30,10 +30,6 @@ This project is in development. Expect breaking changes between releases.
 
 ## Documentation roots
 
-Each root has its own sidebar. Add new ecosystem crates under
-`docs/src/content/docs/ecosystem/<crate>/` and register them in
-`docs/src/projects.ts`.
-
 <CardGrid>
   {PROJECTS.map((project) => (
     <Card title={project.title} icon={project.kind === "tool" ? "puzzle" : project.kind === "ecosystem" ? "seti:react" : "open-book"}>
