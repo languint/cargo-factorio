@@ -585,13 +585,13 @@ fn is_lua_fn_helper(func: &Expr) -> bool {
     })
 }
 
+#[allow(clippy::too_many_lines)]
 fn lower_method_call(
     call: &syn::ExprMethodCall,
     ctx: &mut LowerContext<'_>,
     self_type: Option<&str>,
 ) -> FrontendResult<factorio_ir::expression::Expression> {
     const TRANSPARENT_METHODS: &[&str] = &[
-        "into",
         "clone",
         "as_str",
         "as_ref",
@@ -615,6 +615,27 @@ fn lower_method_call(
 
     if let Some(expr) = lower_result_option_methods(call, &method, ctx, self_type)? {
         return Ok(expr);
+    }
+
+    // `into`: real conversion when From/Into applies; otherwise transparent.
+    if method == "into" && call.args.is_empty() {
+        if super::convert::into_should_call_method(&call.receiver, ctx) {
+            let receiver = lower_expression(&call.receiver, ctx, self_type)?;
+            if let Some(owner) = user_method_owner(&call.receiver, ctx, self_type) {
+                return Ok(factorio_ir::expression::Expression::Call {
+                    func: Box::new(factorio_ir::expression::Expression::QualifiedPath {
+                        segments: vec![owner, "into".to_string()],
+                    }),
+                    args: vec![receiver],
+                });
+            }
+            return Ok(factorio_ir::expression::Expression::MethodCall {
+                receiver: Box::new(receiver),
+                method: "into".to_string(),
+                args: Vec::new(),
+            });
+        }
+        return lower_expression(&call.receiver, ctx, self_type);
     }
 
     if TRANSPARENT_METHODS.contains(&method.as_str()) && call.args.is_empty() {

@@ -2,8 +2,6 @@
 
 use factorio_rs::factorio_api::classes::LuaGuiElement;
 
-// `crate::` paths (not `super::`) so cross-module `impl` methods attach to the
-// imported Lua tables — `use super::…` is not lowered to a require.
 use crate::shared::button::Button;
 use crate::shared::frame::Frame;
 use crate::shared::text::Text;
@@ -16,24 +14,6 @@ pub enum Widget {
 }
 
 impl Widget {
-    /// Wrap a [`Frame`].
-    #[must_use]
-    pub fn from_frame(frame: Frame) -> Self {
-        Self::Frame(frame)
-    }
-
-    /// Wrap a [`Text`] label.
-    #[must_use]
-    pub fn from_text(text: Text) -> Self {
-        Self::Text(text)
-    }
-
-    /// Wrap a [`Button`].
-    #[must_use]
-    pub fn from_button(button: Button) -> Self {
-        Self::Button(button)
-    }
-
     /// Create Factorio GUI elements under `parent`.
     pub fn mount(self, parent: LuaGuiElement) {
         match self {
@@ -46,28 +26,31 @@ impl Widget {
             }
         }
     }
-}
 
-impl Frame {
-    /// Convenience: append this frame as a [`Widget`].
+    /// Apply `root_name` to a root [`Frame`] when the builder left `name` unset.
     #[must_use]
-    pub fn as_widget(self) -> Widget {
-        Widget::from_frame(self)
+    pub fn with_root_name(self, root_name: &str) -> Self {
+        match self {
+            Self::Frame(frame) => Self::Frame(frame.ensure_name(root_name)),
+            other => other,
+        }
     }
 }
 
-impl Text {
-    /// Convenience: append this label as a [`Widget`].
-    #[must_use]
-    pub fn as_widget(self) -> Widget {
-        Widget::from_text(self)
+impl From<Frame> for Widget {
+    fn from(value: Frame) -> Self {
+        Self::Frame(value)
     }
 }
 
-impl Button {
-    /// Convenience: append this button as a [`Widget`].
-    #[must_use]
-    pub fn as_widget(self) -> Widget {
-        Widget::from_button(self)
+impl From<Text> for Widget {
+    fn from(value: Text) -> Self {
+        Self::Text(value)
+    }
+}
+
+impl From<Button> for Widget {
+    fn from(value: Button) -> Self {
+        Self::Button(value)
     }
 }

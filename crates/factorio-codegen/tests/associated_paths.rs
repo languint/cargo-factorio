@@ -237,7 +237,7 @@ fn qualifies_same_module_type_paths_outside_own_method() {
                     fields: vec![],
                     constants: vec![],
                     methods: vec![Function {
-                        name: "as_widget".to_string(),
+                        name: "into".to_string(),
                         params: vec![factorio_ir::function::Parameter {
                             name: "self".to_string(),
                             r#type: Type::Int,

@@ -47,11 +47,9 @@ impl Button {
             Some(name) => name,
             None => {
                 if self.on_click.is_some() {
-                    // Fully-qualified call: `use …::next_element_name` is treated as a
-                    // module path (all-lowercase), not a function import.
                     crate::shared::runtime::next_element_name("frg_btn")
                 } else {
-                    "".into()
+                    String::new()
                 }
             }
         };

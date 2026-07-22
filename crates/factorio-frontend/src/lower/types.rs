@@ -259,7 +259,7 @@ fn lower_type_resolved(ty: &Type) -> FrontendResult<factorio_ir::r#type::Type> {
     match ty {
         Type::Path(path) => lower_path_type(path),
         Type::Tuple(tuple) if tuple.elems.is_empty() => Ok(factorio_ir::r#type::Type::Void),
-        Type::TraitObject(_) => Ok(factorio_ir::r#type::Type::Void),
+        Type::TraitObject(_) | Type::ImplTrait(_) => Ok(factorio_ir::r#type::Type::Void),
         Type::Reference(reference) if is_self_type(&reference.elem) => {
             Ok(factorio_ir::r#type::Type::Void)
         }
@@ -479,10 +479,48 @@ fn type_source_string_resolved(ty: &Type) -> String {
                 .join(" + ");
             format!("dyn {bounds}")
         }
+        Type::ImplTrait(impl_trait) => {
+            let bounds = impl_trait
+                .bounds
+                .iter()
+                .filter_map(|bound| match bound {
+                    TypeParamBound::Trait(trait_bound) => Some(path_to_string(&trait_bound.path)),
+                    TypeParamBound::Lifetime(_) => Some("'_".to_string()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join(" + ");
+            format!("impl {bounds}")
+        }
         Type::Paren(paren) => type_source_string_resolved(&paren.elem),
         Type::Group(group) => type_source_string_resolved(&group.elem),
         _ => "unsupported".to_string(),
     }
+}
+
+fn path_to_string(path: &syn::Path) -> String {
+    path.segments
+        .iter()
+        .map(|segment| {
+            let mut name = segment.ident.to_string();
+            if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
+                let inner = args
+                    .args
+                    .iter()
+                    .filter_map(|arg| match arg {
+                        syn::GenericArgument::Type(ty) => Some(type_source_string_resolved(ty)),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                if !inner.is_empty() {
+                    name = format!("{name}<{inner}>");
+                }
+            }
+            name
+        })
+        .collect::<Vec<_>>()
+        .join("::")
 }
 
 pub fn receiver_source_string(receiver: &syn::Receiver) -> String {

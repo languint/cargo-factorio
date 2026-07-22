@@ -1,6 +1,8 @@
-//! Hot-reload generation marker and control.lua probe for `game.reload_mods()`.
+//! Hot-reload generation marker and control.lua probe for live script reload.
 
+use std::net::UdpSocket;
 use std::path::Path;
+use std::time::Duration;
 
 use crate::error::{CliError, CliResult};
 use crate::status::{self, Status};
@@ -8,6 +10,10 @@ use crate::write_if_changed::write_if_changed;
 
 const PROBE_MARKER: &str = "-- factorio-rs hot-reload probe";
 const GEN_LUA: &str = "factorio_rs_reload_gen.lua";
+/// Default localhost UDP port for CLI -> Factorio reload pings.
+pub const DEFAULT_RELOAD_UDP_PORT: u16 = 34_201;
+/// Payload prefix the in-game probe accepts.
+pub const RELOAD_UDP_PAYLOAD: &str = "factorio-rs-reload";
 const STAGE_FILES: &[&str] = &[
     "data.lua",
     "data-updates.lua",
@@ -17,15 +23,38 @@ const STAGE_FILES: &[&str] = &[
     "settings-final-fixes.lua",
 ];
 
-/// How the in-Lua probe should call `game.reload_mods()`.
+/// How the in-Lua probe should trigger a live reload.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReloadProbeMode {
-    /// Single `game.reload_mods()` when the generation changes (test listen/rerun).
+    /// Single reload when a UDP ping arrives (test listen/rerun).
     Once,
-    /// After the first reload, automatically call `game.reload_mods()` again on the
-    /// next probe tick. Factorio often needs that second pass for control-stage
-    /// changes to take effect when iterating in a live game.
     Twice,
+}
+
+/// UDP port Factorio must listen on (`--enable-lua-udp=<port>`).
+///
+/// Override with `FACTORIO_RS_UDP_PORT`.
+pub fn reload_udp_port() -> u16 {
+    std::env::var("FACTORIO_RS_UDP_PORT")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(DEFAULT_RELOAD_UDP_PORT)
+}
+
+/// CLI argument that enables Factorio's localhost UDP receiver for hot-reload.
+pub fn enable_lua_udp_arg(port: u16) -> String {
+    format!("--enable-lua-udp={port}")
+}
+
+/// Ask a running Factorio instance (with UDP enabled) to call `game.reload_mods()`.
+///
+/// Returns `Ok(true)` when a datagram was sent. A quiet network failure still
+/// returns `Ok(false)` so sync can continue with a note, Factorio may simply not be running yet.
+pub fn send_reload_ping(port: u16) -> std::io::Result<bool> {
+    let socket = UdpSocket::bind("127.0.0.1:0")?;
+    socket.set_write_timeout(Some(Duration::from_millis(500)))?;
+    let sent = socket.send_to(RELOAD_UDP_PAYLOAD.as_bytes(), ("127.0.0.1", port))?;
+    Ok(sent > 0)
 }
 
 /// Result of [`inject_hot_reload`].
@@ -121,7 +150,7 @@ pub fn inject_hot_reload_with(
     Ok(HotReloadInject { generation, bumped })
 }
 
-/// Write `lua/factorio_rs_reload_gen.lua` so the in-game probe can observe `generation`.
+/// Write `lua/factorio_rs_reload_gen.lua` (build marker; reload is triggered via UDP).
 ///
 /// Call this **after** deploy when using deferred publish, so the generation bump is
 /// not visible while `dist/` is mid-rebuild or the mods entry is being replaced.
@@ -163,7 +192,7 @@ pub fn note_stage_restart_if_needed(project_root: &Path, output_dir: &Path) -> C
     Ok(())
 }
 
-fn ensure_probe(output_dir: &Path, mod_name: &str, mode: ReloadProbeMode) -> CliResult<()> {
+fn ensure_probe(output_dir: &Path, _mod_name: &str, mode: ReloadProbeMode) -> CliResult<()> {
     let control_path = output_dir.join("control.lua");
     let mut control =
         std::fs::read_to_string(&control_path).map_err(|source| CliError::ReadFile {
@@ -178,7 +207,7 @@ fn ensure_probe(output_dir: &Path, mod_name: &str, mode: ReloadProbeMode) -> Cli
         control.push('\n');
     }
     control.push('\n');
-    control.push_str(&generate_probe_lua(mod_name, mode));
+    control.push_str(&generate_probe_lua(mode));
     write_if_changed(&control_path, &control)?;
     Ok(())
 }
@@ -205,6 +234,7 @@ fn source_fingerprint(project_root: &Path) -> CliResult<String> {
     if source_dir.is_dir() {
         collect_rust_sources(&source_dir, &mut paths)?;
     }
+    collect_path_dep_sources(project_root, &mut paths)?;
 
     paths.sort();
     for path in &paths {
@@ -217,6 +247,43 @@ fn source_fingerprint(project_root: &Path) -> CliResult<String> {
         hasher.write(&bytes);
     }
     Ok(format!("{:016x}", hasher.finish()))
+}
+
+/// Include `path = "..."` Cargo dependencies so library edits bump reload gen.
+fn collect_path_dep_sources(
+    project_root: &Path,
+    out: &mut Vec<std::path::PathBuf>,
+) -> CliResult<()> {
+    let manifest = project_root.join("Cargo.toml");
+    if !manifest.is_file() {
+        return Ok(());
+    }
+    let contents = std::fs::read_to_string(&manifest).map_err(|source| CliError::ReadFile {
+        path: manifest.clone(),
+        source,
+    })?;
+    let value: toml::Value =
+        toml::from_str(&contents).map_err(|source| CliError::CargoManifestParse {
+            path: manifest.clone(),
+            source,
+        })?;
+    let Some(deps) = value.get("dependencies").and_then(toml::Value::as_table) else {
+        return Ok(());
+    };
+    for dep in deps.values() {
+        let Some(path) = dep.get("path").and_then(toml::Value::as_str) else {
+            continue;
+        };
+        let dep_root = project_root.join(path);
+        if !dep_root.join("Factorio.toml").is_file() {
+            continue;
+        }
+        let src = dep_root.join("src");
+        if src.is_dir() {
+            collect_rust_sources(&src, out)?;
+        }
+    }
+    Ok(())
 }
 
 fn collect_rust_sources(dir: &Path, out: &mut Vec<std::path::PathBuf>) -> CliResult<()> {
@@ -270,13 +337,14 @@ fn stage_fingerprint(output_dir: &Path) -> CliResult<String> {
     }
 }
 
-fn generate_probe_lua(mod_name: &str, mode: ReloadProbeMode) -> String {
+fn generate_probe_lua(mode: ReloadProbeMode) -> String {
+    let payload = RELOAD_UDP_PAYLOAD;
     let second_reload = match mode {
         ReloadProbeMode::Once => String::new(),
         ReloadProbeMode::Twice => r"
     if storage.__frs_reload_again then
       storage.__frs_reload_again = nil
-      game.reload_mods()
+      __frs_do_reload()
       return
     end
 "
@@ -284,38 +352,44 @@ fn generate_probe_lua(mod_name: &str, mode: ReloadProbeMode) -> String {
     };
     let arm_second = match mode {
         ReloadProbeMode::Once => String::new(),
-        ReloadProbeMode::Twice => "      storage.__frs_reload_again = true\n".to_string(),
+        ReloadProbeMode::Twice => "    storage.__frs_reload_again = true\n".to_string(),
     };
 
     format!(
         r#"{PROBE_MARKER}
 do
-  local gen_path = "__{mod_name}__/lua/factorio_rs_reload_gen"
-  script.on_nth_tick(15, function()
-    if not game or not game.reload_mods then
+  -- CLI pings localhost UDP (`--enable-lua-udp`); Factorio's mod VFS does not
+  -- re-read generation files from disk until reload_mods / reload_script.
+  local function __frs_do_reload()
+    if game.reload_mods then
+      game.reload_mods()
+    elseif game.reload_script then
+      game.reload_script()
+    end
+  end
+  local function __frs_on_reload_ping()
+    if not game then
       return
     end
-{second_reload}    local stale = {{ gen_path }}
-    for loaded_key in pairs(package.loaded) do
-      if type(loaded_key) == "string" and loaded_key:find("factorio_rs_reload_gen", 1, true) then
-        stale[#stale + 1] = loaded_key
-      end
-    end
-    for i = 1, #stale do
-      package.loaded[stale[i]] = nil
-    end
-    local ok, mod = pcall(require, gen_path)
-    if not ok or type(mod) ~= "table" or mod.gen == nil then
+    if not game.reload_mods and not game.reload_script then
       return
     end
-    local gen = mod.gen
-    if storage.__frs_reload_gen == nil then
-      storage.__frs_reload_gen = gen
+{arm_second}    __frs_do_reload()
+  end
+  script.on_event(defines.events.on_udp_packet_received, function(event)
+    local payload = event.payload
+    if type(payload) == "string" and payload:find("{payload}", 1, true) == 1 then
+      __frs_on_reload_ping()
+    end
+  end)
+  script.on_nth_tick(5, function()
+    if not game then
       return
     end
-    if storage.__frs_reload_gen ~= gen then
-      storage.__frs_reload_gen = gen
-{arm_second}      game.reload_mods()
+{second_reload}    if helpers and helpers.recv_udp then
+      pcall(function()
+        helpers.recv_udp()
+      end)
     end
   end)
 end
@@ -445,6 +519,13 @@ mod tests {
 
         let control = std::fs::read_to_string(out.join("control.lua")).unwrap();
         assert!(control.contains(PROBE_MARKER));
+        assert!(control.contains("on_udp_packet_received"));
+        assert!(control.contains(RELOAD_UDP_PAYLOAD));
         assert!(!control.contains("storage.__frs_reload_again"));
+    }
+
+    #[test]
+    fn enable_lua_udp_arg_uses_port() {
+        assert_eq!(enable_lua_udp_arg(34_201), "--enable-lua-udp=34201");
     }
 }

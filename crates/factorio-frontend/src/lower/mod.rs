@@ -13,6 +13,7 @@ mod assembling_machines;
 pub mod assert_macros;
 pub mod attrs;
 pub mod context;
+pub mod convert;
 pub mod event_filter;
 pub mod event_handler;
 pub mod expressions;
@@ -282,6 +283,9 @@ pub fn lower_items(
         user_structs: std::collections::HashSet::new(),
         dyn_locals: std::collections::HashMap::new(),
         dyn_fn_params: std::collections::HashMap::new(),
+        from_conversions: std::collections::HashMap::new(),
+        into_params: std::collections::HashSet::new(),
+        return_into: false,
         assoc_bindings: std::collections::HashMap::new(),
         vtables: Vec::new(),
         lints,
@@ -356,6 +360,9 @@ pub fn collect_user_structs(items: &[syn::Item], out: &mut std::collections::Has
         match item {
             syn::Item::Struct(s) => {
                 out.insert(s.ident.to_string());
+            }
+            syn::Item::Enum(e) => {
+                out.insert(e.ident.to_string());
             }
             syn::Item::Mod(m) if m.content.is_some() => {
                 if let Some((_, nested)) = &m.content {
@@ -663,6 +670,15 @@ fn lower_impl_item(
     enums: &mut BTreeMap<String, PendingEnum>,
     ctx: &mut LowerContext<'_>,
 ) -> FrontendResult<()> {
+    let trait_path = item_impl.trait_.as_ref().map(|(_, path, _)| path);
+    if let Some(trait_path) = trait_path
+        && convert::is_from_trait(trait_path)
+        && let Some(source) = convert::from_source_type(trait_path)
+    {
+        let target = impl_type_name(&item_impl.self_ty)?;
+        return convert::lower_from_impl(item_impl, &source, &target, structs, enums, ctx);
+    }
+
     let trait_name = if let Some((_, trait_path, _)) = &item_impl.trait_ {
         Some(trait_impl_name(trait_path, item_impl)?)
     } else {

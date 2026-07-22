@@ -14,7 +14,9 @@ use factorio_rs_gui::shared::frame::Frame;
 use factorio_rs_gui::shared::text::Text;
 use factorio_rs_gui::shared::widget::Widget;
 
-fn app() -> Widget {
+const ROOT: &str = "my_mod_counter";
+
+fn app() -> impl Into<Widget> {
     let count = factorio_rs_gui::state!(0);
     let label = format!("Count: {}", count.get());
     let increment = lua_fn(move |event: OnGuiClickEvent| {
@@ -24,21 +26,23 @@ fn app() -> Widget {
 
     Frame::new()
         .caption("Counter")
-        .align_horizontal(LuaStyleHorizontalAlign::Center)
-        .align_vertical(LuaStyleVerticalAlign::Center)
+        .centered()
         .direction(GuiDirection::Vertical)
-        .child(Text::new(&label).as_widget())
-        .child(Button::new("Increment").on_click(increment).as_widget())
-        .as_widget()
+        .child(Text::new(&label))
+        .child(Button::new("Increment").on_click(increment))
 }
 
-// factorio_rs_gui::shared::runtime::mount(player.gui().screen(), lua_fn0(app));
-
-// Also forward clicks from *your* OnGuiClick:
-// factorio_rs_gui::shared::runtime::dispatch_click(event);
+// factorio_rs_gui::shared::runtime::mount(screen, ROOT, lua_fn0(app));
+// factorio_rs_gui::shared::runtime::restore(ROOT, lua_fn0(app)); // after reload
+// factorio_rs_gui::shared::runtime::dispatch_click(event); // from OnGuiClick
 ```
 
-v1 rebuilds the whole tree when state changes (clear + re-run `app`).
+Each mount takes a **unique** `root_name` (applied to the root frame for you).
+`Frame::child` takes `impl Into<Widget>` via `From` impls on `Text` / `Button` /
+`Frame`. Hooks and handlers are namespaced per root so multiple windows can
+coexist.
+
+v1 rebuilds the whole tree when state changes (destroy root + re-run `app`).
 Handlers live in the consuming mod's `storage`, so you must call
 `dispatch_click` from your own `OnGuiClick` handler.
 

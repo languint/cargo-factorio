@@ -157,7 +157,7 @@ pub struct SyncArgs {
     #[arg(long)]
     pub symlink: bool,
 
-    /// Inject reload generation + control probe (`game.reload_mods()`).
+    /// Inject reload, ping Factorio over UDP.
     #[arg(long)]
     pub hot_reload: bool,
 

@@ -6,7 +6,7 @@ use factorio_rs::{
 };
 
 // `super::` keeps these Rust-only: `align` is type aliases with no Lua module,
-// and `crate::` would emit a missing `require("…/shared/align")`.
+// and `crate::` would emit a missing `require(".../shared/align")`.
 use super::align::{FrameDirection, HorizontalAlignment, VerticalAlignment};
 // `super::` also avoids a load cycle with `widget` -> `frame`.
 use super::widget::Widget;
@@ -18,7 +18,9 @@ pub struct Frame {
     direction: Option<FrameDirection>,
     align_horizontal: Option<HorizontalAlignment>,
     align_vertical: Option<VerticalAlignment>,
-    auto_center: bool,
+    /// Distinct from the [`Self::auto_center`] builder method so Lua field
+    /// lookup does not shadow the metatable method of the same name.
+    center_on_mount: bool,
     children: Vec<Widget>,
 }
 
@@ -32,7 +34,7 @@ impl Frame {
             direction: None,
             align_horizontal: None,
             align_vertical: None,
-            auto_center: false,
+            center_on_mount: false,
             children: Vec::new(),
         }
     }
@@ -45,9 +47,21 @@ impl Frame {
     }
 
     /// Optional stable element name.
+    ///
+    /// Root frames mounted via [`crate::shared::runtime::mount`] receive the
+    /// mount `root_name` automatically when unset, you usually omit this.
     #[must_use]
     pub fn name(mut self, name: &str) -> Self {
         self.name = Some(name.into());
+        self
+    }
+
+    /// Set `name` only when the builder has none yet (used by the mount runtime).
+    #[must_use]
+    pub fn ensure_name(mut self, name: &str) -> Self {
+        if self.name.is_none() {
+            self.name = Some(name.into());
+        }
         self
     }
 
@@ -77,16 +91,20 @@ impl Frame {
     /// Only applies when the frame is a direct child of `player.gui.screen`.
     /// Rebuild restores a saved drag location afterward, so this does not fight
     /// position persistence across state updates.
+    ///
+    /// Named `centered` (not `auto_center`) so it does not collide with
+    /// [`LuaGuiElement::auto_center`](factorio_rs::factorio_api::classes::LuaGuiElement::auto_center)
+    /// in codegen call lists.
     #[must_use]
-    pub fn auto_center(mut self) -> Self {
-        self.auto_center = true;
+    pub fn centered(mut self) -> Self {
+        self.center_on_mount = true;
         self
     }
 
     /// Append a child widget.
     #[must_use]
-    pub fn child(mut self, child: Widget) -> Self {
-        self.children.push(child);
+    pub fn child(mut self, child: impl Into<Widget>) -> Self {
+        self.children.push(child.into());
         self
     }
 
@@ -119,7 +137,10 @@ impl Frame {
             child.mount(frame);
         }
 
-        if self.auto_center {
+        if self.center_on_mount {
+            // `auto_center` keeps the frame centered across window resizes;
+            // `force_auto_center` applies immediately (size is known after children).
+            frame.set_auto_center(true);
             frame.force_auto_center();
         }
     }

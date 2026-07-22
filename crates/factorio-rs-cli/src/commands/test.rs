@@ -16,7 +16,8 @@ use crate::{
     commands::build::{BuildOptions, build},
     commands::deploy::{DeployMode, deploy_mod, mod_dest},
     commands::hot_reload::{
-        HotReloadOptions, ReloadProbeMode, inject_hot_reload_with, publish_reload_gen,
+        HotReloadOptions, ReloadProbeMode, enable_lua_udp_arg, inject_hot_reload_with,
+        publish_reload_gen, reload_udp_port, send_reload_ping,
     },
     commands::typecheck,
     config::Config,
@@ -219,10 +220,17 @@ pub fn run_tests(project_root: &Path, options: &TestOptions) -> CliResult<()> {
             if listen_process_alive(&work_dir) {
                 if hot_reload_bumped {
                     let _ = std::fs::remove_file(&results_path);
-                    status::status(
-                        Status::Note,
-                        "reusing listen Factorio - waiting for reloaded suite",
-                    );
+                    let port = reload_udp_port();
+                    match send_reload_ping(port) {
+                        Ok(_) => status::status(
+                            Status::Note,
+                            format!("reusing listen Factorio - reload ping -> UDP {port}"),
+                        ),
+                        Err(err) => status::status(
+                            Status::Note,
+                            format!("reusing listen Factorio - reload ping failed: {err}"),
+                        ),
+                    }
                 } else {
                     status::status(
                         Status::Note,
@@ -787,7 +795,8 @@ fn launch_and_collect(
         .arg(&mods_dir)
         .arg("--map-gen-seed")
         .arg("1")
-        .arg("--disable-audio");
+        .arg("--disable-audio")
+        .arg(enable_lua_udp_arg(reload_udp_port()));
 
     if gui {
         // Singleplayer window - watch placements / inspect the map after.
@@ -892,7 +901,8 @@ fn spawn_listen_factorio(
         .arg(&mods_dir)
         .arg("--map-gen-seed")
         .arg("1")
-        .arg("--disable-audio");
+        .arg("--disable-audio")
+        .arg(enable_lua_udp_arg(reload_udp_port()));
 
     if gui {
         command.arg("--load-scenario").arg("factorio-rs-test");

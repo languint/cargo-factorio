@@ -1,5 +1,3 @@
-//! Text (label) builder.
-
 use factorio_rs::{
     factorio_api::classes::{LuaGuiElement, LuaGuiElementAddParams},
     prelude::*,

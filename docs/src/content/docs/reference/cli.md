@@ -78,7 +78,7 @@ when iterating with a running Factorio save.
 | `--debug-level <N>` | Override profile debug comments |
 | `--skip-typecheck` | Skip `cargo check` before transpile |
 | `--symlink` | Symlink mods entry to `output_dir` (Unix; falls back to copy) |
-| `--hot-reload` | Write reload generation + control probe (`game.reload_mods()`) |
+| `--hot-reload` | UDP reload ping + control probe (`game.reload_mods()`); needs `--enable-lua-udp` |
 | `--to-test-run` | Deploy into `.factorio-rs/test-run/mods/` instead of user mods |
 
 Typical Bacon job: `factorio-rs sync --symlink --hot-reload`. See

@@ -15,32 +15,34 @@ const ZERO_ARG_METHOD_CALLS: &[&str] = &[
     "scroll_to_left",
     "scroll_to_right",
     "get",
-    "as_widget",
     "die",
-    "auto_center",
+    "centered",
     "force_auto_center",
+    "into",
 ];
 
 /// User-struct / metatable methods need `:method(...)` so Lua passes `self`.
-/// Everything else uses `.method(...)` (Factorio `LuaObject` style — colon would
+/// Everything else uses `.method(...)` (Factorio `LuaObject` style - colon would
 /// pass an extra argument and error at runtime).
 const USER_COLON_METHODS: &[&str] = &[
     "get",
     "set",
-    "as_widget",
     "caption",
     "name",
+    "ensure_name",
+    "with_root_name",
     "child",
     "direction",
     "align_horizontal",
     "align_vertical",
-    "auto_center",
+    "centered",
     "on_click",
     "mount",
     "use_state",
     "from_frame",
     "from_text",
     "from_button",
+    "into",
     "new",
 ];
 
@@ -466,11 +468,8 @@ impl LuaGenerator {
             return literal;
         };
         // Only `Self { ... }` / `Frame { ... }` inside `impl Frame` get the method
-        // table — not unrelated structs like `LuaGuiElementAddParams { ... }`.
-        let applies = match struct_name {
-            None => true,
-            Some(name) => name == ctx_name,
-        };
+        // table - not unrelated structs like `LuaGuiElementAddParams { ... }`.
+        let applies = struct_name.is_none_or(|name| name == ctx_name);
         if applies {
             format!("setmetatable({literal}, {{ __index = {table_path} }})")
         } else {

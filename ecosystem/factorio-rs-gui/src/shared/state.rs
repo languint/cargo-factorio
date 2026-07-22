@@ -1,5 +1,3 @@
-//! Hook state re-exports and the [`state!`] macro.
-
 pub use super::runtime::State;
 
 /// Create reactive state that survives rebuilds (hook-ordered).

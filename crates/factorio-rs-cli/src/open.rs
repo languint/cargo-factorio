@@ -1,11 +1,12 @@
 use std::process::{Command, Stdio};
 
 use crate::{
+    commands::hot_reload::{enable_lua_udp_arg, reload_udp_port},
     error::{CliError, CliResult},
     paths::{FACTORIO_STEAM_APP_ID, FactorioLaunchTarget, find_factorio},
 };
 
-/// Locate Factorio on this system and launch it.
+/// Locate Factorio on this system and launch it with hot-reload UDP enabled.
 pub fn open() -> CliResult<FactorioLaunchTarget> {
     let target = find_factorio()?;
     launch(&target)?;
@@ -13,6 +14,7 @@ pub fn open() -> CliResult<FactorioLaunchTarget> {
 }
 
 fn launch(target: &FactorioLaunchTarget) -> CliResult<()> {
+    let udp = enable_lua_udp_arg(reload_udp_port());
     let mut command = match target {
         FactorioLaunchTarget::Binary {
             path,
@@ -20,15 +22,21 @@ fn launch(target: &FactorioLaunchTarget) -> CliResult<()> {
         } => {
             let mut command = Command::new("steam-run");
             command.arg(path);
+            command.arg(&udp);
             command
         }
         FactorioLaunchTarget::Binary {
             path,
             steam_run: false,
-        } => Command::new(path),
+        } => {
+            let mut command = Command::new(path);
+            command.arg(&udp);
+            command
+        }
         FactorioLaunchTarget::Steam => {
+            // Steam appends args after `//`.
             let mut command = Command::new("steam");
-            command.arg(format!("steam://rungameid/{FACTORIO_STEAM_APP_ID}"));
+            command.arg(format!("steam://rungameid/{FACTORIO_STEAM_APP_ID}//{udp}"));
             command
         }
     };

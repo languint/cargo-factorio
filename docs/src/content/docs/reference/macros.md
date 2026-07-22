@@ -12,7 +12,7 @@ factorio-rs expands them with rustc before lowering - see
 **[Authoring macros](../guides/authoring-macros/)** for the pipeline,
 limitations, and examples.
 
-Built-in Factorio helpers on this page (`item!`, `recipe!`, `println!`, …) keep
+Built-in Factorio helpers on this page (`item!`, `recipe!`, `println!`, ...) keep
 working both unexpanded (frontend unit tests) and after rustc expansion.
 `locale!` is special: its proc macro only typechecks; the CLI still reads
 `locale!` from source for `.cfg` emission.

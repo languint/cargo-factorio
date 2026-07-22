@@ -230,7 +230,7 @@ fn walk_expanded_items(
     }
 }
 
-/// `control_mod!` / `data_mod!` / … expand to `mod __factorio_{stage}`.
+/// `control_mod!` / `data_mod!` / ... expand to `mod __factorio_{stage}`.
 fn stage_from_bang_wrapper(name: &str) -> Option<Stage> {
     name.strip_prefix("__factorio_").and_then(stage_from_marker)
 }

@@ -67,7 +67,7 @@ const BACON_TOML: &str = r#"# factorio-rs + Bacon: https://dystroy.org/bacon/
 # Usage: bacon
 #   job keys (defaults): c = factorio-check, r = factorio-reload, t = factorio-test
 
-default_job = "factorio-check"
+default_job = "factorio-reload"
 # Force ANSI so factorio-rs status/test colors survive Bacon's pipe capture.
 env.CARGO_TERM_COLOR = "always"
 # Prefer directory names (not `dist/**`): Bacon expands `dist` to both `**/dist`

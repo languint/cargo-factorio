@@ -71,6 +71,9 @@ pub struct LowerContext<'a> {
     /// Free function name -> per-parameter dyn trait (`None` = not a dyn param).
     /// Used to auto-coerce concrete args at call sites (`f(&value)` -> fat pointer).
     pub dyn_fn_params: HashMap<String, Vec<Option<String>>>,
+    pub from_conversions: HashMap<String, super::convert::FromConversion>,
+    pub into_params: HashSet<String>,
+    pub return_into: bool,
     /// Associated type bindings for the trait impl currently being lowered
     /// (`Self::Output` -> concrete type). Empty outside trait impl method lowering.
     pub assoc_bindings: HashMap<String, syn::Type>,

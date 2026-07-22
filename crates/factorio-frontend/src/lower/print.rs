@@ -309,7 +309,7 @@ const fn float_lit(value: f64) -> factorio_ir::expression::Expression {
     factorio_ir::expression::Expression::Literal(factorio_ir::literal::Literal::Float(value))
 }
 
-/// rustc-expanded `tracing::info!` / `error!` / … becomes a block with inner `use`
+/// rustc-expanded `tracing::info!` / `error!` / ... becomes a block with inner `use`
 /// + callsite statics. Recognize that shape and lower to colored `game.print`.
 #[cfg(feature = "tracing")]
 pub fn try_lower_expanded_tracing_event_block(
@@ -341,48 +341,58 @@ fn is_expanded_tracing_event_block(stmts: &[Stmt]) -> bool {
 }
 
 #[cfg(feature = "tracing")]
-fn use_mentions_tracing_callsite(item_use: &syn::ItemUse) -> bool {
-    let mut path = Vec::new();
-    fn walk(tree: &syn::UseTree, path: &mut Vec<String>, found: &mut bool) {
-        match tree {
-            syn::UseTree::Path(p) => {
-                path.push(p.ident.to_string());
-                walk(&p.tree, path, found);
-                path.pop();
+fn walk_use_tree_for_tracing_callsite(
+    tree: &syn::UseTree,
+    path: &mut Vec<String>,
+    found: &mut bool,
+) {
+    match tree {
+        syn::UseTree::Path(p) => {
+            path.push(p.ident.to_string());
+            walk_use_tree_for_tracing_callsite(&p.tree, path, found);
+            path.pop();
+        }
+        syn::UseTree::Name(n) => {
+            path.push(n.ident.to_string());
+            if path.iter().any(|s| s == "tracing" || s == "tracing_core")
+                && path
+                    .iter()
+                    .any(|s| s == "Callsite" || s == "__macro_support")
+            {
+                *found = true;
             }
-            syn::UseTree::Name(n) => {
-                path.push(n.ident.to_string());
-                if path.iter().any(|s| s == "tracing" || s == "tracing_core")
-                    && path.iter().any(|s| s == "Callsite" || s == "__macro_support")
-                {
-                    *found = true;
-                }
-                path.pop();
+            path.pop();
+        }
+        syn::UseTree::Rename(r) => {
+            path.push(r.ident.to_string());
+            if path.iter().any(|s| s == "tracing" || s == "tracing_core")
+                && (r.ident == "Callsite"
+                    || path
+                        .iter()
+                        .any(|s| s == "Callsite" || s == "__macro_support"))
+            {
+                *found = true;
             }
-            syn::UseTree::Rename(r) => {
-                path.push(r.ident.to_string());
-                if path.iter().any(|s| s == "tracing" || s == "tracing_core")
-                    && (r.ident == "Callsite"
-                        || path.iter().any(|s| s == "Callsite" || s == "__macro_support"))
-                {
-                    *found = true;
-                }
-                path.pop();
+            path.pop();
+        }
+        syn::UseTree::Glob(_) => {
+            if path.iter().any(|s| s == "tracing" || s == "tracing_core") {
+                *found = true;
             }
-            syn::UseTree::Glob(_) => {
-                if path.iter().any(|s| s == "tracing" || s == "tracing_core") {
-                    *found = true;
-                }
-            }
-            syn::UseTree::Group(g) => {
-                for item in &g.items {
-                    walk(item, path, found);
-                }
+        }
+        syn::UseTree::Group(g) => {
+            for item in &g.items {
+                walk_use_tree_for_tracing_callsite(item, path, found);
             }
         }
     }
+}
+
+#[cfg(feature = "tracing")]
+fn use_mentions_tracing_callsite(item_use: &syn::ItemUse) -> bool {
+    let mut path = Vec::new();
     let mut found = false;
-    walk(&item_use.tree, &mut path, &mut found);
+    walk_use_tree_for_tracing_callsite(&item_use.tree, &mut path, &mut found);
     found
 }
 
@@ -392,24 +402,23 @@ fn lower_expanded_tracing_event_block(
     ctx: &mut LowerContext<'_>,
     self_type: Option<&str>,
 ) -> FrontendResult<Vec<factorio_ir::statement::Statement>> {
-    let level = find_tracing_level_in_stmts(stmts).ok_or_else(|| FrontendError::UnsupportedMacro {
-        name: "tracing::event".to_string(),
-        location: factorio_ir::span::SourceLoc::default()
-            .with_note("expanded tracing event (could not find Level::*)"),
-    })?;
-    let mac = find_format_args_macro_in_stmts(stmts).ok_or_else(|| {
-        FrontendError::UnsupportedMacro {
+    let level =
+        find_tracing_level_in_stmts(stmts).ok_or_else(|| FrontendError::UnsupportedMacro {
+            name: "tracing::event".to_string(),
+            location: factorio_ir::span::SourceLoc::default()
+                .with_note("expanded tracing event (could not find Level::*)"),
+        })?;
+    let mac =
+        find_format_args_macro_in_stmts(stmts).ok_or_else(|| FrontendError::UnsupportedMacro {
             name: "tracing::event".to_string(),
             location: factorio_ir::span::SourceLoc::default()
                 .with_note("expanded tracing event (could not find format_args! message)"),
-        }
-    })?;
+        })?;
     let message = lower_format_macro_message(mac, ctx, self_type)?;
     let prefixed = prepend_literal(level.label(), message);
-    Ok(vec![factorio_ir::statement::Statement::Expr(game_print_call(
-        prefixed,
-        Some(print_settings_color(level.color())),
-    ))])
+    Ok(vec![factorio_ir::statement::Statement::Expr(
+        game_print_call(prefixed, Some(print_settings_color(level.color()))),
+    )])
 }
 
 #[cfg(feature = "tracing")]
@@ -425,12 +434,14 @@ fn find_tracing_level_in_stmts(stmts: &[Stmt]) -> Option<TracingLevel> {
 #[cfg(feature = "tracing")]
 fn find_tracing_level_in_stmt(stmt: &Stmt) -> Option<TracingLevel> {
     match stmt {
-        Stmt::Local(local) => local.init.as_ref().and_then(|init| find_tracing_level_in_expr(&init.expr)),
+        Stmt::Local(local) => local
+            .init
+            .as_ref()
+            .and_then(|init| find_tracing_level_in_expr(&init.expr)),
         Stmt::Item(Item::Static(item)) => find_tracing_level_in_expr(&item.expr),
         Stmt::Item(Item::Const(item)) => find_tracing_level_in_expr(&item.expr),
         Stmt::Expr(expr, _) => find_tracing_level_in_expr(expr),
-        Stmt::Macro(_) => None,
-        Stmt::Item(_) => None,
+        Stmt::Macro(_) | Stmt::Item(_) => None,
     }
 }
 
@@ -475,8 +486,9 @@ fn find_tracing_level_in_expr(expr: &Expr) -> Option<TracingLevel> {
                 None => None,
             }
         }
-        Expr::Binary(bin) => find_tracing_level_in_expr(&bin.left)
-            .or_else(|| find_tracing_level_in_expr(&bin.right)),
+        Expr::Binary(bin) => {
+            find_tracing_level_in_expr(&bin.left).or_else(|| find_tracing_level_in_expr(&bin.right))
+        }
         Expr::Unary(unary) => find_tracing_level_in_expr(&unary.expr),
         Expr::Field(field) => find_tracing_level_in_expr(&field.base),
         Expr::Tuple(tuple) => tuple.elems.iter().find_map(find_tracing_level_in_expr),
@@ -494,7 +506,6 @@ fn find_tracing_level_in_expr(expr: &Expr) -> Option<TracingLevel> {
                 .find_map(find_tracing_level_in_stmt),
             other => find_tracing_level_in_expr(other),
         },
-        Expr::Macro(_) | Expr::Lit(_) | Expr::Infer(_) => None,
         _ => None,
     }
 }

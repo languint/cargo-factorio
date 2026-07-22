@@ -26,11 +26,14 @@ pub fn cargo_check_tests(project_root: &Path) -> CliResult<()> {
     cargo_check_with_args(project_root, &["--tests"])
 }
 
-fn cargo_check_with_args(project_root: &Path, extra_args: &[&str]) -> CliResult<()> {
-    // Dependents (and the library itself) need `factorio_exports.rs` for root remotes.
+/// Ensure generated re-exports exist for this package and path-dep Factorio mods.
+pub fn prepare_cargo_project(project_root: &Path) -> CliResult<()> {
     api_crate::ensure_factorio_exports(project_root)?;
-    // Path deps: refresh their re-exports from Cargo metadata before rustc runs.
-    refresh_path_dep_exports(project_root)?;
+    refresh_path_dep_exports(project_root)
+}
+
+fn cargo_check_with_args(project_root: &Path, extra_args: &[&str]) -> CliResult<()> {
+    prepare_cargo_project(project_root)?;
 
     let manifest = project_root.join("Cargo.toml");
     let mut command = Command::new("cargo");
@@ -42,6 +45,8 @@ fn cargo_check_with_args(project_root: &Path, extra_args: &[&str]) -> CliResult<
     for arg in extra_args {
         command.arg(arg);
     }
+    // Must match expand's wrapper fingerprint or Cargo rebuilds the full graph
+    super::expand::configure_stable_rustc_env(&mut command)?;
     let status = command
         .stdin(Stdio::null())
         .stdout(Stdio::inherit())

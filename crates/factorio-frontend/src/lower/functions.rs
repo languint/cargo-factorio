@@ -125,11 +125,16 @@ fn lower_function_parts(
     let binding_snapshot = ctx.binding_types.clone();
     let option_snapshot = ctx.option_bindings.clone();
     let dyn_snapshot = ctx.dyn_locals.clone();
+    let into_snapshot = ctx.into_params.clone();
+    let return_into_snapshot = ctx.return_into;
+    ctx.return_into = matches!(&function.sig.output, syn::ReturnType::Type(_, ty) if super::convert::into_target_type(ty).is_some());
     let params = lower_parameters(&function.sig, ctx)?;
     let body = lower_block(&function.block, ctx, self_type)?;
     ctx.binding_types = binding_snapshot;
     ctx.option_bindings = option_snapshot;
     ctx.dyn_locals = dyn_snapshot;
+    ctx.into_params = into_snapshot;
+    ctx.return_into = return_into_snapshot;
     Ok(factorio_ir::function::Function {
         name: function.sig.ident.to_string(),
         params,
@@ -180,6 +185,9 @@ fn lower_parameter(
             }
             if is_option_type(ty, &ctx.type_aliases, &ctx.assoc_bindings) {
                 ctx.bind_option(name.clone());
+            }
+            if super::convert::into_target_type(ty).is_some() {
+                super::convert::bind_into_param(ctx, name.clone());
             }
             if let Some(trait_name) = super::traits::dyn_trait_name(ty) {
                 ctx.bind_dyn(

@@ -28,13 +28,14 @@ tables (and dyn fat pointers); see [Traits](#traits).
 | `fn`                        | Private -> `local function`; `pub` -> `module.name` (see below) |
 | `struct` + inherent `impl`  | Fields, methods, associated `const`s                             |
 | `trait` + `impl Trait for T` | Same-crate traits (`use` across modules); methods merge onto the concrete type; see [Traits](#traits) |
+| `impl From<T> for U` / `impl Into<U>` | `From` becomes `T:into()`; `impl Into` in signatures is accepted; `.into()` calls that method when applicable (otherwise transparent) |
 | `enum` + inherent `impl`    | Unit, tuple, and named variants as tagged tables                 |
 | `const`                     | Becomes a local (or exported) binding                            |
 | `type Name = ...`           | Transparent; resolved then forgotten (no Lua emission)           |
 | `use crate::...`            | Binding crates with `[package.metadata.factorio]` also lower; see [Sharing code between mods](dependencies/). `crate::` paths become `require`s |
 | `#[factorio_rs::export]`      | Publishes a fn via remote (control) or require (shared); see [Sharing code between mods](dependencies/) |
 | `mod name;`                 | Declares a submodule file                                        |
-| Prototype / locale macros   | `mod_settings!`, `item!`, `recipe!`, … - see [Macros](../reference/macros/) |
+| Prototype / locale macros   | `mod_settings!`, `item!`, `recipe!`, ... - see [Macros](../reference/macros/) |
 | User / dep macros           | `macro_rules!` and dependency proc macros - [Authoring macros](authoring-macros/) |
 | Doc comments                | Emitted as Lua comments when debug comments are on               |
 
@@ -190,8 +191,10 @@ value.
 | `serde_json::to_string` / `from_str` / ... | -> `helpers` JSON / `string.pack` (`serde` feature)           |
 | Literal string unions               | e.g. `GuiDirection::Horizontal` -> `"horizontal"`              |
 
-**Transparent zero-arg methods** (receiver kept): `into`, `clone`,
+**Transparent zero-arg methods** (receiver kept): `clone`,
 `as_str`, `as_ref`, `as_slice`, `as_deref`, `to_string`, `to_owned`.
+`.into()` is transparent unless a `From` conversion or `impl Into<_>` parameter
+applies (then it becomes `:into()`).
 
 `.unwrap()` and `.expect("...")` are also stripped to the receiver, but emit
 lints `unwrap` / `expect` (default **deny**; see [Lints](lints/)).

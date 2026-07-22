@@ -6,7 +6,7 @@ description: Write macro_rules! and proc-macro DSLs that factorio-rs can transpi
 factorio-rs expands macros with **rustc** before lowering to Lua. You can ship
 `macro_rules!` helpers in a mod, or publish a dependency proc-macro crate
 (for example a JSX-like `gui!` DSL). This page is for **authors** of those
-macros. For the built-in Factorio helpers (`item!`, `export`, …), see
+macros. For the built-in Factorio helpers (`item!`, `export`, ...), see
 [Macros and attributes](../../reference/macros/).
 
 ## Pipeline
@@ -28,7 +28,7 @@ tokens. Design for the output, not the sugar.
 | Kind | Where it lives | Notes |
 | --- | --- | --- |
 | `macro_rules!` | Same crate (any stage module) | Expanded in place; definitions may remain in the dump and are ignored |
-| Proc macros (`#[proc_macro]`, …) | Dependency crates | Dependents `use your_crate::gui` (or prelude re-exports) and invoke normally |
+| Proc macros (`#[proc_macro]`, ...) | Dependency crates | Dependents `use your_crate::gui` (or prelude re-exports) and invoke normally |
 | Built-in `factorio_rs::*` macros | SDK | Dual-path today; also fine after expansion |
 
 Cross-mod **functions** still use `#[factorio_rs::export]` /
@@ -40,7 +40,7 @@ consumer, then lower. You do not “export” a macro over Factorio `remote`.
 **Expansion must be [supported Rust](../language/).**
 
 If rustc expands your macro to something the frontend cannot lower (`async`,
-unsupported std APIs, exotic patterns, …), `factorio-rs build` fails at lower
+unsupported std APIs, exotic patterns, ...), `factorio-rs build` fails at lower
 time even though `cargo check` passed.
 
 Prefer expansions that look like code you would write by hand in a factorio-rs
@@ -69,7 +69,7 @@ real locale files yourself (for example from a build script).
 ### Factorio metadata attributes
 
 `#[factorio_rs::export]`, `#[factorio_rs::inline]`, `#[factorio_rs::event]`, and stage
-attrs (`#[factorio_rs::control]`, …) are identity (or near-identity) proc macros.
+attrs (`#[factorio_rs::control]`, ...) are identity (or near-identity) proc macros.
 After expansion they leave durable `__factorio_rs_*` marker consts so the
 frontend still sees exports and events. **Do not strip or rename those
 markers** if you wrap attributed items in your own macros.
@@ -185,7 +185,7 @@ use proc_macro::TokenStream;
 /// Toy DSL: `gui!(frame, "Hello")` -> typed `LuaGuiElementAddParams` add.
 #[proc_macro]
 pub fn gui(input: TokenStream) -> TokenStream {
-    // Parse your DSL (JSX-like tokens, builders, …), then quote supported Rust.
+    // Parse your DSL (JSX-like tokens, builders, ...), then quote supported Rust.
     // Pseudocode - real parsing omitted:
     //
     // quote! {
@@ -233,7 +233,7 @@ Design checklist for a DSL crate:
    mysterious items at module scope, unless you also emit clean `fn` /
    `struct` forms.
 
-A React-like tree (`gui! { <frame>…</frame> }`) is fine as long as the proc
+A React-like tree (`gui! { <frame>...</frame> }`) is fine as long as the proc
 macro quotes imperative Factorio GUI construction (or other supported code),
 not browser DOM APIs.
 

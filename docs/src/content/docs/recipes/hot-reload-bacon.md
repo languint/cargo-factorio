@@ -20,7 +20,7 @@ factorio-rs init --name my-mod --bacon
 Or copy this `bacon.toml` into an existing project:
 
 ```toml
-default_job = "factorio-check"
+default_job = "factorio-reload"
 env.CARGO_TERM_COLOR = "always"
 # Prefer `dist` over `dist/**` (directory-level notify events).
 ignore = ["dist", ".factorio-rs", "target", "src/factorio_exports.rs"]
@@ -58,7 +58,7 @@ assertion message instead of italic “no output”.
 
 Hot-reload generation tracks **source** changes (`src/**/*.rs`, `Factorio.toml`,
 `Cargo.toml`), not `dist/` rewrites. Identical sources print
-`generation N (unchanged)`.
+`generation N (unchanged)` and skip the UDP ping.
 
 If Bacon still loops after a sync, check that jobs set `default_watch = false`
 (Bacon’s defaults watch workspace `examples/`, which includes each example’s
@@ -66,13 +66,26 @@ If Bacon still loops after a sync, check that jobs set `default_watch = false`
 
 ## In-game control reload
 
-1. Install once and open a save: `factorio-rs install --open` (or `sync --symlink --hot-reload`).
-2. In another terminal: `bacon -j factorio-reload` (or press `r` in Bacon).
-3. Edit control-stage Rust -> Bacon rebuilds -> Factorio picks up `reload_gen` and calls `game.reload_mods()` (then a second pass automatically — the same extra `/c game.reload_mods()` you would otherwise run by hand).
+Factorio keeps mod Lua in an in-memory VFS for the whole session, so the CLI cannot detect on-disk edits by re-`require`ing a generation file. Instead:
 
-`sync --hot-reload` writes `lua/factorio_rs_reload_gen.lua` **after** deploy and a small probe on `control.lua`. Prefer `--symlink` so the mods entry points at `dist/` (Unix; falls back to copy). The generation marker is published last so the probe cannot fire while the mod tree is still being replaced.
+1. Launch Factorio with localhost UDP enabled (port **34201** by default,
+   override with `FACTORIO_RS_UDP_PORT`):
+   - `factorio-rs open` / `factorio-rs install --open` pass `--enable-lua-udp=34201`
+   - Steam: set launch options to `--enable-lua-udp=34201`
+2. Install once and load a save: `factorio-rs sync --symlink --hot-reload`
+3. In another terminal: `bacon` (default job is `factorio-reload`) or
+   `bacon -j factorio-reload`
+4. Edit control-stage Rust -> Bacon syncs -> CLI sends a UDP ping -> the in-game
+   probe calls `game.reload_mods()` (then a second pass automatically).
 
-**Data / settings stage:** prototype and settings changes still need a full Factorio restart. `sync` prints a note when those stage files change.
+You should see the world briefly reload when the ping lands (no chat spam).
+
+`sync --hot-reload` also writes `lua/factorio_rs_reload_gen.lua` after deploy
+(for tooling) and injects the UDP probe on `control.lua`. Prefer `--symlink`
+so the mods entry points at `dist/` (Unix; falls back to copy).
+
+**Data / settings stage:** prototype and settings changes still need a full
+Factorio restart. `sync` prints a note when those stage files change.
 
 ## Automated tests without restarting Factorio
 

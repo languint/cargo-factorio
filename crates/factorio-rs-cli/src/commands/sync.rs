@@ -9,7 +9,7 @@ use crate::{
         deploy::{DeployMode, deploy_mod, mod_dest},
         hot_reload::{
             HotReloadOptions, ReloadProbeMode, inject_hot_reload_with,
-            note_stage_restart_if_needed, publish_reload_gen,
+            note_stage_restart_if_needed, publish_reload_gen, reload_udp_port, send_reload_ping,
         },
     },
     config::Config,
@@ -45,6 +45,7 @@ pub fn sync(project_root: &Path, options: &SyncOptions) -> CliResult<PathBuf> {
     let output_dir = project_root.join(&config.output_dir);
 
     let mut pending_gen = None;
+    let mut bumped = false;
     if options.hot_reload {
         let injected = inject_hot_reload_with(
             project_root,
@@ -58,6 +59,7 @@ pub fn sync(project_root: &Path, options: &SyncOptions) -> CliResult<PathBuf> {
             },
         )?;
         pending_gen = Some(injected.generation);
+        bumped = injected.bumped;
         if injected.bumped {
             status::status(
                 Status::Note,
@@ -106,6 +108,19 @@ pub fn sync(project_root: &Path, options: &SyncOptions) -> CliResult<PathBuf> {
         if used == DeployMode::Copy {
             // Copy deploy already finished; mirror the gen file into the mods entry.
             publish_reload_gen(&dest, generation)?;
+        }
+        if bumped {
+            let port = reload_udp_port();
+            match send_reload_ping(port) {
+                Ok(_) => status::status(Status::Note, format!("reload ping -> UDP {port}")),
+                Err(err) => status::status(
+                    Status::Note,
+                    format!(
+                        "reload ping failed ({err}); launch Factorio with {}",
+                        crate::commands::hot_reload::enable_lua_udp_arg(port)
+                    ),
+                ),
+            }
         }
     }
 

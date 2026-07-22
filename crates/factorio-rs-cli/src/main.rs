@@ -176,8 +176,16 @@ fn run_sync(args: &SyncArgs) -> Result<(), CliError> {
 }
 
 fn run_open() -> Result<(), CliError> {
+    let port = commands::hot_reload::reload_udp_port();
     let target = open::open()?;
     status::status(Status::Opened, format!("Factorio ({})", target.display()));
+    status::status(
+        Status::Note,
+        format!(
+            "hot-reload UDP enabled ({})",
+            commands::hot_reload::enable_lua_udp_arg(port)
+        ),
+    );
     Ok(())
 }
 

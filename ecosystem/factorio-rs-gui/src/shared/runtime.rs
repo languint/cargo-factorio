@@ -1,5 +1,3 @@
-//! Mount / rebuild runtime for reactive GUIs.
-
 use factorio_rs::{
     factorio_api::{LuaFunction, classes::LuaGuiElement, concepts::GuiLocation},
     prelude::*,
@@ -7,14 +5,11 @@ use factorio_rs::{
 
 use super::widget::Widget;
 
-pub(crate) const RT_PARENT: &str = "frg_parent";
-pub(crate) const RT_APP: &str = "frg_app";
-pub(crate) const RT_HOOK_I: &str = "frg_hook_i";
-pub(crate) const RT_HOOK_N: &str = "frg_hook_n";
-pub(crate) const RT_DIRTY: &str = "frg_dirty";
-pub(crate) const RT_NEXT_ID: &str = "frg_next_id";
-pub(crate) const RT_HANDLERS: &str = "frg_handlers";
-pub(crate) const RT_LOCATION: &str = "frg_location";
+/// Default root name for single-GUI mods. Prefer a mod-unique string in
+/// [`mount`] when more than one GUI may share the same parent.
+pub const ROOT_NAME: &str = "frg_root";
+
+const RT_CURRENT: &str = "frg_current_root";
 
 /// Click handler binding (element name -> Lua callback).
 pub struct ClickBinding {
@@ -22,52 +17,155 @@ pub struct ClickBinding {
     pub handler: LuaFunction,
 }
 
+struct GuiSession {
+    root: String,
+    app: Option<LuaFunction>,
+    handlers: Vec<ClickBinding>,
+}
+
+const SESSIONS: Vec<GuiSession> = Vec::new();
+
 /// Handle to a hook slot created by [`state!`](crate::state) / [`State::use_state`].
 ///
 /// Instances are built only inside [`State`] methods so Lua tables carry the
 /// method metatable (`get` / `set`) across mod boundaries.
 pub struct State {
+    pub(crate) root: String,
     pub(crate) index: i32,
 }
 
 impl State {
     /// Hook-style state: stable across rebuilds, ordered by call site.
+    ///
+    /// Hooks are namespaced by the root name of the GUI currently being built
+    /// (see [`mount`] / [`rebuild_root`]).
     #[must_use]
     pub fn use_state(init: i32) -> Self {
-        let idx = storage.get::<i32>(RT_HOOK_I).unwrap_or(0);
-        let key = hook_key(idx);
+        let root = current_root();
+        let idx_key = sk(&root, "hook_i");
+        let n_key = sk(&root, "hook_n");
+        let idx = storage.get::<i32>(&idx_key).unwrap_or(0);
+        let key = hook_key(&root, idx);
         if storage.get::<i32>(&key).is_none() {
             storage.set(&key, init);
         }
-        storage.set(RT_HOOK_I, idx + 1);
-        let n = storage.get::<i32>(RT_HOOK_N).unwrap_or(0);
+        storage.set(&idx_key, idx + 1);
+        let n = storage.get::<i32>(&n_key).unwrap_or(0);
         if idx + 1 > n {
-            storage.set(RT_HOOK_N, idx + 1);
+            storage.set(&n_key, idx + 1);
         }
-        Self { index: idx }
+        Self { root, index: idx }
     }
 
     /// Read the current value.
     #[must_use]
     pub fn get(&self) -> i32 {
-        let key = hook_key(self.index);
+        let key = hook_key(&self.root, self.index);
         storage.get::<i32>(&key).unwrap_or(0)
     }
 
-    /// Write a new value and schedule a GUI rebuild.
+    /// Write a new value and schedule a GUI rebuild for this root.
     pub fn set(&self, value: i32) {
-        let key = hook_key(self.index);
+        let key = hook_key(&self.root, self.index);
         storage.set(&key, value);
-        storage.set(RT_DIRTY, true);
-        flush_dirty();
+        storage.set(&sk(&self.root, "dirty"), true);
+        flush_dirty(&self.root);
     }
 }
 
-/// Storage key for a hook slot.
+/// Storage key prefix for one mounted GUI.
 #[must_use]
 #[factorio_rs::inline]
-pub fn hook_key(index: i32) -> String {
-    format!("frg_hook_{index}")
+fn sk(root: &str, key: &str) -> String {
+    format!("frg:{root}:{key}")
+}
+
+/// Storage key for a hook slot under `root`.
+#[must_use]
+#[factorio_rs::inline]
+pub fn hook_key(root: &str, index: i32) -> String {
+    format!("frg:{root}:hook_{index}")
+}
+
+#[factorio_rs::inline]
+fn current_root() -> String {
+    storage
+        .get::<String>(RT_CURRENT)
+        .unwrap_or_else(|| ROOT_NAME.into())
+}
+
+/// Find a direct child of `parent` by element name.
+#[factorio_rs::inline]
+fn find_named_child(parent: LuaGuiElement, name: &str) -> Option<LuaGuiElement> {
+    parent
+        .children()
+        .into_iter()
+        .find(|child| child.name() == name)
+}
+
+/// Snapshot drag location from a screen frame, if it has been moved.
+#[factorio_rs::inline]
+fn snapshot_root_location(root_name: &str, root: LuaGuiElement) {
+    if root.r#type() != "frame" {
+        return;
+    }
+    if !root.auto_center() {
+        storage.set(&sk(root_name, "location"), root.location());
+    }
+}
+
+/// Ensure a [`GuiSession`] exists for `root_name` and install `app`.
+#[factorio_rs::inline]
+fn bind_app(root_name: &str, app: LuaFunction) {
+    let sessions = SESSIONS;
+    for mut session in sessions {
+        if session.root == root_name {
+            session.app = Some(app);
+            session.handlers = Vec::new();
+            return;
+        }
+    }
+    // Lua: `SESSIONS` is a shared table; push mutates it even though Rust
+    // sees the local binding as unread after the call.
+    #[allow(clippy::collection_is_never_read)]
+    {
+        let mut sessions = SESSIONS;
+        sessions.push(GuiSession {
+            root: root_name.into(),
+            app: Some(app),
+            handlers: Vec::new(),
+        });
+    }
+}
+
+/// Clear click handlers for `root_name` before a rebuild.
+#[factorio_rs::inline]
+fn clear_handlers(root_name: &str) {
+    let sessions = SESSIONS;
+    for mut session in sessions {
+        if session.root == root_name {
+            session.handlers = Vec::new();
+            return;
+        }
+    }
+}
+
+/// Look up the app closure for `root_name`.
+#[factorio_rs::inline]
+fn session_app(root_name: &str) -> Option<LuaFunction> {
+    let sessions = SESSIONS;
+    for session in sessions {
+        if session.root == root_name {
+            return session.app;
+        }
+    }
+    None
+}
+
+/// Whether this Lua session already has an app bound for `root_name`.
+#[factorio_rs::inline]
+fn session_has_app(root_name: &str) -> bool {
+    session_app(root_name).is_some()
 }
 
 /// Mount a reactive app under `parent`.
@@ -75,68 +173,126 @@ pub fn hook_key(index: i32) -> String {
 /// `app` is re-invoked on every rebuild (state change). Prefer passing a
 /// function item or `lua_fn0(|| { ... })`.
 #[factorio_rs::inline]
-pub fn mount(parent: LuaGuiElement, app: LuaFunction) {
-    storage.set(RT_PARENT, parent);
-    storage.set(RT_APP, app);
-    storage.set(RT_HOOK_I, 0_i32);
-    storage.set(RT_HOOK_N, 0_i32);
-    storage.set(RT_DIRTY, false);
-    storage.set(RT_NEXT_ID, 0_i32);
-    storage.set(RT_HANDLERS, Vec::<ClickBinding>::new());
-    rebuild();
+pub fn mount(parent: LuaGuiElement, root_name: &str, app: LuaFunction) {
+    storage.set(RT_CURRENT, root_name.to_string());
+    storage.set(&sk(root_name, "parent"), parent);
+    storage.set(&sk(root_name, "hook_i"), 0_i32);
+    storage.set(&sk(root_name, "hook_n"), 0_i32);
+    storage.set(&sk(root_name, "dirty"), false);
+    storage.set(&sk(root_name, "next_id"), 0_i32);
+    // Fresh mount: drop any dragged location so centering can apply.
+    storage.set(&sk(root_name, "location"), None::<GuiLocation>);
+
+    bind_app(root_name, app);
+    rebuild_root(root_name);
 }
 
-/// Rebuild the tree: reset hooks cursor, clear children, call `app`, mount.
+/// Rebuild every mounted root that still has a parent and app.
 ///
-/// The root element's screen [`GuiLocation`] is snapshotted before `clear` and
-/// reapplied after remount so dragged windows stay put across state updates.
+/// Prefer [`rebuild_root`] when only one GUI changed.
 #[factorio_rs::inline]
 pub fn rebuild() {
-    storage.set(RT_HOOK_I, 0_i32);
-    storage.set(RT_HANDLERS, Vec::<ClickBinding>::new());
-    storage.set(RT_DIRTY, false);
-    storage.set(RT_NEXT_ID, 0_i32);
+    let sessions = SESSIONS;
+    for session in sessions {
+        let root = session.root.clone();
+        if session.app.is_some() && storage.get::<LuaGuiElement>(&sk(&root, "parent")).is_some() {
+            rebuild_root(&root);
+        }
+    }
+}
 
-    if let Some(parent) = storage.get::<LuaGuiElement>(RT_PARENT) {
-        let existing = parent.children();
-        if !existing.is_empty() {
-            // Lua `nil` clears the key; a real `{x,y}` persists for restore.
-            storage.set(RT_LOCATION, existing[0].location());
+#[factorio_rs::inline]
+pub fn rebuild_root(root_name: &str) {
+    storage.set(RT_CURRENT, root_name.to_string());
+    storage.set(&sk(root_name, "hook_i"), 0_i32);
+    storage.set(&sk(root_name, "dirty"), false);
+    storage.set(&sk(root_name, "next_id"), 0_i32);
+    clear_handlers(root_name);
+
+    let parent_key = sk(root_name, "parent");
+    if let Some(parent) = storage.get::<LuaGuiElement>(&parent_key) {
+        if let Some(existing) = find_named_child(parent, root_name) {
+            snapshot_root_location(root_name, existing);
+            existing.destroy();
         }
 
-        parent.clear();
-        if let Some(app) = storage.get::<LuaFunction>(RT_APP) {
-            let root = app.invoke0::<Widget>();
+        if let Some(app) = session_app(root_name) {
+            let root = app.invoke0::<Widget>().with_root_name(root_name);
             root.mount(parent);
-            if let Some(loc) = storage.get::<GuiLocation>(RT_LOCATION) {
-                let mounted = parent.children();
-                if !mounted.is_empty() {
-                    mounted[0].set_location(loc);
-                    mounted[0].set_auto_center(false);
-                }
+            if let Some(loc) = storage.get::<GuiLocation>(&sk(root_name, "location"))
+                && let Some(mounted) = find_named_child(parent, root_name)
+                && mounted.r#type() == "frame"
+            {
+                mounted.set_location(loc);
+                mounted.set_auto_center(false);
             }
         }
     }
 }
 
-/// Allocate a unique element name for click routing.
+/// Re-bind `app` for `root_name` and rebuild after a script / mod reload.
+#[factorio_rs::inline]
+pub fn restore(root_name: &str, app: LuaFunction) {
+    if session_has_app(root_name) {
+        return;
+    }
+    if storage
+        .get::<LuaGuiElement>(&sk(root_name, "parent"))
+        .is_none()
+    {
+        return;
+    }
+    bind_app(root_name, app);
+    rebuild_root(root_name);
+}
+
+/// Destroy the named root frame and drop its app / handlers.
+///
+/// Hook values in `storage` are left in place so a later [`mount`] with the
+/// same name can restore them.
+#[factorio_rs::inline]
+pub fn unmount(root_name: &str) {
+    if let Some(parent) = storage.get::<LuaGuiElement>(&sk(root_name, "parent"))
+        && let Some(existing) = find_named_child(parent, root_name)
+    {
+        existing.destroy();
+    }
+    storage.set(&sk(root_name, "parent"), None::<LuaGuiElement>);
+    storage.set(&sk(root_name, "location"), None::<GuiLocation>);
+    storage.set(&sk(root_name, "dirty"), false);
+
+    let sessions = SESSIONS;
+    for mut session in sessions {
+        if session.root == root_name {
+            session.app = None;
+            session.handlers = Vec::new();
+            return;
+        }
+    }
+}
+
+/// Allocate a unique element name for click routing under the current root.
 #[must_use]
 #[factorio_rs::inline]
 pub fn next_element_name(prefix: &str) -> String {
-    let id = storage.get::<i32>(RT_NEXT_ID).unwrap_or(0);
-    storage.set(RT_NEXT_ID, id + 1);
-    format!("{prefix}_{id}")
+    let root = current_root();
+    let key = sk(&root, "next_id");
+    let id = storage.get::<i32>(&key).unwrap_or(0);
+    storage.set(&key, id + 1);
+    format!("{root}:{prefix}_{id}")
 }
 
-/// Register a click handler for an element name.
+/// Register a click handler for an element name under the current root.
 #[factorio_rs::inline]
 pub fn register_click(name: String, handler: LuaFunction) {
-    let mut handlers = match storage.get::<Vec<ClickBinding>>(RT_HANDLERS) {
-        Some(handlers) => handlers,
-        None => Vec::new(),
-    };
-    handlers.push(ClickBinding { name, handler });
-    storage.set(RT_HANDLERS, handlers);
+    let root = current_root();
+    let sessions = SESSIONS;
+    for mut session in sessions {
+        if session.root == root {
+            session.handlers.push(ClickBinding { name, handler });
+            return;
+        }
+    }
 }
 
 /// Dispatch `OnGuiClick` to a registered handler, then rebuild if dirty.
@@ -147,20 +303,26 @@ pub fn register_click(name: String, handler: LuaFunction) {
 #[factorio_rs::inline]
 pub fn dispatch_click(event: OnGuiClickEvent) {
     let name = event.element.name();
-    if let Some(handlers) = storage.get::<Vec<ClickBinding>>(RT_HANDLERS) {
-        for binding in handlers {
+    let sessions = SESSIONS;
+    for session in sessions {
+        let root = session.root.clone();
+        for binding in session.handlers {
             if binding.name == name {
                 binding.handler.invoke(event);
+                flush_dirty(&root);
+                return;
             }
         }
     }
-    flush_dirty();
 }
 
-/// If state changed during a handler, rebuild now.
+/// If state changed during a handler for `root_name`, rebuild now.
 #[factorio_rs::inline]
-pub fn flush_dirty() {
-    if storage.get::<bool>(RT_DIRTY).unwrap_or(false) {
-        rebuild();
+pub fn flush_dirty(root_name: &str) {
+    if storage
+        .get::<bool>(&sk(root_name, "dirty"))
+        .unwrap_or(false)
+    {
+        rebuild_root(root_name);
     }
 }

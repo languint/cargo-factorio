@@ -18,10 +18,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Control hot-reload no longer needs a manual follow-up `/c game.reload_mods()`:
-  `sync --hot-reload` publishes the generation marker only after deploy, keeps an
-  existing mods symlink in place, and the in-game probe performs a second
-  `game.reload_mods()` pass automatically.
+- Control hot-reload no longer needs a manual `/c game.reload_mods()` when
+  Factorio is launched with `--enable-lua-udp` (`factorio-rs open` passes it):
+  `sync --hot-reload` pings localhost UDP after deploy and the in-game probe
+  calls `game.reload_mods()` (with an automatic second pass). Generation-file
+  polling cannot work because Factorio caches mod Lua in a VFS until reload.
+
+### Changed
+
+- **factorio-rs-gui**: `mount(parent, root_name, app)` takes a configurable root
+  element name (auto-applied to the root frame - no `.name(ROOT_NAME)`). Hooks
+  and handlers are namespaced per root so multiple windows can coexist without
+  Factorio duplicate-name crashes. `restore` / `unmount` / `rebuild_root` take
+  the same name.
+- **`impl From` / `impl Into`**: `impl Into<T>` is accepted in signatures;
+  `impl From<Source> for Target` lowers to `Source:into()` (and identity
+  `Target:into()`). `.into()` calls that method when converting; otherwise it
+  stays transparent. Enables `Frame::child(impl Into<Widget>)` and
+  `fn app() -> impl Into<Widget>` without `.as_widget()`.
+
 ## [0.3.0] - 2026-07-21
 
 ### Added

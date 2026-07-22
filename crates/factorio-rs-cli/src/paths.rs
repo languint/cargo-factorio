@@ -170,6 +170,45 @@ fn home_dir() -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
+/// Cache directory for factorio-rs CLI helpers (rustc wrappers, etc).
+///
+/// # Errors
+/// Returns when no suitable base directory can be resolved.
+pub fn factorio_rs_cache_dir() -> CliResult<PathBuf> {
+    if let Ok(path) = std::env::var("FACTORIO_RS_CACHE_DIR") {
+        let path = PathBuf::from(path);
+        std::fs::create_dir_all(&path).map_err(|source| CliError::CreateDir {
+            path: path.clone(),
+            source,
+        })?;
+        return Ok(path);
+    }
+
+    let base = std::env::var_os("XDG_CACHE_HOME")
+        .map(PathBuf::from)
+        .or_else(|| {
+            #[cfg(windows)]
+            {
+                std::env::var_os("LOCALAPPDATA").map(PathBuf::from)
+            }
+            #[cfg(not(windows))]
+            {
+                home_dir().map(|home| home.join(".cache"))
+            }
+        })
+        .ok_or_else(|| CliError::CargoMetadata {
+            message: "cannot resolve factorio-rs cache dir (set FACTORIO_RS_CACHE_DIR or HOME)"
+                .to_string(),
+        })?;
+
+    let path = base.join("factorio-rs");
+    std::fs::create_dir_all(&path).map_err(|source| CliError::CreateDir {
+        path: path.clone(),
+        source,
+    })?;
+    Ok(path)
+}
+
 fn find_on_path(name: &str) -> Option<PathBuf> {
     let path = std::env::var_os("PATH")?;
     std::env::split_paths(&path).find_map(|dir| {

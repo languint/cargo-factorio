@@ -29,6 +29,20 @@ fn lower_expr(
     Ok((ctx.take_try_hoists_from(mark), value))
 }
 
+fn maybe_wrap_return_into(
+    value: factorio_ir::expression::Expression,
+    ctx: &LowerContext<'_>,
+) -> factorio_ir::expression::Expression {
+    if !ctx.return_into {
+        return value;
+    }
+    factorio_ir::expression::Expression::MethodCall {
+        receiver: Box::new(value),
+        method: "into".to_string(),
+        args: Vec::new(),
+    }
+}
+
 pub fn lower_block(
     block: &Block,
     ctx: &mut LowerContext<'_>,
@@ -182,7 +196,9 @@ fn lower_expression_statement(
                 let mark = ctx.try_hoist_mark();
                 let value = lower_match_expression(match_expr, ctx, self_type)?;
                 let mut stmts = ctx.take_try_hoists_from(mark);
-                stmts.push(factorio_ir::statement::Statement::Return(Some(value)));
+                stmts.push(factorio_ir::statement::Statement::Return(Some(
+                    maybe_wrap_return_into(value, ctx),
+                )));
                 return Ok(stmts);
             }
             return lower_match_statements(match_expr, ctx, self_type);
@@ -229,13 +245,17 @@ fn lower_tail_statements(
             let mark = ctx.try_hoist_mark();
             let value = lower_match_expression(match_expr, ctx, self_type)?;
             let mut stmts = ctx.take_try_hoists_from(mark);
-            stmts.push(factorio_ir::statement::Statement::Return(Some(value)));
+            stmts.push(factorio_ir::statement::Statement::Return(Some(
+                maybe_wrap_return_into(value, ctx),
+            )));
             Ok(stmts)
         }
         Expr::Return(return_expression) => match return_expression.expr.as_deref() {
             Some(value) => {
                 let (mut stmts, value) = lower_expr(value, ctx, self_type)?;
-                stmts.push(factorio_ir::statement::Statement::Return(Some(value)));
+                stmts.push(factorio_ir::statement::Statement::Return(Some(
+                    maybe_wrap_return_into(value, ctx),
+                )));
                 Ok(stmts)
             }
             None => Ok(vec![factorio_ir::statement::Statement::Return(None)]),
@@ -244,7 +264,9 @@ fn lower_tail_statements(
         Expr::Break(break_expr) => Ok(vec![lower_break(break_expr)?]),
         _ => {
             let (mut stmts, value) = lower_expr(expression, ctx, self_type)?;
-            stmts.push(factorio_ir::statement::Statement::Return(Some(value)));
+            stmts.push(factorio_ir::statement::Statement::Return(Some(
+                maybe_wrap_return_into(value, ctx),
+            )));
             Ok(stmts)
         }
     }
@@ -259,7 +281,9 @@ fn lower_semicolon_statements(
         Expr::Return(return_expression) => match return_expression.expr.as_deref() {
             Some(value) => {
                 let (mut stmts, value) = lower_expr(value, ctx, self_type)?;
-                stmts.push(factorio_ir::statement::Statement::Return(Some(value)));
+                stmts.push(factorio_ir::statement::Statement::Return(Some(
+                    maybe_wrap_return_into(value, ctx),
+                )));
                 Ok(stmts)
             }
             None => Ok(vec![factorio_ir::statement::Statement::Return(None)]),
