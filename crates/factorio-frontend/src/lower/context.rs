@@ -155,7 +155,7 @@ impl LowerContext<'_> {
 
     #[must_use]
     pub fn is_user_struct(&self, name: &str) -> bool {
-        self.user_structs.contains(name)
+        self.user_structs.contains(name) || self.enums.contains_key(name)
     }
 
     #[must_use]

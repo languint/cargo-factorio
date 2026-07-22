@@ -1665,8 +1665,14 @@ fn enum_variant_from_segments(
 ) -> Option<(String, String, super::context::EnumVariantFields)> {
     let variant = segments.last()?.clone();
     let enum_name = segments.get(segments.len().checked_sub(2)?)?.clone();
-    ctx.enum_variant(&enum_name, &variant)
-        .map(|fields| (enum_name, variant, fields))
+    if let Some(fields) = ctx.enum_variant(&enum_name, &variant) {
+        return Some((enum_name, variant, fields));
+    }
+    // Cross-module unit constructors (`Phase::Idle`) after `use ...::Phase`.
+    if segments.len() >= 2 && ctx.is_user_struct(&enum_name) {
+        return Some((enum_name, variant, super::context::EnumVariantFields::Unit));
+    }
+    None
 }
 
 /// Resolve a path ending in `Type::Variant` to a Factorio literal-union string.

@@ -509,6 +509,14 @@ fn lower_top_level_use(
             }
         }
     }
+    for fragment in &fragments {
+        if let Some(item) = &fragment.item {
+            let name = item.local.as_str();
+            if name.chars().next().is_some_and(char::is_uppercase) {
+                ctx.user_structs.insert(item.local.clone());
+            }
+        }
+    }
     module_state.use_imports.extend(fragments);
     Ok(())
 }

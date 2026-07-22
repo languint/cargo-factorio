@@ -116,15 +116,7 @@ fn lower_statement(
                 let source_type = inferred_source_type(&ty);
                 (ty, source_type)
             };
-            if let syn::Pat::Type(pat_type) = &local.pat {
-                bind_typed_local(&name, &pat_type.ty, &value, &init.expr, ctx);
-            } else if let factorio_ir::expression::Expression::FatPointer { vtable, .. } = &value {
-                if let Some((trait_name, concrete)) = parse_vtable_parts(vtable) {
-                    ctx.bind_dyn(name.clone(), super::traits::dyn_local(trait_name, concrete));
-                }
-            } else if let Some(key) = infer_debug_type_key(&value, ctx) {
-                ctx.bind_type(name.clone(), key);
-            }
+            bind_let_local_type(&name, &local.pat, &value, &init.expr, ctx);
 
             hoists.push(factorio_ir::statement::Statement::VariableDecl {
                 name,
@@ -1101,6 +1093,12 @@ fn lower_match_pattern(
         Pat::Struct(struct_pat) if enum_pattern_variant(&struct_pat.path, ctx).is_some() => {
             lower_enum_struct_pattern(struct_pat, scrutinee, ctx)
         }
+        // Cross-module `Enum::Variant { .. }` when the enum was not defined in this
+        // file: still emit a tag check. Falling through to a bare struct pattern
+        // with only `..` would match unconditionally (always `true`).
+        Pat::Struct(struct_pat) if is_enum_variant_path(&struct_pat.path) => {
+            lower_cross_module_enum_struct_pattern(struct_pat, scrutinee, ctx)
+        }
         Pat::Struct(struct_pat) => lower_struct_pattern(struct_pat, scrutinee, ctx),
         Pat::Or(or_pat) => lower_nested_or_pattern(or_pat, scrutinee, ctx),
         Pat::Type(pat_type) => lower_match_pattern(&pat_type.pat, scrutinee, ctx),
@@ -1260,6 +1258,44 @@ fn lower_enum_struct_pattern(
         )),
         bindings,
     ))
+}
+
+/// `Enum::Variant { .. }` / `{ field }` when the enum lives in another module.
+fn lower_cross_module_enum_struct_pattern(
+    pattern: &syn::PatStruct,
+    scrutinee: &factorio_ir::expression::Expression,
+    ctx: &LowerContext<'_>,
+) -> FrontendResult<MatchPatternParts> {
+    let variant = pattern
+        .path
+        .segments
+        .last()
+        .ok_or_else(|| FrontendError::UnsupportedExpression {
+            location: location(pattern),
+        })?
+        .ident
+        .to_string();
+    let (field_condition, bindings) = lower_struct_pattern(pattern, scrutinee, ctx)?;
+    Ok((
+        Some(and_conditions(
+            enum_tag_condition(scrutinee, variant),
+            field_condition,
+        )),
+        bindings,
+    ))
+}
+
+/// `Type::Variant` paths used as enum patterns (including cross-module imports).
+fn is_enum_variant_path(path: &syn::Path) -> bool {
+    if path.segments.len() < 2 {
+        return false;
+    }
+    let enum_name = path
+        .segments
+        .iter()
+        .nth_back(1)
+        .map(|s| s.ident.to_string());
+    !matches!(enum_name.as_deref(), Some("Option" | "Result"))
 }
 
 fn lower_nested_or_pattern(
@@ -1475,6 +1511,44 @@ fn parse_vtable_parts(vtable: &str) -> Option<(String, String)> {
     Some((trait_name.to_string(), concrete.to_string()))
 }
 
+fn bind_let_local_type(
+    name: &str,
+    pat: &Pat,
+    value: &factorio_ir::expression::Expression,
+    init_expr: &Expr,
+    ctx: &mut LowerContext<'_>,
+) {
+    if let syn::Pat::Type(pat_type) = pat {
+        bind_typed_local(name, &pat_type.ty, value, init_expr, ctx);
+        return;
+    }
+    if let factorio_ir::expression::Expression::FatPointer { vtable, .. } = value {
+        if let Some((trait_name, concrete)) = parse_vtable_parts(vtable) {
+            ctx.bind_dyn(
+                name.to_string(),
+                super::traits::dyn_local(trait_name, concrete),
+            );
+        }
+        return;
+    }
+    if let factorio_ir::expression::Expression::EnumLiteral { enum_name, .. } = value {
+        ctx.user_structs.insert(enum_name.clone());
+        ctx.bind_type(name.to_string(), enum_name.clone());
+        return;
+    }
+    if let factorio_ir::expression::Expression::QualifiedPath { segments } = value
+        && segments.len() >= 2
+        && let Some(enum_name) = segments.iter().nth_back(1)
+        && ctx.is_user_struct(enum_name)
+    {
+        ctx.bind_type(name.to_string(), enum_name.clone());
+        return;
+    }
+    if let Some(key) = infer_debug_type_key(value, ctx) {
+        ctx.bind_type(name.to_string(), key);
+    }
+}
+
 fn bind_typed_local(
     name: &str,
     ty: &syn::Type,
@@ -1484,6 +1558,12 @@ fn bind_typed_local(
 ) {
     if let Some(key) = rust_type_key(ty, &ctx.type_aliases, &ctx.assoc_bindings) {
         ctx.bind_type(name.to_string(), key);
+    }
+    if let factorio_ir::expression::Expression::EnumLiteral { enum_name, .. } = value {
+        ctx.user_structs.insert(enum_name.clone());
+        if ctx.binding_type(name).is_none() {
+            ctx.bind_type(name.to_string(), enum_name.clone());
+        }
     }
     if is_option_type(ty, &ctx.type_aliases, &ctx.assoc_bindings) {
         ctx.bind_option(name.to_string());
