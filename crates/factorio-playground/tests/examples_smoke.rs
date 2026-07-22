@@ -7,6 +7,54 @@ fn ok(label: &str, files: serde_json::Value) -> serde_json::Map<String, serde_js
 }
 
 #[test]
+fn screen_gui() {
+    let map = ok(
+        "screen-gui",
+        serde_json::json!({
+            "control/gui.rs": r#"
+use factorio_rs::{
+    factorio_api::{classes::LuaGuiElementAddParams, IndexOrName},
+    prelude::*,
+};
+
+#[factorio_rs::event(OnPlayerCreated)]
+pub fn on_player_created(event: OnPlayerCreatedEvent) {
+    if let Some(player) = game.get_player(IndexOrName::Index(event.player_index)) {
+        let frame = player.gui().screen().add(LuaGuiElementAddParams {
+            r#type: GuiElementType::Frame,
+            name: Some("playground_root".into()),
+            caption: Some("Playground".into()),
+            ..Default::default()
+        });
+
+        let label = frame.add(LuaGuiElementAddParams {
+            r#type: GuiElementType::Label,
+            caption: Some("Hello from factorio-rs".into()),
+            ..Default::default()
+        });
+
+        frame.style().set_width(280);
+        label.style().set_padding(8);
+    }
+}
+"#,
+        }),
+    );
+    assert!(map["control.lua"]
+        .as_str()
+        .unwrap()
+        .contains("on_player_created"));
+    assert!(map["lua/control/gui.lua"]
+        .as_str()
+        .unwrap()
+        .contains("GuiElementType")
+        || map["lua/control/gui.lua"]
+            .as_str()
+            .unwrap()
+            .contains("frame"));
+}
+
+#[test]
 fn filtered_event() {
     let map = ok(
         "filtered-event",

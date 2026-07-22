@@ -9,6 +9,38 @@ export type PlaygroundExample = {
 
 export const EXAMPLES: PlaygroundExample[] = [
   {
+    id: "screen-gui",
+    label: "Screen GUI",
+    files: {
+      "control/gui.rs": `use factorio_rs::{
+    factorio_api::{classes::LuaGuiElementAddParams, IndexOrName},
+    prelude::*,
+};
+
+#[factorio_rs::event(OnPlayerCreated)]
+pub fn on_player_created(event: OnPlayerCreatedEvent) {
+    if let Some(player) = game.get_player(IndexOrName::Index(event.player_index)) {
+        let frame = player.gui().screen().add(LuaGuiElementAddParams {
+            r#type: GuiElementType::Frame,
+            name: Some("playground_root".into()),
+            caption: Some("Playground".into()),
+            ..Default::default()
+        });
+
+        let label = frame.add(LuaGuiElementAddParams {
+            r#type: GuiElementType::Label,
+            caption: Some("Hello from factorio-rs".into()),
+            ..Default::default()
+        });
+
+        frame.style().set_width(280);
+        label.style().set_padding(8);
+    }
+}
+`,
+    },
+  },
+  {
     id: "filtered-event",
     label: "Filtered event handler",
     files: {

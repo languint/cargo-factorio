@@ -58,14 +58,13 @@ pub fn on_player_created(event: OnPlayerCreatedEvent) {
 
 #[factorio_rs::event(OnTick)]
 pub fn on_tick(_event: OnTickEvent) {
-    factorio_rs_gui::shared::runtime::restore(ROOT, lua_fn0(app));
-}
-
-#[factorio_rs::event(OnGuiClick)]
-pub fn on_gui_click(event: OnGuiClickEvent) {
-    factorio_rs_gui::shared::runtime::dispatch_click(event);
+    factorio_rs_gui::shared::runtime::install(ROOT, lua_fn0(app));
 }
 ```
+
+No `OnGuiClick` stub: `mount` / `install` register clicks via `script.on_event`.
+Do not also define `#[factorio_rs::event(OnGuiClick)]` (it would replace that
+handler). Extra click logic: [`runtime::on_click`](../lifecycle/).
 
 ## 4. Try the example
 

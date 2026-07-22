@@ -33,8 +33,6 @@ fn app() -> impl Into<Widget> {
 }
 
 // factorio_rs_gui::shared::runtime::mount(screen, ROOT, lua_fn0(app));
-// factorio_rs_gui::shared::runtime::restore(ROOT, lua_fn0(app)); // after reload
-// factorio_rs_gui::shared::runtime::dispatch_click(event); // from OnGuiClick
 ```
 
 Each mount takes a **unique** `root_name` (applied to the root frame for you).
@@ -43,8 +41,9 @@ Each mount takes a **unique** `root_name` (applied to the root frame for you).
 coexist.
 
 v1 rebuilds the whole tree when state changes (destroy root + re-run `app`).
-Handlers live in the consuming mod's `storage`, so you must call
-`dispatch_click` from your own `OnGuiClick` handler.
+`mount` / `install` register `OnGuiClick` via `script.on_event` in your mod, no
+manual `dispatch_click` stub. Do not also define `#[factorio_rs::event(OnGuiClick)]`;
+use `runtime::on_click` for extra click logic.
 
 ```bash
 cd ecosystem/factorio-rs-gui && factorio-rs build

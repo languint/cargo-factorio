@@ -513,13 +513,26 @@ impl LuaGenerator {
                 .map(|(name, value)| format!("{name} = {}", self.generate_expression(value))),
         );
         let literal = format!("{{ {} }}", parts.join(", "));
-        if let Some((name, table_path)) = &self.struct_table_context
-            && name == enum_name
-        {
+        if let Some(table_path) = self.enum_method_table_path(enum_name) {
             format!("setmetatable({literal}, {{ __index = {table_path} }})")
         } else {
             literal
         }
+    }
+
+    fn enum_method_table_path(&self, enum_name: &str) -> Option<String> {
+        let Some((ctx_name, table_path)) = &self.struct_table_context else {
+            return None;
+        };
+        if ctx_name == enum_name {
+            return Some(table_path.clone());
+        }
+        if self.module_type_names.contains(enum_name)
+            && let Some(module_table) = &self.current_module_table
+        {
+            return Some(format!("{module_table}.{enum_name}"));
+        }
+        None
     }
 
     fn generate_index(&self, base: &Expression, key: &Expression) -> String {

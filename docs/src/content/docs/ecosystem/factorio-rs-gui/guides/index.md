@@ -9,7 +9,7 @@ Walkthroughs for the reactive GUI stack.
 | --- | --- |
 | [Getting started](getting-started/) | Dependency, first window, events |
 | [State](state/) | `state!`, hooks, rebuilds |
-| [Lifecycle](lifecycle/) | `mount`, `restore`, `dispatch_click`, `unmount` |
+| [Lifecycle](lifecycle/) | `mount`, `install`, `unmount` |
 | [Reactive GUI](reactive/) | End-to-end counter pattern |
 | [Multiple windows](multiple-windows/) | Unique `root_name`s |
 

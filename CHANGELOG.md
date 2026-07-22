@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **factorio-rs-gui** `runtime::install` / `ensure_events`: `mount` and `install`
+  register `OnGuiClick` via the consuming mod's `script.on_event`, so apps no
+  longer need a manual `dispatch_click` stub. `runtime::on_click` covers extra
+  click logic without a competing `#[factorio_rs::event(OnGuiClick)]`.
 - **Docs playground**: browser transpile preview via WASM
   (`crates/factorio-playground`) emitting a Factorio-like mod tree
   (`control.lua`, stage entries, locale, `info.json`, `lua/**`). Dual-path
@@ -26,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`impl From` -> `into`**: enum values constructed from another type's `into`
+  (e.g. `Frame:into()` -> `Widget`) now get the target method metatable, so
+  `:with_root_name` / `:mount` work across `impl Into<Widget>` app returns and
+  `Frame::child`.
 - Control hot-reload no longer needs a manual `/c game.reload_mods()` when
   Factorio is launched with `--enable-lua-udp` (`factorio-rs open` passes it):
   `sync --hot-reload` pings localhost UDP after deploy and the in-game probe

@@ -4,7 +4,7 @@ description: Reactive, builder-style GUI helpers for factorio-rs mods.
 ---
 
 `factorio-rs-gui` is an **ecosystem** crate: reactive builders, `state!` hooks,
-and mount/restore helpers on top of factorio-rs.
+and mount/install helpers on top of factorio-rs.
 
 | | |
 | --- | --- |
@@ -24,7 +24,7 @@ and mount/restore helpers on top of factorio-rs.
 | --- | --- |
 | [Getting started](guides/getting-started/) | First mount + events |
 | [State](guides/state/) | `state!` hooks and rebuilds |
-| [Lifecycle](guides/lifecycle/) | `mount` / `restore` / `dispatch_click` |
+| [Lifecycle](guides/lifecycle/) | `mount` / `install` / events |
 | [Reactive GUI](guides/reactive/) | End-to-end counter pattern |
 | [Multiple windows](guides/multiple-windows/) | Unique `root_name`s |
 
@@ -51,5 +51,6 @@ published crate once it is on crates.io.
 
 - Builders (`Frame`, `Button`, `Text`, ...) produce a concrete `Widget` tree.
 - `state!(init)` allocates a hook slot that survives rebuilds (per root name).
-- `mount` / `restore` / `dispatch_click` own the Factorio lifecycle glue.
+- `mount` / `install` own the Factorio lifecycle glue and wire GUI clicks via
+  `script.on_event` (no manual `OnGuiClick` stub).
 - Prefer `factorio_rs_gui::shared::...` paths so Factorio `require`s resolve.

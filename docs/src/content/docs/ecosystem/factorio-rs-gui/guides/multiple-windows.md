@@ -17,7 +17,7 @@ factorio_rs_gui::shared::runtime::mount(screen, SETTINGS, lua_fn0(settings_app))
 ## Rules
 
 1. Use a **mod-unique** prefix (`my_mod_...`) so other mods' screen children do not collide.
-2. Call `restore` for each root you care about after reload.
+2. Call `install` for each root you care about after reload (e.g. from `OnTick`).
 3. `unmount(root_name)` removes one window; others stay mounted.
 4. Hook order is per root, each `app` has its own `state!` sequence.
 

@@ -28,16 +28,10 @@ Button::new("OK").on_click(on_ok)
 If `on_click` is set and you omit `.name(...)`, the runtime assigns a unique
 name (`frg_btn...`) so the click can be routed.
 
-## Handlers live in your mod
+## Events
 
-Click bindings are stored in the **consuming** mod's `storage`. Your control
-stage must forward clicks:
-
-```rust
-#[factorio_rs::event(OnGuiClick)]
-pub fn on_gui_click(event: OnGuiClickEvent) {
-    factorio_rs_gui::shared::runtime::dispatch_click(event);
-}
-```
+`mount` / `install` register `dispatch_click` on your mod's `script`. You do not
+need a manual `OnGuiClick` stub. For extra click logic (when no named button
+matched), use `runtime::on_click`.
 
 See [Lifecycle](../../guides/lifecycle/).

@@ -29,7 +29,7 @@ mod control {
             .align_vertical(LuaStyleVerticalAlign::Top)
             .direction(GuiDirection::Vertical)
             .child(Text::new(&label))
-            .child(Button::new("Increment counter").on_click(increment))
+            .child(Button::new("Decrement counter").on_click(increment))
     }
 
     #[factorio_rs::event(OnPlayerCreated)]
@@ -41,11 +41,6 @@ mod control {
 
     #[factorio_rs::event(OnTick)]
     pub fn on_tick(_event: OnTickEvent) {
-        factorio_rs_gui::shared::runtime::restore(ROOT, lua_fn0(app));
-    }
-
-    #[factorio_rs::event(OnGuiClick)]
-    pub fn on_gui_click(event: OnGuiClickEvent) {
-        factorio_rs_gui::shared::runtime::dispatch_click(event);
+        factorio_rs_gui::shared::runtime::install(ROOT, lua_fn0(app));
     }
 }

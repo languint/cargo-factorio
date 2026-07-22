@@ -25,6 +25,14 @@ struct GuiSession {
 
 const SESSIONS: Vec<GuiSession> = Vec::new();
 
+struct EventsGate {
+    bound: bool,
+}
+
+const EVENTS_GATE: EventsGate = EventsGate { bound: false };
+
+const EXTRA_CLICK_HANDLERS: Vec<LuaFunction> = Vec::new();
+
 /// Handle to a hook slot created by [`state!`](crate::state) / [`State::use_state`].
 ///
 /// Instances are built only inside [`State`] methods so Lua tables carry the
@@ -97,10 +105,12 @@ fn current_root() -> String {
 /// Find a direct child of `parent` by element name.
 #[factorio_rs::inline]
 fn find_named_child(parent: LuaGuiElement, name: &str) -> Option<LuaGuiElement> {
-    parent
-        .children()
-        .into_iter()
-        .find(|child| child.name() == name)
+    for child in parent.children() {
+        if child.name() == name {
+            return Some(child);
+        }
+    }
+    None
 }
 
 /// Snapshot drag location from a screen frame, if it has been moved.
@@ -168,12 +178,30 @@ fn session_has_app(root_name: &str) -> bool {
     session_app(root_name).is_some()
 }
 
+#[factorio_rs::inline]
+pub fn ensure_events() {
+    let mut gate = EVENTS_GATE;
+    if gate.bound {
+        return;
+    }
+    #[allow(unused_assignments)]
+    {
+        gate.bound = true;
+    }
+    script.on_event(
+        LuaEventType::Name("on_gui_click"),
+        dispatch_click as fn(OnGuiClickEvent),
+        None,
+    );
+}
+
 /// Mount a reactive app under `parent`.
 ///
 /// `app` is re-invoked on every rebuild (state change). Prefer passing a
 /// function item or `lua_fn0(|| { ... })`.
 #[factorio_rs::inline]
 pub fn mount(parent: LuaGuiElement, root_name: &str, app: LuaFunction) {
+    ensure_events();
     storage.set(RT_CURRENT, root_name.to_string());
     storage.set(&sk(root_name, "parent"), parent);
     storage.set(&sk(root_name, "hook_i"), 0_i32);
@@ -185,6 +213,12 @@ pub fn mount(parent: LuaGuiElement, root_name: &str, app: LuaFunction) {
 
     bind_app(root_name, app);
     rebuild_root(root_name);
+}
+
+#[factorio_rs::inline]
+pub fn install(root_name: &str, app: LuaFunction) {
+    ensure_events();
+    restore(root_name, app);
 }
 
 /// Rebuild every mounted root that still has a parent and app.
@@ -295,11 +329,21 @@ pub fn register_click(name: String, handler: LuaFunction) {
     }
 }
 
+#[factorio_rs::inline]
+pub fn on_click(handler: LuaFunction) {
+    ensure_events();
+    #[allow(clippy::collection_is_never_read)]
+    {
+        let mut extras = EXTRA_CLICK_HANDLERS;
+        extras.push(handler);
+    }
+}
+
 /// Dispatch `OnGuiClick` to a registered handler, then rebuild if dirty.
 ///
-/// Call this from **your** mod's `OnGuiClick` handler. Factorio gives each mod
-/// its own `storage`, so a library-mod event cannot see handlers registered
-/// while your mod was mounting the GUI.
+/// Prefer [`install`] / [`mount`], which register this via `script.on_event`.
+/// You normally do not need a manual `OnGuiClick` stub. For additional click
+/// logic, use [`on_click`].
 #[factorio_rs::inline]
 pub fn dispatch_click(event: OnGuiClickEvent) {
     let name = event.element.name();
@@ -313,6 +357,11 @@ pub fn dispatch_click(event: OnGuiClickEvent) {
                 return;
             }
         }
+    }
+
+    let extras = EXTRA_CLICK_HANDLERS;
+    for handler in extras {
+        handler.invoke(event);
     }
 }
 
