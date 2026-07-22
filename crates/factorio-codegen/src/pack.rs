@@ -381,6 +381,9 @@ pub fn generate_info_json(
 /// Emit a full Factorio mod file tree from lowered IR modules.
 ///
 /// Includes module Lua under `lua/`, root entry scripts, locale `.cfg`, and `info.json`.
+///
+/// # Errors
+/// Returns `Err` if the module could not be generated.
 pub fn emit_mod_tree(
     modules: &[Module],
     options: &EmitModOptions<'_>,

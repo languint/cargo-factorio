@@ -103,10 +103,10 @@ fn generates_struct_as_table_with_methods() {
             "local player = {}\n",
             "player.MyPlayer = {}\n",
             "function player.MyPlayer:get_health()\n",
-            "\treturn self.health\n",
+            "\treturn rawget(self, \"health\")\n",
             "end\n",
             "function player.MyPlayer:set_health(health)\n",
-            "\tself.health = health\n",
+            "\trawset(self, \"health\", health)\n",
             "end\n",
             "return player\n",
         )

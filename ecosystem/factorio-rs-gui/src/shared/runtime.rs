@@ -113,12 +113,17 @@ fn current_root() -> String {
 /// Find a direct child of `parent` by element name.
 #[factorio_rs::inline]
 fn find_named_child(parent: LuaGuiElement, name: &str) -> Option<LuaGuiElement> {
-    for child in parent.children() {
-        if child.name() == name {
-            return Some(child);
+    // Prefer an explicit loop: iterator adapters like `.find()` do not lower
+    // cleanly through factorio-rs to Lua.
+    #[allow(clippy::manual_find)]
+    {
+        for child in parent.children() {
+            if child.name() == name {
+                return Some(child);
+            }
         }
+        None
     }
-    None
 }
 
 /// Snapshot drag location from a screen frame, if it has been moved.
@@ -214,32 +219,32 @@ pub fn ensure_events() {
     }
     script.on_event(
         LuaEventType::Name("on_gui_click"),
-        dispatch_click as fn(OnGuiClickEvent),
+        lua_fn(dispatch_click),
         None,
     );
     script.on_event(
         LuaEventType::Name("on_gui_checked_state_changed"),
-        dispatch_checked as fn(OnGuiCheckedStateChangedEvent),
+        lua_fn(dispatch_checked),
         None,
     );
     script.on_event(
         LuaEventType::Name("on_gui_text_changed"),
-        dispatch_text as fn(OnGuiTextChangedEvent),
+        lua_fn(dispatch_text),
         None,
     );
     script.on_event(
         LuaEventType::Name("on_gui_confirmed"),
-        dispatch_confirmed as fn(OnGuiConfirmedEvent),
+        lua_fn(dispatch_confirmed),
         None,
     );
     script.on_event(
         LuaEventType::Name("on_gui_value_changed"),
-        dispatch_value as fn(OnGuiValueChangedEvent),
+        lua_fn(dispatch_value),
         None,
     );
     script.on_event(
         LuaEventType::Name("on_gui_selection_state_changed"),
-        dispatch_selection as fn(OnGuiSelectionStateChangedEvent),
+        lua_fn(dispatch_selection),
         None,
     );
 }

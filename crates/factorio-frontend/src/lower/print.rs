@@ -1,5 +1,7 @@
+#[cfg(feature = "tracing")]
+use syn::Item;
 use syn::parse::{Parse, ParseStream};
-use syn::{Expr, ExprMacro, Item, LitStr, Path, Stmt};
+use syn::{Expr, ExprMacro, LitStr, Path, Stmt};
 
 use crate::error::{FrontendError, FrontendResult};
 
@@ -324,7 +326,7 @@ pub fn try_lower_expanded_tracing_event_block(
 }
 
 #[cfg(not(feature = "tracing"))]
-pub fn try_lower_expanded_tracing_event_block(
+pub const fn try_lower_expanded_tracing_event_block(
     _stmts: &[Stmt],
     _ctx: &mut LowerContext<'_>,
     _self_type: Option<&str>,

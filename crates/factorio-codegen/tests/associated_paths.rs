@@ -246,10 +246,7 @@ fn qualifies_same_module_type_paths_outside_own_method() {
                         body: Block {
                             statements: vec![Statement::Return(Some(Expression::Call {
                                 func: Box::new(Expression::QualifiedPath {
-                                    segments: vec![
-                                        "Widget".to_string(),
-                                        "from_frame".to_string(),
-                                    ],
+                                    segments: vec!["Widget".to_string(), "from_frame".to_string()],
                                 }),
                                 args: vec![Expression::Identifier("self".to_string())],
                             }))],

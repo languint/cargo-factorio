@@ -7,19 +7,19 @@ use factorio_rs::{
 
 /// A static sprite (`GuiElementType::Sprite`).
 pub struct Sprite {
-    sprite: &'static str,
+    path: &'static str,
     name: Option<String>,
-    resize_to_sprite: Option<bool>,
+    resize: Option<bool>,
 }
 
 impl Sprite {
     /// Sprite with the given sprite path (e.g. `"item/iron-plate"`).
     #[must_use]
-    pub fn new(sprite: &'static str) -> Self {
+    pub fn new(path: &'static str) -> Self {
         Self {
-            sprite,
+            path,
             name: None,
-            resize_to_sprite: None,
+            resize: None,
         }
     }
 
@@ -33,7 +33,7 @@ impl Sprite {
     /// Size the element to the sprite.
     #[must_use]
     pub fn resize_to_sprite(mut self, resize: bool) -> Self {
-        self.resize_to_sprite = Some(resize);
+        self.resize = Some(resize);
         self
     }
 
@@ -42,13 +42,13 @@ impl Sprite {
     pub fn mount(self, parent: LuaGuiElement) -> LuaGuiElement {
         let mut params = LuaGuiElementAddParams {
             r#type: GuiElementType::Sprite,
-            sprite: Some(self.sprite),
+            sprite: Some(self.path),
             ..Default::default()
         };
         if let Some(name) = self.name {
             params.name = Some(name);
         }
-        if let Some(resize) = self.resize_to_sprite {
+        if let Some(resize) = self.resize {
             params.resize_to_sprite = Some(resize);
         }
         parent.add(params)

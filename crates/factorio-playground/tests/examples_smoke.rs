@@ -1,6 +1,10 @@
-#![allow(clippy::expect_used, clippy::unwrap_used)]
+#![allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    clippy::literal_string_with_formatting_args
+)]
 
-fn ok(label: &str, files: serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+fn ok(label: &str, files: &serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
     let result = factorio_playground::transpile_files(&files.to_string());
     assert!(result.ok, "{label}: {:?}", result.message);
     serde_json::from_str(result.files_json.as_ref().expect("files")).expect("json")
@@ -10,7 +14,7 @@ fn ok(label: &str, files: serde_json::Value) -> serde_json::Map<String, serde_js
 fn screen_gui() {
     let map = ok(
         "screen-gui",
-        serde_json::json!({
+        &serde_json::json!({
             "control/gui.rs": r#"
 use factorio_rs::{
     factorio_api::{classes::LuaGuiElementAddParams, IndexOrName},
@@ -40,25 +44,29 @@ pub fn on_player_created(event: OnPlayerCreatedEvent) {
 "#,
         }),
     );
-    assert!(map["control.lua"]
-        .as_str()
-        .unwrap()
-        .contains("on_player_created"));
-    assert!(map["lua/control/gui.lua"]
-        .as_str()
-        .unwrap()
-        .contains("GuiElementType")
-        || map["lua/control/gui.lua"]
+    assert!(
+        map["control.lua"]
             .as_str()
             .unwrap()
-            .contains("frame"));
+            .contains("on_player_created")
+    );
+    assert!(
+        map["lua/control/gui.lua"]
+            .as_str()
+            .unwrap()
+            .contains("GuiElementType")
+            || map["lua/control/gui.lua"]
+                .as_str()
+                .unwrap()
+                .contains("frame")
+    );
 }
 
 #[test]
 fn filtered_event() {
     let map = ok(
         "filtered-event",
-        serde_json::json!({
+        &serde_json::json!({
             "control/on_built_entity.rs": r#"
 #[factorio_rs::event(filter = OnBuiltEntityFilter::name("inserter"))]
 pub fn on_built_entity(event: OnBuiltEntityEvent) {
@@ -69,17 +77,19 @@ pub fn on_built_entity(event: OnBuiltEntityEvent) {
 "#,
         }),
     );
-    assert!(map["control.lua"]
-        .as_str()
-        .unwrap()
-        .contains("script.on_event"));
+    assert!(
+        map["control.lua"]
+            .as_str()
+            .unwrap()
+            .contains("script.on_event")
+    );
 }
 
 #[test]
 fn remote_api() {
     let map = ok(
         "remote-api",
-        serde_json::json!({
+        &serde_json::json!({
             "control/api.rs": r#"
 #[factorio_rs::export]
 pub fn greet(name: &str) -> String {
@@ -101,7 +111,7 @@ pub fn ping() {
 fn storage() {
     let map = ok(
         "storage",
-        serde_json::json!({
+        &serde_json::json!({
             "control/boot.rs": r#"
 #[factorio_rs::event(OnSingleplayerInit)]
 pub fn on_singleplayer_init() {
@@ -112,15 +122,20 @@ pub fn on_singleplayer_init() {
 "#,
         }),
     );
-    assert!(map["lua/control/boot.lua"].as_str().unwrap().contains("storage["));
+    assert!(
+        map["lua/control/boot.lua"]
+            .as_str()
+            .unwrap()
+            .contains("storage[")
+    );
 }
 
 #[test]
 fn enum_phase() {
     ok(
         "enum-phase",
-        serde_json::json!({
-            "shared/phase.rs": r#"
+        &serde_json::json!({
+                            "shared/phase.rs": r"
 pub enum Phase {
     Idle,
     Mining { ticks: i64 },
@@ -137,8 +152,8 @@ impl Phase {
         }
     }
 }
-"#,
-            "control/tick.rs": r#"
+",
+                            "control/tick.rs": r#"
 use crate::shared::phase::Phase;
 
 #[factorio_rs::event(OnSingleplayerInit)]
@@ -153,7 +168,7 @@ pub fn on_singleplayer_init() {
     }
 }
 "#,
-        }),
+                        }),
     );
 }
 
@@ -161,7 +176,7 @@ pub fn on_singleplayer_init() {
 fn traits_dyn() {
     let map = ok(
         "traits-dyn",
-        serde_json::json!({
+        &serde_json::json!({
             "shared/alert.rs": r#"
 pub trait Alert {
     fn title(&self) -> &'static str;
@@ -209,17 +224,14 @@ pub fn on_singleplayer_init() {
         }),
     );
     let lua = map["lua/control/alerts.lua"].as_str().unwrap();
-    assert!(
-        lua.contains("__vt_Alert") || lua.contains("_vt"),
-        "{lua}"
-    );
+    assert!(lua.contains("__vt_Alert") || lua.contains("_vt"), "{lua}");
 }
 
 #[test]
 fn result_try() {
     ok(
         "result-try",
-        serde_json::json!({
+        &serde_json::json!({
             "control/place.rs": r#"
 pub fn place(name: &str) -> Result<i32, &'static str> {
     let n = Some(1).ok_or("missing")?;
@@ -245,7 +257,7 @@ pub fn on_singleplayer_init() {
 fn prototypes() {
     let map = ok(
         "prototypes",
-        serde_json::json!({
+        &serde_json::json!({
             "data/prototypes.rs": r#"
 item! {
     widget {
@@ -294,7 +306,7 @@ locale! {
 fn iterators() {
     ok(
         "iterators",
-        serde_json::json!({
+        &serde_json::json!({
             "control/scores.rs": r#"
 pub fn top_half(scores: Vec<i64>) -> Vec<i64> {
     scores.iter().filter(|s| *s >= 50).collect::<Vec<_>>()
@@ -320,7 +332,7 @@ pub fn on_singleplayer_init() {
 fn settings() {
     let map = ok(
         "settings",
-        serde_json::json!({
+        &serde_json::json!({
             "settings/mod.rs": r#"
 mod_settings! {
     prefix = "pg",
@@ -365,8 +377,8 @@ pub fn on_singleplayer_init() {
 fn full_mod() {
     let map = ok(
         "full-mod",
-        serde_json::json!({
-            "settings/mod.rs": r#"
+        &serde_json::json!({
+                            "settings/mod.rs": r#"
 mod_settings! {
     prefix = "pg",
     startup {
@@ -374,7 +386,7 @@ mod_settings! {
     }
 }
 "#,
-            "data/prototypes.rs": r#"
+                            "data/prototypes.rs": r#"
 item! {
     widget {
         name = "playground-widget",
@@ -393,7 +405,7 @@ locale! {
     }
 }
 "#,
-            "shared/phase.rs": r#"
+                            "shared/phase.rs": r"
 pub enum Phase {
     Idle,
     Running { ticks: i64 },
@@ -407,8 +419,8 @@ impl Phase {
         }
     }
 }
-"#,
-            "control/boot.rs": r#"
+",
+                            "control/boot.rs": r#"
 use crate::shared::phase::Phase;
 
 #[factorio_rs::event(OnSingleplayerInit)]
@@ -425,22 +437,24 @@ pub fn on_singleplayer_init() {
     );
 }
 "#,
-            "control/api.rs": r#"
+                            "control/api.rs": r#"
 #[factorio_rs::export]
 pub fn status() -> String {
     let boots = storage.get::<u32>("boots").unwrap_or(0);
     format!("boots={boots}")
 }
 "#,
-        }),
+                        }),
     );
     assert!(map.contains_key("control.lua"));
     assert!(map.contains_key("data.lua"));
     assert!(map.contains_key("settings.lua"));
     assert!(map.contains_key("info.json"));
     assert!(map.contains_key("locale/en/item-names.cfg"));
-    assert!(map["control.lua"]
-        .as_str()
-        .unwrap()
-        .contains("remote.add_interface"));
+    assert!(
+        map["control.lua"]
+            .as_str()
+            .unwrap()
+            .contains("remote.add_interface")
+    );
 }

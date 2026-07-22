@@ -55,9 +55,7 @@ fn lowers_from_impl_onto_source_into_and_impl_into_param() {
         .collect();
 
     let text_into = statements.iter().find_map(|statement| match statement {
-        Statement::StructDecl(s) if s.name == "Text" => {
-            s.methods.iter().find(|m| m.name == "into")
-        }
+        Statement::StructDecl(s) if s.name == "Text" => s.methods.iter().find(|m| m.name == "into"),
         _ => None,
     });
     assert!(text_into.is_some(), "expected Text::into from From impl");
@@ -84,7 +82,10 @@ fn lowers_from_impl_onto_source_into_and_impl_into_param() {
     });
     // `child.into()` should be a method call, not a transparent identity.
     let has_into_call = format!("{child:?}").contains("into");
-    assert!(has_into_call, "Frame::child should call .into(); got {child:?}");
+    assert!(
+        has_into_call,
+        "Frame::child should call .into(); got {child:?}"
+    );
     let _ = push;
 
     let build = statements.iter().find_map(|statement| match statement {

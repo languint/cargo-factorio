@@ -123,8 +123,7 @@ fn transpile_files_inner(files_json: &str) -> Result<BTreeMap<String, String>, S
             return Err(format!(
                 "no factorio-rs module discovered in `{}` (use paths like control/foo.rs or shared/bar.rs)",
                 path.strip_prefix(source_dir)
-                    .map(|p| p.display().to_string())
-                    .unwrap_or_else(|_| path.display().to_string())
+                    .map_or_else(|_| path.display().to_string(), |p| p.display().to_string(),)
             ));
         }
         for module in discovered {
@@ -175,7 +174,7 @@ pub fn on_singleplayer_init() {
     #[test]
     fn transpile_files_nested_modules() {
         let files = serde_json::json!({
-            "shared/player.rs": r#"
+                    "shared/player.rs": r"
 mod health;
 
 pub struct MyPlayer {
@@ -189,8 +188,8 @@ impl MyPlayer {
         }
     }
 }
-"#,
-            "shared/player/health.rs": r#"
+",
+                    "shared/player/health.rs": r"
 use crate::shared::player::MyPlayer;
 
 impl MyPlayer {
@@ -204,14 +203,14 @@ impl MyPlayer {
         self.health = health;
     }
 }
-"#,
-            "control/on_init.rs": r#"
+",
+                    "control/on_init.rs": r"
 pub fn on_init() {
     let mut player = crate::shared::player::MyPlayer::new();
     player.set_health(player.get_health() - 1);
 }
-"#,
-            "data/items.rs": r#"
+",
+                    "data/items.rs": r#"
 item! {
     widget {
         name = "playground-widget",
@@ -230,7 +229,7 @@ locale! {
     }
 }
 "#,
-        });
+                });
         let result = transpile_files(&files.to_string());
         assert!(result.ok, "{:?}", result.message);
         let map: serde_json::Map<String, serde_json::Value> =
