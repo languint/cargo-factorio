@@ -36,16 +36,17 @@ fn app() -> impl Into<Widget> {
 ```
 
 Each mount takes a **unique** `root_name` (applied to the root frame for you).
-`Frame::child` takes `impl Into<Widget>` via `From` impls on `Text` / `Button` /
-`Frame`. Hooks and handlers are namespaced per root so multiple windows can
-coexist.
+`Frame::child` takes `impl Into<Widget>` via `From` impls on builders (`Text`,
+`Button`, `Flow`, `Checkbox`, …). Hooks and handlers are namespaced per root so
+multiple windows can coexist.
 
 v1 rebuilds the whole tree when state changes (destroy root + re-run `app`).
-`mount` / `install` register `OnGuiClick` via `script.on_event` in your mod, no
-manual `dispatch_click` stub. Do not also define `#[factorio_rs::event(OnGuiClick)]`;
-use `runtime::on_click` for extra click logic.
+`mount` / `install` register GUI events via `script.on_event` in your mod, no
+manual `dispatch_*` stubs. Do not also define competing `#[factorio_rs::event(OnGui…)]`
+handlers; use `runtime::on_click` for extra click logic.
 
 ```bash
 cd ecosystem/factorio-rs-gui && factorio-rs build
 cd examples/gui_counter && factorio-rs build
+cd examples/gui_widgets && factorio-rs build
 ```

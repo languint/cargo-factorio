@@ -1,0 +1,15 @@
+source = "src"
+output_dir = "dist"
+
+[mod]
+title = "gui-widgets"
+description = "Smoke GUI exercising factorio-rs-gui layout and interactive widgets"
+factorio_version = "2.0"
+
+[profiles.debug]
+debug_level = 1
+prune_dead_code = false
+
+[profiles.release]
+debug_level = 0
+prune_dead_code = true

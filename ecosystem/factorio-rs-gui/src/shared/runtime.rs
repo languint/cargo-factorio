@@ -11,16 +11,24 @@ pub const ROOT_NAME: &str = "frg_root";
 
 const RT_CURRENT: &str = "frg_current_root";
 
-/// Click handler binding (element name -> Lua callback).
-pub struct ClickBinding {
+/// Named handler binding (element name -> Lua callback).
+pub struct NamedBinding {
     pub name: String,
     pub handler: LuaFunction,
 }
 
+/// Click handler binding (element name -> Lua callback).
+pub type ClickBinding = NamedBinding;
+
 struct GuiSession {
     root: String,
     app: Option<LuaFunction>,
-    handlers: Vec<ClickBinding>,
+    handlers: Vec<NamedBinding>,
+    checked: Vec<NamedBinding>,
+    text: Vec<NamedBinding>,
+    confirmed: Vec<NamedBinding>,
+    value: Vec<NamedBinding>,
+    selection: Vec<NamedBinding>,
 }
 
 const SESSIONS: Vec<GuiSession> = Vec::new();
@@ -132,6 +140,11 @@ fn bind_app(root_name: &str, app: LuaFunction) {
         if session.root == root_name {
             session.app = Some(app);
             session.handlers = Vec::new();
+            session.checked = Vec::new();
+            session.text = Vec::new();
+            session.confirmed = Vec::new();
+            session.value = Vec::new();
+            session.selection = Vec::new();
             return;
         }
     }
@@ -144,17 +157,27 @@ fn bind_app(root_name: &str, app: LuaFunction) {
             root: root_name.into(),
             app: Some(app),
             handlers: Vec::new(),
+            checked: Vec::new(),
+            text: Vec::new(),
+            confirmed: Vec::new(),
+            value: Vec::new(),
+            selection: Vec::new(),
         });
     }
 }
 
-/// Clear click handlers for `root_name` before a rebuild.
+/// Clear named handlers for `root_name` before a rebuild.
 #[factorio_rs::inline]
 fn clear_handlers(root_name: &str) {
     let sessions = SESSIONS;
     for mut session in sessions {
         if session.root == root_name {
             session.handlers = Vec::new();
+            session.checked = Vec::new();
+            session.text = Vec::new();
+            session.confirmed = Vec::new();
+            session.value = Vec::new();
+            session.selection = Vec::new();
             return;
         }
     }
@@ -184,6 +207,7 @@ pub fn ensure_events() {
     if gate.bound {
         return;
     }
+    // Lua: `EVENTS_GATE` is a shared table; field write sticks for this session.
     #[allow(unused_assignments)]
     {
         gate.bound = true;
@@ -191,6 +215,31 @@ pub fn ensure_events() {
     script.on_event(
         LuaEventType::Name("on_gui_click"),
         dispatch_click as fn(OnGuiClickEvent),
+        None,
+    );
+    script.on_event(
+        LuaEventType::Name("on_gui_checked_state_changed"),
+        dispatch_checked as fn(OnGuiCheckedStateChangedEvent),
+        None,
+    );
+    script.on_event(
+        LuaEventType::Name("on_gui_text_changed"),
+        dispatch_text as fn(OnGuiTextChangedEvent),
+        None,
+    );
+    script.on_event(
+        LuaEventType::Name("on_gui_confirmed"),
+        dispatch_confirmed as fn(OnGuiConfirmedEvent),
+        None,
+    );
+    script.on_event(
+        LuaEventType::Name("on_gui_value_changed"),
+        dispatch_value as fn(OnGuiValueChangedEvent),
+        None,
+    );
+    script.on_event(
+        LuaEventType::Name("on_gui_selection_state_changed"),
+        dispatch_selection as fn(OnGuiSelectionStateChangedEvent),
         None,
     );
 }
@@ -300,6 +349,11 @@ pub fn unmount(root_name: &str) {
         if session.root == root_name {
             session.app = None;
             session.handlers = Vec::new();
+            session.checked = Vec::new();
+            session.text = Vec::new();
+            session.confirmed = Vec::new();
+            session.value = Vec::new();
+            session.selection = Vec::new();
             return;
         }
     }
@@ -323,7 +377,72 @@ pub fn register_click(name: String, handler: LuaFunction) {
     let sessions = SESSIONS;
     for mut session in sessions {
         if session.root == root {
-            session.handlers.push(ClickBinding { name, handler });
+            session.handlers.push(NamedBinding { name, handler });
+            return;
+        }
+    }
+}
+
+/// Register a checked-state handler (`on_gui_checked_state_changed`).
+#[factorio_rs::inline]
+pub fn register_checked(name: String, handler: LuaFunction) {
+    let root = current_root();
+    let sessions = SESSIONS;
+    for mut session in sessions {
+        if session.root == root {
+            session.checked.push(NamedBinding { name, handler });
+            return;
+        }
+    }
+}
+
+/// Register a text-changed handler (`on_gui_text_changed`).
+#[factorio_rs::inline]
+pub fn register_text(name: String, handler: LuaFunction) {
+    let root = current_root();
+    let sessions = SESSIONS;
+    for mut session in sessions {
+        if session.root == root {
+            session.text.push(NamedBinding { name, handler });
+            return;
+        }
+    }
+}
+
+/// Register a confirmed handler (`on_gui_confirmed`).
+#[factorio_rs::inline]
+pub fn register_confirmed(name: String, handler: LuaFunction) {
+    let root = current_root();
+    let sessions = SESSIONS;
+    for mut session in sessions {
+        if session.root == root {
+            session.confirmed.push(NamedBinding { name, handler });
+            return;
+        }
+    }
+}
+
+/// Register a value-changed handler (`on_gui_value_changed`).
+#[factorio_rs::inline]
+pub fn register_value(name: String, handler: LuaFunction) {
+    let root = current_root();
+    let sessions = SESSIONS;
+    for mut session in sessions {
+        if session.root == root {
+            session.value.push(NamedBinding { name, handler });
+            return;
+        }
+    }
+}
+
+/// Register a selection-changed handler (`on_gui_selection_state_changed`).
+#[factorio_rs::inline]
+pub fn register_selection(name: String, handler: LuaFunction) {
+    let root = current_root();
+    let sessions = SESSIONS;
+    for mut session in sessions {
+        if session.root == root {
+            session.selection.push(NamedBinding { name, handler });
             return;
         }
     }
@@ -362,6 +481,91 @@ pub fn dispatch_click(event: OnGuiClickEvent) {
     let extras = EXTRA_CLICK_HANDLERS;
     for handler in extras {
         handler.invoke(event);
+    }
+}
+
+/// Dispatch `OnGuiCheckedStateChanged`.
+#[factorio_rs::inline]
+pub fn dispatch_checked(event: OnGuiCheckedStateChangedEvent) {
+    let name = event.element.name();
+    let sessions = SESSIONS;
+    for session in sessions {
+        let root = session.root.clone();
+        for binding in session.checked {
+            if binding.name == name {
+                binding.handler.invoke(event);
+                flush_dirty(&root);
+                return;
+            }
+        }
+    }
+}
+
+/// Dispatch `OnGuiTextChanged`.
+#[factorio_rs::inline]
+pub fn dispatch_text(event: OnGuiTextChangedEvent) {
+    let name = event.element.name();
+    let sessions = SESSIONS;
+    for session in sessions {
+        let root = session.root.clone();
+        for binding in session.text {
+            if binding.name == name {
+                binding.handler.invoke(event);
+                flush_dirty(&root);
+                return;
+            }
+        }
+    }
+}
+
+/// Dispatch `OnGuiConfirmed`.
+#[factorio_rs::inline]
+pub fn dispatch_confirmed(event: OnGuiConfirmedEvent) {
+    let name = event.element.name();
+    let sessions = SESSIONS;
+    for session in sessions {
+        let root = session.root.clone();
+        for binding in session.confirmed {
+            if binding.name == name {
+                binding.handler.invoke(event);
+                flush_dirty(&root);
+                return;
+            }
+        }
+    }
+}
+
+/// Dispatch `OnGuiValueChanged`.
+#[factorio_rs::inline]
+pub fn dispatch_value(event: OnGuiValueChangedEvent) {
+    let name = event.element.name();
+    let sessions = SESSIONS;
+    for session in sessions {
+        let root = session.root.clone();
+        for binding in session.value {
+            if binding.name == name {
+                binding.handler.invoke(event);
+                flush_dirty(&root);
+                return;
+            }
+        }
+    }
+}
+
+/// Dispatch `OnGuiSelectionStateChanged`.
+#[factorio_rs::inline]
+pub fn dispatch_selection(event: OnGuiSelectionStateChangedEvent) {
+    let name = event.element.name();
+    let sessions = SESSIONS;
+    for session in sessions {
+        let root = session.root.clone();
+        for binding in session.selection {
+            if binding.name == name {
+                binding.handler.invoke(event);
+                flush_dirty(&root);
+                return;
+            }
+        }
     }
 }
 

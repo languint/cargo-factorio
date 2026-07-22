@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **factorio-rs-gui widgets**: `Flow`, `ScrollPane`, `Line`, `EmptyWidget`,
+  `Checkbox`, `TextField`, `Slider`, `ProgressBar`, `DropDown`, `Sprite`,
+  `SpriteButton`, with matching `register_*` / `dispatch_*` handlers wired by
+  `ensure_events` / `install`. Example: `examples/gui_widgets`.
 - **factorio-rs-gui** `runtime::install` / `ensure_events`: `mount` and `install`
-  register `OnGuiClick` via the consuming mod's `script.on_event`, so apps no
-  longer need a manual `dispatch_click` stub. `runtime::on_click` covers extra
+  register GUI events via the consuming mod's `script.on_event`, so apps no
+  longer need manual `dispatch_*` stubs. `runtime::on_click` covers extra
   click logic without a competing `#[factorio_rs::event(OnGuiClick)]`.
 - **Docs playground**: browser transpile preview via WASM
   (`crates/factorio-playground`) emitting a Factorio-like mod tree

@@ -1,27 +1,21 @@
 ---
 title: Widget
-description: The Widget enum - mountable Frame, Text, and Button nodes.
+description: The Widget enum - mountable container and leaf nodes.
 ---
 
-`Widget` is the concrete tree type the runtime mounts:
-
-```rust
-pub enum Widget {
-    Frame(Frame),
-    Text(Text),
-    Button(Button),
-}
-```
+`Widget` is the concrete tree type the runtime mounts. Variants cover every
+builder (`Frame`, `Flow`, `Button`, `Checkbox`, …). See the
+[widgets overview](../) for the full list.
 
 ## Conversions
 
-`Frame`, `Text`, and `Button` implement `Into<Widget>` / `From`, so
-`Frame::child(...)` accepts builders directly:
+Each builder implements `Into<Widget>` / `From`, so `Frame::child` /
+`Flow::child` accept builders directly:
 
 ```rust
 .child(Text::new("hi"))
 .child(Button::new("Go"))
-.child(Frame::new().caption("Nested"))
+.child(Flow::new().direction(GuiDirection::Horizontal).child(Text::new("nested")))
 ```
 
 Return `impl Into<Widget>` from your `app` function (usually a root `Frame`).

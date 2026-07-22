@@ -9,13 +9,13 @@ and mount/install helpers on top of factorio-rs.
 | | |
 | --- | --- |
 | Crate | [`ecosystem/factorio-rs-gui`](https://github.com/languint/factorio-rs/tree/main/ecosystem/factorio-rs-gui) |
-| Example | [`examples/gui_counter`](https://github.com/languint/factorio-rs/tree/main/examples/gui_counter) |
+| Example | [`examples/gui_counter`](https://github.com/languint/factorio-rs/tree/main/examples/gui_counter), [`examples/gui_widgets`](https://github.com/languint/factorio-rs/tree/main/examples/gui_widgets) |
 | Core docs | [factorio-rs](../../intro/) |
 
 ## Start here
 
 1. [Getting started](guides/getting-started/) - dependency, first window, events
-2. [Widgets](widgets/) - `Frame`, `Text`, `Button`
+2. [Widgets](widgets/) - builders (Frame, Flow, Checkbox, …)
 3. Core [GUI basics](../../recipes/gui-basics/) - imperative UI without reactivity
 
 ## Guides
@@ -32,9 +32,13 @@ and mount/install helpers on top of factorio-rs.
 
 | Widget | Role |
 | --- | --- |
-| [`Frame`](widgets/frame/) | Container, layout, caption |
+| [`Frame`](widgets/frame/) | Titled container |
+| [`Flow`](widgets/flow/) | Layout container |
+| [`ScrollPane`](widgets/scroll-pane/) | Scrollable container |
 | [`Text`](widgets/text/) | Label |
-| [`Button`](widgets/button/) | Caption + `on_click` |
+| [`Button`](widgets/button/) / [`SpriteButton`](widgets/sprite-button/) | Clicks |
+| [`Checkbox`](widgets/checkbox/) / [`TextField`](widgets/text-field/) / [`Slider`](widgets/slider/) / [`DropDown`](widgets/drop-down/) | Interactive inputs |
+| [`ProgressBar`](widgets/progress-bar/) / [`Sprite`](widgets/sprite/) / [`Line`](widgets/line/) / [`EmptyWidget`](widgets/empty-widget/) | Display / layout leaves |
 | [`Widget`](widgets/widget/) | Enum + `Into` conversions |
 
 ## Add the dependency
@@ -49,8 +53,8 @@ published crate once it is on crates.io.
 
 ## Design notes
 
-- Builders (`Frame`, `Button`, `Text`, ...) produce a concrete `Widget` tree.
+- Builders produce a concrete `Widget` tree.
 - `state!(init)` allocates a hook slot that survives rebuilds (per root name).
-- `mount` / `install` own the Factorio lifecycle glue and wire GUI clicks via
-  `script.on_event` (no manual `OnGuiClick` stub).
+- `mount` / `install` own the Factorio lifecycle glue and wire GUI events via
+  `script.on_event` (no manual GUI event stubs).
 - Prefer `factorio_rs_gui::shared::...` paths so Factorio `require`s resolve.

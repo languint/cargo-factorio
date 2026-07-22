@@ -414,6 +414,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "gui_widgets"
+version = "0.3.0"
+dependencies = [
+ "factorio-rs",
+ "factorio-rs-gui",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

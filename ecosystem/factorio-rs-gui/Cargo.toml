@@ -19,7 +19,8 @@ mod_name = "factorio-rs-gui"
 dependencies = ["factorio-rs-gui >= 0.1.0"]
 module_root = "lua"
 interface = "factorio-rs-gui"
-inline_fns = ["hook_key", "ensure_events", "mount", "install", "rebuild", "rebuild_root", "restore", "unmount", "next_element_name", "register_click", "on_click", "dispatch_click", "flush_dirty"]
+inline_fns = ["hook_key", "ensure_events", "mount", "install", "rebuild", "rebuild_root", "restore", "unmount", "next_element_name", "register_click", "register_checked", "register_text", "register_confirmed", "register_value", "register_selection", "on_click", "dispatch_click", "dispatch_checked", "dispatch_text", "dispatch_confirmed", "dispatch_value", "dispatch_selection", "flush_dirty"]
+
 
 [lib]
 path = "src/lib.rs"

@@ -36,19 +36,23 @@ factorio_rs_gui::shared::runtime::install("my_mod_window", lua_fn0(app));
 
 ## Events
 
-`mount` / `install` register `OnGuiClick` on **your** mod's `script` (once per
-Lua session). You do **not** need:
+`mount` / `install` register these Factorio events on **your** mod's `script`
+(once per Lua session):
 
-```rust
-// Not required anymore:
-#[factorio_rs::event(OnGuiClick)]
-pub fn on_gui_click(event: OnGuiClickEvent) {
-    factorio_rs_gui::shared::runtime::dispatch_click(event);
-}
-```
+| Event | Dispatcher | Used by |
+| --- | --- | --- |
+| `on_gui_click` | `dispatch_click` | [`Button`](../../widgets/button/), [`SpriteButton`](../../widgets/sprite-button/) |
+| `on_gui_checked_state_changed` | `dispatch_checked` | [`Checkbox`](../../widgets/checkbox/) |
+| `on_gui_text_changed` | `dispatch_text` | [`TextField`](../../widgets/text-field/) |
+| `on_gui_confirmed` | `dispatch_confirmed` | [`TextField`](../../widgets/text-field/) |
+| `on_gui_value_changed` | `dispatch_value` | [`Slider`](../../widgets/slider/) |
+| `on_gui_selection_state_changed` | `dispatch_selection` | [`DropDown`](../../widgets/drop-down/) |
+
+You do **not** need manual `#[factorio_rs::event(OnGui…)]` stubs for those.
 
 Factorio's `script.on_event` **replaces** the previous handler. Do not also
-define `#[factorio_rs::event(OnGuiClick)]` in the same mod.
+define competing `#[factorio_rs::event(OnGuiClick)]` (or the other GUI events
+above) in the same mod.
 
 ### Extra click logic
 
@@ -74,7 +78,7 @@ v1 rebuilds the **whole** tree for a root when state changes.
 | Call | Role |
 | --- | --- |
 | `restore(root, app)` | Re-bind app after reload without touching events |
-| `dispatch_click(event)` | Lower-level click router (already wired by `install`) |
+| `dispatch_*` | Lower-level routers (already wired by `install`) |
 | `ensure_events()` | Register GUI `script.on_event` handlers only |
 
 ## Constants

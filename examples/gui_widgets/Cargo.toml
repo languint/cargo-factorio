@@ -1,0 +1,12 @@
+[package]
+name = "gui_widgets"
+version.workspace = true
+edition = "2024"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+factorio-rs = { path = "../../crates/factorio-rs" }
+factorio-rs-gui = { path = "../../ecosystem/factorio-rs-gui" }
