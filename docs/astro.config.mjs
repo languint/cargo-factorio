@@ -1,5 +1,6 @@
 // @ts-check
 import { defineConfig } from "astro/config";
+import sitemap from "@astrojs/sitemap";
 import starlight from "@astrojs/starlight";
 import react from "@astrojs/react";
 import starlightSidebarTopics from "starlight-sidebar-topics";
@@ -15,6 +16,15 @@ export default defineConfig({
   base,
   integrations: [
     react(),
+    // Registered before starlight so Starlight skips its default sitemap().
+    sitemap({
+      namespaces: {
+        news: false,
+        xhtml: false,
+        image: false,
+        video: false,
+      },
+    }),
     starlight({
       title: "factorio-rs",
       description:

@@ -30,6 +30,12 @@ export const onRequest = defineRouteMiddleware((context) => {
     if (ogTitle?.attrs) {
       ogTitle.attrs.content = `${siteTitle} | Write Factorio mods in Rust`;
     }
+    const ogType = head.find(
+      (tag) => tag.tag === "meta" && tag.attrs?.property === "og:type",
+    );
+    if (ogType?.attrs) {
+      ogType.attrs.content = "website";
+    }
   }
 
   head.push({
