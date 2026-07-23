@@ -59,7 +59,7 @@ end, { { filter = "name", name = "inserter" } })
 
 ## See also
 
-- [Option and Result](option-and-result/) - `if let Some(...)` / `ok_or` / `?`
+- [Option and Result](/guides/option-and-result/) - `if let Some(...)` / `ok_or` / `?`
   on event payloads
-- [Supported Rust](language/) - other syntax commonly used inside handlers
-- [hello_world](../examples/hello-world/) - filtered `on_built_entity` example
+- [Supported Rust](/guides/language/) - other syntax commonly used inside handlers
+- [hello_world](/examples/hello-world/) - filtered `on_built_entity` example

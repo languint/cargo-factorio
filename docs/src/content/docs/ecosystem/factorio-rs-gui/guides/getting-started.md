@@ -73,7 +73,7 @@ pub fn on_tick(_event: OnTickEvent) {
 
 No `OnGuiClick` stub: `mount` / `install` register clicks via `script.on_event`.
 Do not also define `#[factorio_rs::event(OnGuiClick)]` (it would replace that
-handler). Extra click logic: [`runtime::on_click`](../lifecycle/).
+handler). Extra click logic: [`runtime::on_click`](/ecosystem/factorio-rs-gui/guides/lifecycle/).
 
 ## 4. Try the example
 
@@ -88,4 +88,4 @@ factorio-rs build && factorio-rs install --open
 Or depend on crates.io, enable the portal mod, and `factorio-rs build` /
 `install` your own project.
 
-Next: [State](../state/), [Lifecycle](../lifecycle/), [Widgets](../../widgets/).
+Next: [State](/ecosystem/factorio-rs-gui/guides/state/), [Lifecycle](/ecosystem/factorio-rs-gui/guides/lifecycle/), [Widgets](/ecosystem/factorio-rs-gui/widgets/).

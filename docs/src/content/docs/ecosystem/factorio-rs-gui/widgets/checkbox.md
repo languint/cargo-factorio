@@ -25,4 +25,4 @@ Checkbox::new("Enabled").state(true).on_checked(on_toggle)
 | `state(bool)` | Initial checked state |
 | `on_checked(LuaFunction)` | `on_gui_checked_state_changed` handler |
 
-`mount` / `install` wire the checked-state dispatcher. See [Lifecycle](../../guides/lifecycle/).
+`mount` / `install` wire the checked-state dispatcher. See [Lifecycle](/ecosystem/factorio-rs-gui/guides/lifecycle/).

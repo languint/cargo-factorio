@@ -24,4 +24,4 @@ ScrollPane::new()
 | `vertical_scroll_policy(ScrollPolicy)` | Vertical policy |
 | `child(impl Into<Widget>)` | Append a child |
 
-See [Widgets](../).
+See [Widgets](/ecosystem/factorio-rs-gui/widgets/).

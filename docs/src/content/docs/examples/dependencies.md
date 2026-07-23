@@ -4,8 +4,8 @@ description: Two-mod example - export from provider, depend via Cargo.
 ---
 
 Minimal walkthrough of sharing an API between mods. Short recipe:
-[Share an API](../../recipes/share-api/). Full detail:
-[Sharing code between mods](../../guides/dependencies/).
+[Share an API](/recipes/share-api/). Full detail:
+[Sharing code between mods](/guides/dependencies/).
 
 | Path | Role |
 | --- | --- |

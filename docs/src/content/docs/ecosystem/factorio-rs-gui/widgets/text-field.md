@@ -29,4 +29,4 @@ TextField::new().text("hello").on_text_changed(on_change)
 | `on_text_changed(LuaFunction)` | `on_gui_text_changed` |
 | `on_confirmed(LuaFunction)` | `on_gui_confirmed` |
 
-See [Lifecycle](../../guides/lifecycle/).
+See [Lifecycle](/ecosystem/factorio-rs-gui/guides/lifecycle/).

@@ -124,7 +124,7 @@ Factorio method (rare: `driving`, `zoom_limits`, ...), the writer is named
 style name `&'static str` - Factorio accepts either a `LuaStyle` or a string for
 that attribute; Rust keeps the asymmetric shapes that match typical usage.
 
-End-to-end walkthrough: [GUI basics](../recipes/gui-basics/).
+End-to-end walkthrough: [GUI basics](/recipes/gui-basics/).
 
 Write-only attributes (for example most `LuaStyle` size/margin helpers) have
 **setters only** - there is no fake `LuaAny` getter.
@@ -179,11 +179,11 @@ Data-stage `data` / settings registration helpers live in `factorio_api::setting
 
 Enable `factorio-rs` feature `serde`. Calls lower to `helpers.table_to_json` /
 `json_to_table`, with binary via `string.pack("s", ...)`. Details:
-[Serde / JSON](serde/).
+[Serde / JSON](/guides/serde/).
 
 ## See also
 
-- [Supported Rust](language/)
-- [Option and Result](option-and-result/) - optional fields and fallible helpers
-- [mandatory_spaghetti](../examples/mandatory-spaghetti/) - typed filters and
+- [Supported Rust](/guides/language/)
+- [Option and Result](/guides/option-and-result/) - optional fields and fallible helpers
+- [mandatory_spaghetti](/examples/mandatory-spaghetti/) - typed filters and
   `ScriptRenderTarget`

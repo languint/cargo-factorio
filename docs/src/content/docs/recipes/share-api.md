@@ -3,7 +3,7 @@ title: Share an API between mods
 description: Export a function from one mod and call it from another with factorio-rs add.
 ---
 
-This is a short recipe. Full reference: [Sharing code between mods](../guides/dependencies/).
+This is a short recipe. Full reference: [Sharing code between mods](/guides/dependencies/).
 
 ## Provider: export
 
@@ -47,4 +47,4 @@ typed `use` paths.
 2. Consumer lists the Factorio mod dependency (often via `factorio-rs add`).
 3. Both mods are present in the Factorio mods folder when you run the game.
 
-Working tree: [provider / consumer example](../examples/dependencies/).
+Working tree: [provider / consumer example](/examples/dependencies/).

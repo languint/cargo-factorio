@@ -80,8 +80,8 @@ work without imports.
 
 For data-stage items / recipes / technologies, use `item_name` /
 `item_description` / `recipe_name` / `technology_name` with `Items::*` /
-`Recipes::*` / `Technologies::*`. See [Prototypes](prototypes/)
-and [Package graphics](../recipes/package-graphics/).
+`Recipes::*` / `Technologies::*`. See [Prototypes](/guides/prototypes/)
+and [Package graphics](/recipes/package-graphics/).
 
 ## Rules
 
@@ -127,4 +127,4 @@ player.print(["greetings.hello", player.name()], None);
 Arrays and plain strings implement `Into<LocalisedString>`, so they can be passed
 directly to `print` / other localised parameters.
 
-Example: [locale_test](../examples/locale-test/).
+Example: [locale_test](/examples/locale-test/).

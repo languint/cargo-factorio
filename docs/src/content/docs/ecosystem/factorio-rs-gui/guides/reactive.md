@@ -97,8 +97,8 @@ Working tree:
 
 ## See also
 
-- [Getting started](../getting-started/) / [State](../state/) / [Lifecycle](../lifecycle/)
-- [Widgets](../../widgets/)
-- [GUI basics](../../../recipes/gui-basics/) - imperative `LuaGuiElementAddParams`
-- [Sharing code between mods](../../../guides/dependencies/) - library deps
-- [Persist with storage](../../../recipes/persist-storage/) - hook values use `storage`
+- [Getting started](/ecosystem/factorio-rs-gui/guides/getting-started/) / [State](/ecosystem/factorio-rs-gui/guides/state/) / [Lifecycle](/ecosystem/factorio-rs-gui/guides/lifecycle/)
+- [Widgets](/ecosystem/factorio-rs-gui/widgets/)
+- [GUI basics](/recipes/gui-basics/) - imperative `LuaGuiElementAddParams`
+- [Sharing code between mods](/guides/dependencies/) - library deps
+- [Persist with storage](/recipes/persist-storage/) - hook values use `storage`

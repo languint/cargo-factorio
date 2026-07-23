@@ -16,7 +16,7 @@ let on_ok = lua_fn(move |event: OnGuiClickEvent| {
 SpriteButton::new("utility/close_black").on_click(on_ok)
 ```
 
-Clicks reuse the same `dispatch_click` path as [`Button`](../button/).
+Clicks reuse the same `dispatch_click` path as [`Button`](/ecosystem/factorio-rs-gui/widgets/button/).
 
 ## Builder API
 
@@ -28,4 +28,4 @@ Clicks reuse the same `dispatch_click` path as [`Button`](../button/).
 | `number(f64)` | Optional badge |
 | `on_click(LuaFunction)` | Click handler |
 
-See [Lifecycle](../../guides/lifecycle/).
+See [Lifecycle](/ecosystem/factorio-rs-gui/guides/lifecycle/).

@@ -23,7 +23,7 @@ factorio_rs::mod_settings! {
 ```
 
 This generates `Settings::CASUAL_MODE` and a `register()` entry point Factorio
-calls at settings load. Details: [Mod settings](../guides/mod-settings/).
+calls at settings load. Details: [Mod settings](/guides/mod-settings/).
 
 ## 2. Read it in control
 
@@ -56,7 +56,7 @@ factorio_rs::locale! {
 }
 ```
 
-See [Locale](../guides/locale/).
+See [Locale](/guides/locale/).
 
 ## 4. Cover the branch with a test
 
@@ -81,9 +81,9 @@ mod tests {
 }
 ```
 
-For world-touching checks, use `factorio-rs test` - [Testing](../guides/testing/).
+For world-touching checks, use `factorio-rs test` - [Testing](/guides/testing/).
 
 ## See also
 
-- [First hour](first-hour/) - scaffold -> build -> test loop
-- [mandatory_spaghetti](../examples/mandatory-spaghetti/) - settings + locale in a larger mod
+- [First hour](/recipes/first-hour/) - scaffold -> build -> test loop
+- [mandatory_spaghetti](/examples/mandatory-spaghetti/) - settings + locale in a larger mod

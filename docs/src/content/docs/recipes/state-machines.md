@@ -55,7 +55,7 @@ fn on_tick(phase: Phase) -> Phase {
 }
 ```
 
-Persist the phase if it must survive saves - [Persist with storage](persist-storage/).
+Persist the phase if it must survive saves - [Persist with storage](/recipes/persist-storage/).
 
 ## API string unions are different
 
@@ -65,9 +65,9 @@ let dir = GuiDirection::Horizontal; // "horizontal"
 ```
 
 Your `enum Phase` is a tagged table. Do not mix the two mental models.
-Details: [Enums](../language/enums/).
+Details: [Enums](/language/enums/).
 
 ## See also
 
-- [Supported Rust](../guides/language/#match) - pattern rules / `matches!`
-- [Option and Result](../guides/option-and-result/) - `Some` / `Ok` arms
+- [Supported Rust](/guides/language/#match) - pattern rules / `matches!`
+- [Option and Result](/guides/option-and-result/) - `Some` / `Ok` arms

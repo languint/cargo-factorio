@@ -13,36 +13,36 @@ crate** (authoring) and a **Factorio library mod** (runtime `require`).
 | Factorio mod | [`factorio-rs-gui`](https://mods.factorio.com/mod/factorio-rs-gui) |
 | Source | [`ecosystem/factorio-rs-gui`](https://github.com/languint/factorio-rs/tree/main/ecosystem/factorio-rs-gui) |
 | Example | [`examples/gui_counter`](https://github.com/languint/factorio-rs/tree/main/examples/gui_counter), [`examples/gui_widgets`](https://github.com/languint/factorio-rs/tree/main/examples/gui_widgets) |
-| Core docs | [factorio-rs](../../intro/) |
+| Core docs | [factorio-rs](/intro/) |
 
 ## Start here
 
-1. [Getting started](guides/getting-started/) - dependency, first window, events
-2. [Widgets](widgets/) - builders (Frame, Flow, Checkbox, ...)
-3. Core [GUI basics](../../recipes/gui-basics/) - imperative UI without reactivity
+1. [Getting started](/ecosystem/factorio-rs-gui/guides/getting-started/) - dependency, first window, events
+2. [Widgets](/ecosystem/factorio-rs-gui/widgets/) - builders (Frame, Flow, Checkbox, ...)
+3. Core [GUI basics](/recipes/gui-basics/) - imperative UI without reactivity
 
 ## Guides
 
 | Guide | Topic |
 | --- | --- |
-| [Getting started](guides/getting-started/) | First mount + events |
-| [State](guides/state/) | `state!` hooks and rebuilds |
-| [Lifecycle](guides/lifecycle/) | `mount` / `install` / events |
-| [Reactive GUI](guides/reactive/) | End-to-end counter pattern |
-| [Multiple windows](guides/multiple-windows/) | Unique `root_name`s |
+| [Getting started](/ecosystem/factorio-rs-gui/guides/getting-started/) | First mount + events |
+| [State](/ecosystem/factorio-rs-gui/guides/state/) | `state!` hooks and rebuilds |
+| [Lifecycle](/ecosystem/factorio-rs-gui/guides/lifecycle/) | `mount` / `install` / events |
+| [Reactive GUI](/ecosystem/factorio-rs-gui/guides/reactive/) | End-to-end counter pattern |
+| [Multiple windows](/ecosystem/factorio-rs-gui/guides/multiple-windows/) | Unique `root_name`s |
 
 ## Widgets
 
 | Widget | Role |
 | --- | --- |
-| [`Frame`](widgets/frame/) | Titled container |
-| [`Flow`](widgets/flow/) | Layout container |
-| [`ScrollPane`](widgets/scroll-pane/) | Scrollable container |
-| [`Text`](widgets/text/) | Label |
-| [`Button`](widgets/button/) / [`SpriteButton`](widgets/sprite-button/) | Clicks |
-| [`Checkbox`](widgets/checkbox/) / [`TextField`](widgets/text-field/) / [`Slider`](widgets/slider/) / [`DropDown`](widgets/drop-down/) | Interactive inputs |
-| [`ProgressBar`](widgets/progress-bar/) / [`Sprite`](widgets/sprite/) / [`Line`](widgets/line/) / [`EmptyWidget`](widgets/empty-widget/) | Display / layout leaves |
-| [`Widget`](widgets/widget/) | Enum + `Into` conversions |
+| [`Frame`](/ecosystem/factorio-rs-gui/widgets/frame/) | Titled container |
+| [`Flow`](/ecosystem/factorio-rs-gui/widgets/flow/) | Layout container |
+| [`ScrollPane`](/ecosystem/factorio-rs-gui/widgets/scroll-pane/) | Scrollable container |
+| [`Text`](/ecosystem/factorio-rs-gui/widgets/text/) | Label |
+| [`Button`](/ecosystem/factorio-rs-gui/widgets/button/) / [`SpriteButton`](/ecosystem/factorio-rs-gui/widgets/sprite-button/) | Clicks |
+| [`Checkbox`](/ecosystem/factorio-rs-gui/widgets/checkbox/) / [`TextField`](/ecosystem/factorio-rs-gui/widgets/text-field/) / [`Slider`](/ecosystem/factorio-rs-gui/widgets/slider/) / [`DropDown`](/ecosystem/factorio-rs-gui/widgets/drop-down/) | Interactive inputs |
+| [`ProgressBar`](/ecosystem/factorio-rs-gui/widgets/progress-bar/) / [`Sprite`](/ecosystem/factorio-rs-gui/widgets/sprite/) / [`Line`](/ecosystem/factorio-rs-gui/widgets/line/) / [`EmptyWidget`](/ecosystem/factorio-rs-gui/widgets/empty-widget/) | Display / layout leaves |
+| [`Widget`](/ecosystem/factorio-rs-gui/widgets/widget/) | Enum + `Into` conversions |
 
 ## Add the dependency
 
@@ -57,7 +57,7 @@ factorio-rs-gui = "0.1"
 [`factorio-rs-gui`](https://mods.factorio.com/mod/factorio-rs-gui) from the mod
 portal and keep it enabled next to your mod. Building with the Cargo
 dependency merges `factorio-rs-gui >= ...` into your `info.json` via
-`[package.metadata.factorio]` ([Sharing code between mods](../../guides/dependencies/)).
+`[package.metadata.factorio]` ([Sharing code between mods](/guides/dependencies/)).
 
 Monorepo examples still use a path dependency; for apps, prefer crates.io.
 

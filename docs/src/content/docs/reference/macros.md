@@ -9,7 +9,7 @@ Import via `factorio_rs` or `factorio_rs::prelude::*`.
 
 Write your own `macro_rules!` or ship a proc-macro DSL from another crate.
 factorio-rs expands them with rustc before lowering - see
-**[Authoring macros](../guides/authoring-macros/)** for the pipeline,
+**[Authoring macros](/guides/authoring-macros/)** for the pipeline,
 limitations, and examples.
 
 Built-in Factorio helpers on this page (`item!`, `recipe!`, `println!`, ...) keep
@@ -37,7 +37,7 @@ Applied to a crate, module, or used as `*_mod!` wrappers:
 
 ## `#[factorio_rs::event]`
 
-See [Events and filters](../guides/events/).
+See [Events and filters](/guides/events/).
 
 ```rust
 #[factorio_rs::event(OnSingleplayerInit)]
@@ -51,7 +51,7 @@ pub fn on_built_entity(event: OnBuiltEntityEvent) {}
 
 Publishes a function as a cross-mod API. Control-stage exports become Factorio
 `remote` interfaces; shared exports are requireable and included in the
-export catalog for consumers. See [Sharing code between mods](../guides/dependencies/).
+export catalog for consumers. See [Sharing code between mods](/guides/dependencies/).
 
 ```rust
 #[factorio_rs::export]
@@ -75,11 +75,11 @@ pub fn add(a: i32, b: i32) -> i32 {
 }
 ```
 
-See [Sharing code between mods](../guides/dependencies/).
+See [Sharing code between mods](/guides/dependencies/).
 
 ## `mod_settings!`
 
-See [Mod settings](../guides/mod-settings/).
+See [Mod settings](/guides/mod-settings/).
 
 ## `item!`
 
@@ -87,8 +87,8 @@ Declare data-stage item prototypes. Expands to `Items` name constants (for
 `locale!`) and `pub fn register()` that calls `data.extend`. Relative `icon`
 paths become `__{package.name}__/...`.
 
-Full field tables and stubs: [Prototypes](../guides/prototypes/).
-Assets walkthrough: [Package graphics](../recipes/package-graphics/).
+Full field tables and stubs: [Prototypes](/guides/prototypes/).
+Assets walkthrough: [Package graphics](/recipes/package-graphics/).
 
 ## `recipe!`
 
@@ -118,7 +118,7 @@ recipe! {
 Required fields: `name`, `ingredients`, `results`. Optional: `energy_required`,
 `category`, `enabled`, `subgroup`, `order`.
 
-Full guide: [Prototypes](../guides/prototypes/).
+Full guide: [Prototypes](/guides/prototypes/).
 
 ## `technology!`
 
@@ -148,7 +148,7 @@ Required fields: `name`, `icon`, `unlock_recipes`, `unit_count`, `unit_time`,
 `unit_ingredients`. Optional: `icon_size`, `prerequisites`, `order`. Relative
 `icon` paths become `__{package.name}__/...` like `item!`.
 
-Full guide: [Prototypes](../guides/prototypes/).
+Full guide: [Prototypes](/guides/prototypes/).
 
 ## `fluid!`
 
@@ -161,13 +161,13 @@ Declare assembling-machine entity prototypes (`AssemblingMachines::*` +
 `register_assembling_machines()`). Required: `name`, `icon`, `crafting_speed`,
 `crafting_categories`, `energy_usage`.
 
-Full guide: [Prototypes](../guides/prototypes/).
+Full guide: [Prototypes](/guides/prototypes/).
 
 ## Other prototype macros
 
 Same dual-path pattern (name-const module + `register_*` + typed stub). Macros
 emit sparse tables; fill complex Factorio fields via hand-written `data.extend`
-when needed. Full field notes: [Prototypes](../guides/prototypes/).
+when needed. Full field notes: [Prototypes](/guides/prototypes/).
 
 | Macro | Const module | Register fn | Stub |
 | --- | --- | --- | --- |
@@ -190,7 +190,7 @@ Import stubs such as `Container` via `factorio_rs::prelude::prototypes::Containe
 
 ## `locale!`
 
-See [Locale](../guides/locale/).
+See [Locale](/guides/locale/).
 
 ## Expression macros
 
@@ -201,11 +201,11 @@ In executable code, **`println!`**, **`format!`**, **`matches!`**, (with the
 - `println!(...)` -> `game.print(...)`
 - `format!(...)` -> Lua string concatenation with `..`
 - `matches!(expr, pat)` / `matches!(expr, pat if guard)` -> value `match` -> `true` / `false`
-- `tracing::info!(...)` / `warn!` / ... -> colored `game.print` (see [Tracing](../guides/tracing/))
-- `serde_json::to_string` / ... -> `helpers.table_to_json` / `string.pack` (see [Serde / JSON](../guides/serde/))
+- `tracing::info!(...)` / `warn!` / ... -> colored `game.print` (see [Tracing](/guides/tracing/))
+- `serde_json::to_string` / ... -> `helpers.table_to_json` / `string.pack` (see [Serde / JSON](/guides/serde/))
 
 Item macros such as `mod_settings!`, `item!`, `recipe!`, `technology!`,
 `fluid!`, `assembling_machine!`, `container!`, `inserter!`, and `locale!` are
 handled separately during module lowering.
 
-Full syntax inventory: [Supported Rust](../guides/language/).
+Full syntax inventory: [Supported Rust](/guides/language/).

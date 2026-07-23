@@ -19,4 +19,4 @@ Sprite::new("item/iron-plate").resize_to_sprite(true)
 | `name(&str)` | Optional element name |
 | `resize_to_sprite(bool)` | Size to sprite |
 
-See [SpriteButton](../sprite-button/) for a clickable variant.
+See [SpriteButton](/ecosystem/factorio-rs-gui/widgets/sprite-button/) for a clickable variant.

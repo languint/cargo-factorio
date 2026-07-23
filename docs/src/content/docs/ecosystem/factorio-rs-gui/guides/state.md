@@ -36,4 +36,4 @@ fn app() -> impl Into<Widget> {
 Hooks are limited to `i32` (for now). Store richer data in your own `storage` keys and keep a
 counter (or flag) in `state!` to trigger rebuilds.
 
-See also: [Lifecycle](../lifecycle/), [Reactive GUI](../reactive/).
+See also: [Lifecycle](/ecosystem/factorio-rs-gui/guides/lifecycle/), [Reactive GUI](/ecosystem/factorio-rs-gui/guides/reactive/).

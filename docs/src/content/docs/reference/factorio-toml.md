@@ -23,7 +23,7 @@ Written into `info.json` (and related packaging):
 | `factorio_version` | Factorio version string (default `"2.0"`); also used for a default `base` dependency |
 | `thumbnail` | Optional path to an image copied to `thumbnail.png` in the mod output |
 | `assets` | Files/directories copied into the mod output (graphics, sounds, ...). See [Assets](#assets). |
-| `dependencies` | Extra Factorio dependency strings (`"? space-age"`, `"! conflict"`, ...). Merged with deps from Cargo crates that publish `[package.metadata.factorio]`; this list wins on duplicate mod names. See [Sharing code between mods](../guides/dependencies/). |
+| `dependencies` | Extra Factorio dependency strings (`"? space-age"`, `"! conflict"`, ...). Merged with deps from Cargo crates that publish `[package.metadata.factorio]`; this list wins on duplicate mod names. See [Sharing code between mods](/guides/dependencies/). |
 | `emit_api` | **Deprecated / ignored.** Exports are written to `.factorio-rs/exports.json`. |
 | `api_dir` | **Deprecated / ignored.** Exports are published onto the library’s own Cargo package. |
 
@@ -71,7 +71,7 @@ Rules:
 
 Reference packaged files in data-stage code with Factorio paths such as
 `"__my_mod__/graphics/icon.png"` (replace `my_mod` with your Cargo package name),
-or use `item!` with a relative `icon` path. End-to-end: [Package graphics](../recipes/package-graphics/).
+or use `item!` with a relative `icon` path. End-to-end: [Package graphics](/recipes/package-graphics/).
 
 ## `[emit]`
 
@@ -87,11 +87,11 @@ or use `item!` with a relative `icon` path. End-to-end: [Package graphics](../re
 | `prune_dead_code` | Whether to prune unreachable IR |
 | `optimize_ir` | Whether to run IR expression optimizations before codegen |
 
-See [Profiles](../guides/profiles/).
+See [Profiles](/guides/profiles/).
 
 ## `[lints]`
 
-Transpile-time safety checks. See [Lints](../guides/lints/).
+Transpile-time safety checks. See [Lints](/guides/lints/).
 
 Each key is a lint **identifier**; the value is `allow`, `warn`, or `deny`.
 Unspecified lints use their defaults (`deny`, except `format_spec` /

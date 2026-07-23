@@ -9,7 +9,7 @@ those with **`Option`** and **`Result`**. factorio-rs keeps the same authoring
 style under `cargo check`, then lowers them to idiomatic Lua.
 
 This page is the full reference. For the rest of the language surface, see
-[Supported Rust](language/).
+[Supported Rust](/guides/language/).
 
 ## Mental model
 
@@ -119,7 +119,7 @@ local entity = __try_1
 
 These **do not** check for nil. They strip to the receiver and emit lints
 `unwrap` (`E0001`) / `expect` (`E0002`) (default **deny**). Prefer `if let`,
-`unwrap_or`, or `ok_or` + `?`. See [Lints](lints/).
+`unwrap_or`, or `ok_or` + `?`. See [Lints](/guides/lints/).
 
 ## Result
 
@@ -194,7 +194,7 @@ match load(path) {
 ```
 
 `match` / `if let` on `Ok` / `Err` use the same nested `if` desugaring as other
-patterns (see [Supported Rust](language/#match)).
+patterns (see [Supported Rust](/guides/language/#match)).
 
 ### Methods
 
@@ -250,7 +250,7 @@ let n = maybe.map(|x| x + 1);
 let r = result.and_then(|x| scale(x));
 ```
 
-See [Supported Rust](language/#closures) for closure limits (plain params,
+See [Supported Rust](/guides/language/#closures) for closure limits (plain params,
 no async).
 
 ## Safety traps
@@ -265,7 +265,7 @@ no async).
 
 ## See also
 
-- [Supported Rust](language/) - statements, `match`, closures, collections
-- [Lints](lints/) - `unwrap` / `expect` and other transpile diagnostics
-- [API types](api-types/) - optional concept fields as `Option<T>`
-- [Events](events/) - typical `if let Some(...)` on event payloads
+- [Supported Rust](/guides/language/) - statements, `match`, closures, collections
+- [Lints](/guides/lints/) - `unwrap` / `expect` and other transpile diagnostics
+- [API types](/guides/api-types/) - optional concept fields as `Option<T>`
+- [Events](/guides/events/) - typical `if let Some(...)` on event payloads

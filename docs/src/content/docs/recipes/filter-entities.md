@@ -68,7 +68,7 @@ fn top_half(scores: Scores) -> Scores {
 }
 ```
 
-Aliases are transparent - see [Type aliases](../language/type-aliases/).
+Aliases are transparent - see [Type aliases](/language/type-aliases/).
 
 ## Limits
 
@@ -78,4 +78,4 @@ Aliases are transparent - see [Type aliases](../language/type-aliases/).
 | `.map` / `.filter` / `.collect` on that subset | Standing `.iter()` without collect |
 | `type Name = Vec<_>` for ipairs detection | Arbitrary `Iterator` trait objects |
 
-Full table: [Collections and iterators](../language/collections/).
+Full table: [Collections and iterators](/language/collections/).

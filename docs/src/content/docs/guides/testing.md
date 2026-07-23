@@ -54,7 +54,7 @@ factorio_rs::control_mod! {
 }
 ```
 
-See [`examples/hello_world`](../examples/hello-world/).
+See [`examples/hello_world`](/examples/hello-world/).
 
 ### Reading the game world
 
@@ -145,10 +145,10 @@ Tips for entity tests:
   instead of going through `on_built_entity`.
 - Assert with `entity.valid()` after rules that may `die()` the entity.
 - Prefer `if let` / `panic!` over `.unwrap()` / `.expect()` (those lint deny by
-  default - see [Lints](lints/)).
+  default - see [Lints](/guides/lints/)).
 
 A fuller suite lives in
-[`examples/mandatory_spaghetti`](../examples/mandatory-spaghetti/)
+[`examples/mandatory_spaghetti`](/examples/mandatory-spaghetti/)
 (`src/control.rs`).
 
 ### Multi-tick steps
@@ -190,7 +190,7 @@ How it works:
   mod-settings lowering.
 
 Omit `steps()` entirely for ordinary sync tests; both styles can mix in one
-suite. See [`examples/hello_world`](../examples/hello-world/) for a smoke
+suite. See [`examples/hello_world`](/examples/hello-world/) for a smoke
 multi-tick case.
 
 ### Assertions
@@ -228,7 +228,7 @@ factorio-rs test --rerun                  # rebuild + wait for next suite (Bacon
 4. Print a colored report and exit non-zero on failures
 
 `--listen` / `--rerun` keep a Factorio process warm and re-run the suite after
-`game.reload_mods()` - see [Hot reload with Bacon](../recipes/hot-reload-bacon/).
+`game.reload_mods()` - see [Hot reload with Bacon](/recipes/hot-reload-bacon/).
 
 Example output:
 
@@ -286,13 +286,13 @@ can inspect leftover entities. Close the window to finish the CLI. Increase
 - There is no per-test Factorio restart / map reset.
 - Host-only crates and `std` APIs that are not lowered will not work inside
   tests (same rules as control-stage code). See
-  [Supported Rust](language/).
+  [Supported Rust](/guides/language/).
 
 ## See also
 
-- [CLI reference](../reference/cli/) - full `factorio-rs test` flags
-- [Hot reload with Bacon](../recipes/hot-reload-bacon/) - watch + `--rerun`
-- [hello_world](../examples/hello-world/) - minimal smoke tests
-- [mandatory_spaghetti](../examples/mandatory-spaghetti/) - adjacency
+- [CLI reference](/reference/cli/) - full `factorio-rs test` flags
+- [Hot reload with Bacon](/recipes/hot-reload-bacon/) - watch + `--rerun`
+- [hello_world](/examples/hello-world/) - minimal smoke tests
+- [mandatory_spaghetti](/examples/mandatory-spaghetti/) - adjacency
   simulations with `create_entity`
-- [API types](api-types/) - typed params for `create_entity` / filters
+- [API types](/guides/api-types/) - typed params for `create_entity` / filters

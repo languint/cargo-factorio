@@ -7,7 +7,7 @@ factorio-rs expands macros with **rustc** before lowering to Lua. You can ship
 `macro_rules!` helpers in a mod, or publish a dependency proc-macro crate
 (for example a JSX-like `gui!` DSL). This page is for **authors** of those
 macros. For the built-in Factorio helpers (`item!`, `export`, ...), see
-[Macros and attributes](../../reference/macros/).
+[Macros and attributes](/reference/macros/).
 
 ## Pipeline
 
@@ -37,7 +37,7 @@ consumer, then lower. You do not “export” a macro over Factorio `remote`.
 
 ## Golden rule
 
-**Expansion must be [supported Rust](../language/).**
+**Expansion must be [supported Rust](/guides/language/).**
 
 If rustc expands your macro to something the frontend cannot lower (`async`,
 unsupported std APIs, exotic patterns, ...), `factorio-rs build` fails at lower
@@ -56,7 +56,7 @@ Anything outside the language inventory fails after expand. Common traps:
 - `async` / `.await`, threads, filesystems, networking
 - Heavy generics / trait machinery the frontend does not lower
 - Std formatting beyond what `println!` / `format!` support (see
-  [Supported Rust](../language/#expression-macros))
+  [Supported Rust](/guides/language/#expression-macros))
 - Emitting raw Lua or IR - there is no `factorio_rs::emit_lua!` escape hatch
 
 ### `locale!` is special
@@ -286,7 +286,7 @@ in CI with `factorio-rs build` so expansions cannot drift into unsupported Rust.
 
 ## See also
 
-- [Macros and attributes](../../reference/macros/) - built-in `factorio_rs::*` surface
-- [Supported Rust](../language/) - what expansions may contain
-- [Sharing code between mods](../dependencies/) - exporting **functions**, not macros
-- [GUI basics](../../recipes/gui-basics/) - imperative GUI without a DSL
+- [Macros and attributes](/reference/macros/) - built-in `factorio_rs::*` surface
+- [Supported Rust](/guides/language/) - what expansions may contain
+- [Sharing code between mods](/guides/dependencies/) - exporting **functions**, not macros
+- [GUI basics](/recipes/gui-basics/) - imperative GUI without a DSL

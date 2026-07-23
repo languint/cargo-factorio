@@ -76,4 +76,4 @@ factorio-rs test             # unit tests; Factorio only needed for ignored game
 
 Associated types are supported without bounds/defaults; dyn coerce rejects
 traits that declare them. No generics or supertraits - see
-[Supported Rust](../../guides/language/#traits).
+[Supported Rust](/guides/language/#traits).

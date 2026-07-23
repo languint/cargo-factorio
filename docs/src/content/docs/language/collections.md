@@ -4,7 +4,7 @@ description: Vec, ranges, ipairs/pairs loops, and the supported map/filter/colle
 ---
 
 Language reference for collections. Recipe-style walkthrough:
-[Filter entity lists](../recipes/filter-entities/).
+[Filter entity lists](/recipes/filter-entities/).
 
 ## `Vec` and loops
 
@@ -47,5 +47,5 @@ collect, and arbitrary `Iterator` trait objects.
 
 ## Related
 
-- [Type aliases](type-aliases/) - `type Entities = Vec<_>` still detects `ipairs`
-- [Supported Rust](../guides/language/) - full inventory
+- [Type aliases](/language/type-aliases/) - `type Entities = Vec<_>` still detects `ipairs`
+- [Supported Rust](/guides/language/) - full inventory

@@ -30,4 +30,4 @@ Slider::new()
 | `value_step` / `discrete_values` | Stepping |
 | `on_value_changed(LuaFunction)` | `on_gui_value_changed` |
 
-See [Lifecycle](../../guides/lifecycle/).
+See [Lifecycle](/ecosystem/factorio-rs-gui/guides/lifecycle/).

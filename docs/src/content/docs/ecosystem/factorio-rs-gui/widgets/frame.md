@@ -37,7 +37,7 @@ Alignment helpers are type aliases from the Factorio API
 
 ## Root name
 
-When you [`mount`](../../guides/lifecycle/) a GUI, the runtime calls
+When you [`mount`](/ecosystem/factorio-rs-gui/guides/lifecycle/) a GUI, the runtime calls
 `ensure_name(root_name)` on the root frame if you did not set `.name(...)`.
 You usually omit `.name` on the root and pass a mod-unique string to `mount`.
 

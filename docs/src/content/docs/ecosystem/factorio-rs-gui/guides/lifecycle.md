@@ -18,7 +18,7 @@ factorio_rs_gui::shared::runtime::mount(
 
 - Parent is usually `player.gui().screen()`.
 - `root_name` must be **mod-unique** among siblings on that parent.
-- Applies `root_name` to the root [`Frame`](../../widgets/frame/) when unset.
+- Applies `root_name` to the root [`Frame`](/ecosystem/factorio-rs-gui/widgets/frame/) when unset.
 - Stores the `app` closure, builds the tree, and wires GUI `script.on_event`
   handlers ([`ensure_events`](#events)).
 
@@ -41,12 +41,12 @@ factorio_rs_gui::shared::runtime::install("my_mod_window", lua_fn0(app));
 
 | Event | Dispatcher | Used by |
 | --- | --- | --- |
-| `on_gui_click` | `dispatch_click` | [`Button`](../../widgets/button/), [`SpriteButton`](../../widgets/sprite-button/) |
-| `on_gui_checked_state_changed` | `dispatch_checked` | [`Checkbox`](../../widgets/checkbox/) |
-| `on_gui_text_changed` | `dispatch_text` | [`TextField`](../../widgets/text-field/) |
-| `on_gui_confirmed` | `dispatch_confirmed` | [`TextField`](../../widgets/text-field/) |
-| `on_gui_value_changed` | `dispatch_value` | [`Slider`](../../widgets/slider/) |
-| `on_gui_selection_state_changed` | `dispatch_selection` | [`DropDown`](../../widgets/drop-down/) |
+| `on_gui_click` | `dispatch_click` | [`Button`](/ecosystem/factorio-rs-gui/widgets/button/), [`SpriteButton`](/ecosystem/factorio-rs-gui/widgets/sprite-button/) |
+| `on_gui_checked_state_changed` | `dispatch_checked` | [`Checkbox`](/ecosystem/factorio-rs-gui/widgets/checkbox/) |
+| `on_gui_text_changed` | `dispatch_text` | [`TextField`](/ecosystem/factorio-rs-gui/widgets/text-field/) |
+| `on_gui_confirmed` | `dispatch_confirmed` | [`TextField`](/ecosystem/factorio-rs-gui/widgets/text-field/) |
+| `on_gui_value_changed` | `dispatch_value` | [`Slider`](/ecosystem/factorio-rs-gui/widgets/slider/) |
+| `on_gui_selection_state_changed` | `dispatch_selection` | [`DropDown`](/ecosystem/factorio-rs-gui/widgets/drop-down/) |
 
 You do **not** need manual `#[factorio_rs::event(OnGui...)]` stubs for those.
 
@@ -84,4 +84,4 @@ v1 rebuilds the **whole** tree for a root when state changes.
 ## Constants
 
 `ROOT_NAME` (`"frg_root"`) is a default for single-GUI experiments. Prefer an
-explicit mod-prefixed string in real mods. See [Multiple windows](../multiple-windows/).
+explicit mod-prefixed string in real mods. See [Multiple windows](/ecosystem/factorio-rs-gui/guides/multiple-windows/).

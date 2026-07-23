@@ -76,4 +76,4 @@ Everything else is kept only if referenced from those roots. Prefer passing
 **function values** (or `lua_fn(...)`) into Factorio APIs instead of stringly
 callback names when prune is on - otherwise the handler can be deleted.
 
-Config reference: [Factorio.toml](../reference/factorio-toml/#profilesname).
+Config reference: [Factorio.toml](/reference/factorio-toml/#profilesname).

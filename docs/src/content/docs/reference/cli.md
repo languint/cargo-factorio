@@ -82,12 +82,12 @@ when iterating with a running Factorio save.
 | `--to-test-run` | Deploy into `.factorio-rs/test-run/mods/` instead of user mods |
 
 Typical Bacon job: `factorio-rs sync --symlink --hot-reload`. See
-[Hot reload with Bacon](../recipes/hot-reload-bacon/).
+[Hot reload with Bacon](/recipes/hot-reload-bacon/).
 
 ### `factorio-rs add`
 
 Add another factorio-rs library as a Cargo path dependency and merge Factorio.toml
-deps. See [Sharing code between mods](../guides/dependencies/).
+deps. See [Sharing code between mods](/guides/dependencies/).
 
 ### `factorio-rs open`
 
@@ -99,7 +99,7 @@ protocol). Prefers `steam-run` when available.
 Build the mod, discover `#[test]` functions under `#[cfg(test)]`, launch Factorio
 (headless by default), run the suite in-game, and print a colored report.
 
-See [Testing](../guides/testing/).
+See [Testing](/guides/testing/).
 
 | Flag | Description |
 | --- | --- |
@@ -115,7 +115,7 @@ See [Testing](../guides/testing/).
 
 `--listen` and `--rerun` are mutually exclusive. `--rerun` starts a listen
 process if none is running (Bacon-friendly). Recipe:
-[Hot reload with Bacon](../recipes/hot-reload-bacon/).
+[Hot reload with Bacon](/recipes/hot-reload-bacon/).
 
 Requires a Factorio binary (`FACTORIO_PATH` recommended). Steam protocol-only
 installs are not supported for testing.

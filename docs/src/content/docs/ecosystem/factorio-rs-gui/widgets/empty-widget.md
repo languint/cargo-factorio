@@ -18,4 +18,4 @@ EmptyWidget::new()
 | `new()` | Empty placeholder |
 | `name(&str)` | Optional element name |
 
-Useful for spacing or as a style target. See [Widgets](../).
+Useful for spacing or as a style target. See [Widgets](/ecosystem/factorio-rs-gui/widgets/).

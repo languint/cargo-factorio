@@ -20,7 +20,7 @@ cargo add --path ../provider
 factorio-rs build
 ```
 
-Working tree: [provider / consumer example](../examples/dependencies/).
+Working tree: [provider / consumer example](/examples/dependencies/).
 
 ## Export a function (library mod)
 

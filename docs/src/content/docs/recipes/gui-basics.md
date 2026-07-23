@@ -6,8 +6,8 @@ description: Open a framed GUI on an event, set captions, and style with LuaStyl
 Build a small on-screen frame from the control stage: create the element, set
 text, then tune layout through `LuaStyle`.
 
-Requires a control-stage module ([Stages](../guides/stages/)). Attribute
-reads/writes: [API types](../guides/api-types/).
+Requires a control-stage module ([Stages](/guides/stages/)). Attribute
+reads/writes: [API types](/guides/api-types/).
 
 ## 1. Create a frame on player join
 
@@ -62,7 +62,7 @@ with `set_caption`.
 
 ## 3. Rebuild and try it
 
-Working tree: [`examples/gui_basics`](../examples/gui-basics/).
+Working tree: [`examples/gui_basics`](/examples/gui-basics/).
 
 ```bash
 cd examples/gui_basics
@@ -88,8 +88,8 @@ Create a new player (or join a map). You should see a titled frame with a label.
 
 ## See also
 
-- [gui_basics example](../examples/gui-basics/) - full crate in the repo
-- [API types](../guides/api-types/) - attribute writers and `style()` typing
-- [Events](../guides/events/) - `OnPlayerCreated` and filters
-- [First hour](first-hour/) - init / build / install loop
-- [Prototypes](../guides/prototypes/) - data-stage items / recipes / tech
+- [gui_basics example](/examples/gui-basics/) - full crate in the repo
+- [API types](/guides/api-types/) - attribute writers and `style()` typing
+- [Events](/guides/events/) - `OnPlayerCreated` and filters
+- [First hour](/recipes/first-hour/) - init / build / install loop
+- [Prototypes](/guides/prototypes/) - data-stage items / recipes / tech

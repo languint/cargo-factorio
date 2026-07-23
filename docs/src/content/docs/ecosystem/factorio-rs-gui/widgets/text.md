@@ -20,4 +20,4 @@ Text::new(&format!("Count: {n}")).name("count_label")
 | `name(&str)` | Optional stable element name |
 
 There is no reactive binding on the caption itself - recompute strings in
-`app` with `format!` and rebuild when [`state!`](../../guides/state/) changes.
+`app` with `format!` and rebuild when [`state!`](/ecosystem/factorio-rs-gui/guides/state/) changes.

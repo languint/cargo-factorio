@@ -4,7 +4,7 @@ description: User-defined enums as tagged Lua tables, match patterns, and inhere
 ---
 
 User-defined enums lower to **tagged tables**. This is the language page; for a
-worked phase machine see [State machines with enums](../recipes/state-machines/).
+worked phase machine see [State machines with enums](/recipes/state-machines/).
 
 ## Shapes
 
@@ -43,11 +43,11 @@ match msg {
 Supported patterns include unit / tuple / named variants, guards, and or-patterns.
 `matches!(expr, pat)` / `matches!(expr, pat if guard)` is supported and desugars to
 a value `match` that yields `true` / `false`.
-Full pattern rules: [Supported Rust -> match](../guides/language/#match).
+Full pattern rules: [Supported Rust -> match](/guides/language/#match).
 
 ## Not the same as API unions
 
 Factorio literal unions (`GuiDirection`, ...) stay **Lua strings**. Your enums
 are tagged tables. Prefer Identification constructors such as
 `ForceID::Name("enemy")` (they lower to the Factorio payload) -
-see [API types](../guides/api-types/).
+see [API types](/guides/api-types/).

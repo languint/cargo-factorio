@@ -54,7 +54,7 @@ use crate::settings::Settings;
 const CASUAL_MODE: bool = settings.startup.get_bool(Settings::CASUAL_MODE);
 ```
 
-Put locale strings for setting names/descriptions in a `locale!` block - see [Locale](locale/).
+Put locale strings for setting names/descriptions in a `locale!` block - see [Locale](/guides/locale/).
 
 ## Reading values in Lua terms
 

@@ -36,5 +36,5 @@ After resolution, `Entities` still counts as `Vec` (ordered `ipairs`), and
 
 ## See also
 
-- [Filter entity lists](../recipes/filter-entities/) - aliases + iterators
-- [Option and Result](../guides/option-and-result/)
+- [Filter entity lists](/recipes/filter-entities/) - aliases + iterators
+- [Option and Result](/guides/option-and-result/)

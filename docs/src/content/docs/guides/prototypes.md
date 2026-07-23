@@ -19,7 +19,7 @@ Prototype registration happens in the **data** stage (`data.rs`,
   struct name (`prototype_lua_typename`)
 
 Every **`pub fn`** in a data-stage module runs from `data.lua` at load time -
-see [Stages](stages/).
+see [Stages](/guides/stages/).
 
 ## Typed stubs
 
@@ -158,7 +158,7 @@ item! {
 Block idents become screaming consts: `widget` -> `Items::WIDGET`.
 
 Co-locate `locale!` in the same module, or put it in a sibling module and
-`use crate::data::items::Items` (see [Locale](locale/)):
+`use crate::data::items::Items` (see [Locale](/guides/locale/)):
 
 ```rust
 locale! {
@@ -175,7 +175,7 @@ locale! {
 }
 ```
 
-Packaging icons and `Factorio.toml` assets: [Package graphics](../recipes/package-graphics/).
+Packaging icons and `Factorio.toml` assets: [Package graphics](/recipes/package-graphics/).
 
 ## `recipe!`
 
@@ -332,7 +332,7 @@ the typed stub when you need them.
 ## Other prototype macros
 
 High-value dual-path macros follow the same pattern (name-const module +
-`register_*` helper). See [Macros and attributes](../reference/macros/) for the
+`register_*` helper). See [Macros and attributes](/reference/macros/) for the
 full inventory:
 
 | Macro | Const module | Register fn | Stub |
@@ -442,9 +442,9 @@ rg 'my-mod-widget' dist/locale
 
 ## See also
 
-- [Package graphics](../recipes/package-graphics/) - assets + `item!` end-to-end
-- [Stages](stages/) - data-stage discovery and `pub fn` entry points
-- [Locale](locale/) - `locale!` + `Items::*` / `Recipes::*` / `Technologies::*` keys
-- [Mod settings](mod-settings/) - same const + register pattern on the settings stage
-- [Macros and attributes](../reference/macros/) - concise macro inventory
-- [API types](api-types/) - sparse struct tables / `Default`
+- [Package graphics](/recipes/package-graphics/) - assets + `item!` end-to-end
+- [Stages](/guides/stages/) - data-stage discovery and `pub fn` entry points
+- [Locale](/guides/locale/) - `locale!` + `Items::*` / `Recipes::*` / `Technologies::*` keys
+- [Mod settings](/guides/mod-settings/) - same const + register pattern on the settings stage
+- [Macros and attributes](/reference/macros/) - concise macro inventory
+- [API types](/guides/api-types/) - sparse struct tables / `Default`

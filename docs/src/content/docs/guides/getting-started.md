@@ -94,12 +94,12 @@ folder inside.
 Place an optional `thumbnail.png` in the project root (or set
 `[mod].thumbnail`) so it is copied into the mod for the Factorio mod portal.
 List graphics, sounds, and other files under `[mod].assets` so they are packaged
-into the mod output (see [Factorio.toml](../../reference/factorio-toml/#assets)).
-End-to-end item registration: [Package graphics](../recipes/package-graphics/).
+into the mod output (see [Factorio.toml](/reference/factorio-toml/#assets)).
+End-to-end item registration: [Package graphics](/recipes/package-graphics/).
 
 ## Next steps
 
-1. [First hour](../recipes/first-hour/) - see a print in-game, then run `factorio-rs test`
-2. Pick a recipe: [storage](../recipes/persist-storage/), [settings](../recipes/settings-gameplay/), [enums](../recipes/state-machines/), [graphics](../recipes/package-graphics/)
-3. Deeper reading: [Supported Rust](language/), [Option and Result](option-and-result/), [Testing](testing/), [Stages](stages/)
-4. Example: [hello_world](../examples/hello-world/)
+1. [First hour](/recipes/first-hour/) - see a print in-game, then run `factorio-rs test`
+2. Pick a recipe: [storage](/recipes/persist-storage/), [settings](/recipes/settings-gameplay/), [enums](/recipes/state-machines/), [graphics](/recipes/package-graphics/)
+3. Deeper reading: [Supported Rust](/guides/language/), [Option and Result](/guides/option-and-result/), [Testing](/guides/testing/), [Stages](/guides/stages/)
+4. Example: [hello_world](/examples/hello-world/)

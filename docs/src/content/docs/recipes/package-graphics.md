@@ -8,7 +8,7 @@ project, list them in `Factorio.toml`, and register items with `item!` so relati
 icon paths become `__mod__/...` and `Items::*` constants wire into `locale!`.
 
 For recipes, technologies, hand-written stubs, and the full `item!` / `recipe!` /
-`technology!` field tables, see [Prototypes](../guides/prototypes/).
+`technology!` field tables, see [Prototypes](/guides/prototypes/).
 
 ## 1. Add files
 
@@ -40,7 +40,7 @@ Or keep the same relative path:
 assets = ["graphics"]
 ```
 
-Rules (collisions, remaps, thumbnail): [Factorio.toml -> Assets](../reference/factorio-toml/#assets).
+Rules (collisions, remaps, thumbnail): [Factorio.toml -> Assets](/reference/factorio-toml/#assets).
 
 ## 3. Register items + locale
 
@@ -49,8 +49,8 @@ Cargo `[package].name` is the mod id. Relative `icon` paths are rewritten to
 already start with `__` are left unchanged.
 
 Co-locate `item!` and `locale!` in the same data-stage module, or import
-`Items` from a sibling module (see [Locale](../guides/locale/) and
-[Prototypes](../guides/prototypes/)) so `Items::CONST` keys resolve.
+`Items` from a sibling module (see [Locale](/guides/locale/) and
+[Prototypes](/guides/prototypes/)) so `Items::CONST` keys resolve.
 
 ```rust
 // src/data.rs
@@ -84,7 +84,7 @@ locale! {
 `item!` expands to an `Items` type with name constants and `pub fn register()`
 that calls `data.extend` with typed `Item` literals (`type = "item"` is injected).
 Every `pub fn` in a data-stage module runs from `data.lua` at load time -
-see [Stages](../guides/stages/).
+see [Stages](/guides/stages/).
 
 Factorio reads `[item-name]` / `[item-description]` from locale `.cfg` files
 automatically (category idents use underscores -> hyphens).
@@ -136,9 +136,9 @@ thumbnail = "assets/thumbnail.png"  # or rely on ./thumbnail.png
 
 ## See also
 
-- [Prototypes](../guides/prototypes/) - `item!` / `recipe!` / `technology!` / typed stubs
-- [Getting started](../guides/getting-started/) - install / package
-- [First hour](first-hour/) - end-to-end loop
-- [Stages](../guides/stages/) - data vs control modules
-- [Locale](../guides/locale/) - `locale!` + `Items::*` / `Technologies::*` keys
-- [Mod settings](../guides/mod-settings/) - same `register` / const pattern
+- [Prototypes](/guides/prototypes/) - `item!` / `recipe!` / `technology!` / typed stubs
+- [Getting started](/guides/getting-started/) - install / package
+- [First hour](/recipes/first-hour/) - end-to-end loop
+- [Stages](/guides/stages/) - data vs control modules
+- [Locale](/guides/locale/) - `locale!` + `Items::*` / `Technologies::*` keys
+- [Mod settings](/guides/mod-settings/) - same `register` / const pattern

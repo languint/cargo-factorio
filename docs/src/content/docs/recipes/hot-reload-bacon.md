@@ -106,10 +106,10 @@ factorio-rs test --listen    # keep Factorio alive after the first suite
 factorio-rs test --rerun     # rebuild + wait for the next suite
 ```
 
-See [Testing](../guides/testing/) for the suite protocol and `--gui`.
+See [Testing](/guides/testing/) for the suite protocol and `--gui`.
 
 ## See also
 
-- [CLI reference](../reference/cli/) - `sync`, `test --listen` / `--rerun`
-- [First hour](first-hour/) - install loop without Bacon
-- [Stages](../guides/stages/) - control vs data vs settings
+- [CLI reference](/reference/cli/) - `sync`, `test --listen` / `--rerun`
+- [First hour](/recipes/first-hour/) - install loop without Bacon
+- [Stages](/guides/stages/) - control vs data vs settings

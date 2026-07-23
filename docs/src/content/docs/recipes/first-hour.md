@@ -3,7 +3,7 @@ title: First hour
 description: Init, build, install, see a print, then run your first in-game test.
 ---
 
-A guide to init, build, install, see a print, then run your first in-game test. This guide assumes you already have the required `factorio-rs` binary installed. If you don't, see [Installation](../../installation/).
+A guide to init, build, install, see a print, then run your first in-game test. This guide assumes you already have the required `factorio-rs` binary installed. If you don't, see [Installation](/installation/).
 
 ## 1. Scaffold
 
@@ -13,7 +13,7 @@ factorio-rs init --name my-mod
 ```
 
 You get `Cargo.toml`, `Factorio.toml`, and a sample control-stage handler in
-`src/lib.rs`. Details: [Getting started](../guides/getting-started/).
+`src/lib.rs`. Details: [Getting started](/guides/getting-started/).
 
 ## 2. Build
 
@@ -34,7 +34,7 @@ Start a new map (or load one). You should see `Initialized` printed when the
 control stage runs (`OnSingleplayerInit`).
 
 If Factorio is not installed yet, keep using `factorio-rs build` locally; install
-and open once you have a binary (see [Installation](../installation/)).
+and open once you have a binary (see [Installation](/installation/)).
 
 ## 4. Change something small
 
@@ -81,17 +81,17 @@ factorio-rs test
 ```
 
 Plain `cargo test` typechecks stubs only. `factorio-rs test` transpiles the suite
-and launches Factorio. Full details: [Testing](../guides/testing/).
+and launches Factorio. Full details: [Testing](/guides/testing/).
 
 ## 6. Pick a next recipe
 
 | Goal | Recipe |
 | --- | --- |
-| Iterate with Bacon (in-game + tests) | [Hot reload with Bacon](hot-reload-bacon/) |
-| Remember a counter across events / saves | [Persist with storage](persist-storage/) |
-| Toggle behavior from mod settings | [Settings that change gameplay](settings-gameplay/) |
-| Map / filter a list of entities | [Filter entity lists](filter-entities/) |
-| Model mod phases with enums | [State machines with enums](state-machines/) |
-| Ship sprites + data-stage item | [Package graphics](package-graphics/) |
-| Open a styled GUI frame | [GUI basics](gui-basics/) |
-| Call another mod’s API | [Share an API between mods](share-api/) |
+| Iterate with Bacon (in-game + tests) | [Hot reload with Bacon](/recipes/hot-reload-bacon/) |
+| Remember a counter across events / saves | [Persist with storage](/recipes/persist-storage/) |
+| Toggle behavior from mod settings | [Settings that change gameplay](/recipes/settings-gameplay/) |
+| Map / filter a list of entities | [Filter entity lists](/recipes/filter-entities/) |
+| Model mod phases with enums | [State machines with enums](/recipes/state-machines/) |
+| Ship sprites + data-stage item | [Package graphics](/recipes/package-graphics/) |
+| Open a styled GUI frame | [GUI basics](/recipes/gui-basics/) |
+| Call another mod’s API | [Share an API between mods](/recipes/share-api/) |

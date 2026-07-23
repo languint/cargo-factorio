@@ -29,4 +29,4 @@ DropDown::new(vec!["A".into(), "B".into(), "C".into()])
 | `selected_index(u32)` | Initial selection (1-based) |
 | `on_selection_changed(LuaFunction)` | `on_gui_selection_state_changed` |
 
-See [Lifecycle](../../guides/lifecycle/).
+See [Lifecycle](/ecosystem/factorio-rs-gui/guides/lifecycle/).

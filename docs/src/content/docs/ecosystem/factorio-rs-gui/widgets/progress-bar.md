@@ -20,4 +20,4 @@ ProgressBar::new().value(0.5).caption("50%")
 | `value(f64)` | Progress in `[0.0, 1.0]` |
 | `caption(&str)` | Overlay caption |
 
-No interactive events. See [Widgets](../).
+No interactive events. See [Widgets](/ecosystem/factorio-rs-gui/widgets/).

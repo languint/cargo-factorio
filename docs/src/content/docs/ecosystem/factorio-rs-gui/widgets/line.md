@@ -19,4 +19,4 @@ Line::new().direction(GuiDirection::Horizontal)
 | `name(&str)` | Optional element name |
 | `direction(GuiDirection)` | Orientation |
 
-See [Widgets](../).
+See [Widgets](/ecosystem/factorio-rs-gui/widgets/).

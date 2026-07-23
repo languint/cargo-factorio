@@ -14,7 +14,7 @@ every lint in the project is collected and printed together.
 
 ## Levels
 
-Configure each lint in [`Factorio.toml`](../reference/factorio-toml/#lints):
+Configure each lint in [`Factorio.toml`](/reference/factorio-toml/#lints):
 
 ```toml
 [lints]
@@ -146,7 +146,7 @@ force: Some(ForceSet::One(ForceID::Name("enemy"))),
 force: Some(ForceSet::One(ForceID::Force(source.force()))),
 ```
 
-See [API types](api-types/) for Identification / `IndexOrName` details.
+See [API types](/guides/api-types/) for Identification / `IndexOrName` details.
 
 ### `option_if` (`E0006`)
 
@@ -254,11 +254,11 @@ unwrap = "warn"
 | Hard error | unsupported macro, bad locale key, unsupported pattern | Stops that module; other modules still run; build fails at the end |
 
 Hard errors are not configurable via `[lints]`. Fix the source or use a
-supported construct (see [Supported Rust](language/)).
+supported construct (see [Supported Rust](/guides/language/)).
 
 ## See also
 
 - [`[lints]` in Factorio.toml](../reference/factorio-toml/#lints) - config keys
-- [Supported Rust](language/) - what lowers, and the safety trap table
-- [Option and Result](option-and-result/) - nil / `{ ok }` / `{ err }` / `?`
-- [API types](api-types/) - Identification enums and exact constructors
+- [Supported Rust](/guides/language/) - what lowers, and the safety trap table
+- [Option and Result](/guides/option-and-result/) - nil / `{ ok }` / `{ err }` / `?`
+- [API types](/guides/api-types/) - Identification enums and exact constructors

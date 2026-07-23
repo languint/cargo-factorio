@@ -29,11 +29,11 @@ pub fn on_singleplayer_init() {
 | `storage["key"]` | `storage[key]` as `LuaAny` | Opaque / dump with `{:?}` |
 
 `storage` is a prelude global (`LuaStorage`). It is **mod-local** and persists
-across events and save/load. See [API types](../guides/api-types/#globals).
+across events and save/load. See [API types](/guides/api-types/#globals).
 
 :::tip
 Prefer `get` + `if let Some` / `unwrap_or` over indexing when you care about
-absence. That matches [Option and Result](../guides/option-and-result/).
+absence. That matches [Option and Result](/guides/option-and-result/).
 :::
 
 ## When to use it
@@ -42,7 +42,7 @@ absence. That matches [Option and Result](../guides/option-and-result/).
 | --- | --- |
 | Flags, caches, tables that must survive saves | Values that should reset every event |
 | Sharing data between your own handlers | Emulating Rust `static mut` |
-| Typed counters via `get` / `set` | Cross-mod data - use [export](share-api/) |
+| Typed counters via `get` / `set` | Cross-mod data - use [export](/recipes/share-api/) |
 
 ## Verify with a test
 
@@ -61,4 +61,4 @@ mod tests {
 }
 ```
 
-Run with `factorio-rs test`. Multi-tick helpers: [Testing](../guides/testing/).
+Run with `factorio-rs test`. Multi-tick helpers: [Testing](/guides/testing/).

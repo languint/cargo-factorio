@@ -34,4 +34,4 @@ name (`frg_btn...`) so the click can be routed.
 need a manual `OnGuiClick` stub. For extra click logic (when no named button
 matched), use `runtime::on_click`.
 
-See [Lifecycle](../../guides/lifecycle/).
+See [Lifecycle](/ecosystem/factorio-rs-gui/guides/lifecycle/).

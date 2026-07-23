@@ -15,10 +15,10 @@ Factorio’s modding API.
 
 | Path | Why |
 | --- | --- |
-| [Installation](installation/) | CLI + SDK + Factorio path |
-| [Getting started](guides/getting-started/) | `init` -> `build` -> install |
-| [First hour](recipes/first-hour/) | Same loop plus your first in-game test |
-| [Recipes](recipes/) | Concrete jobs (storage, settings, enums, ...) |
+| [Installation](/installation/) | CLI + SDK + Factorio path |
+| [Getting started](/guides/getting-started/) | `init` -> `build` -> install |
+| [First hour](/recipes/first-hour/) | Same loop plus your first in-game test |
+| [Recipes](/recipes/) | Concrete jobs (storage, settings, enums, ...) |
 | [Discord](https://discord.gg/Tq8243rqmn) | Community help and announcements |
 
 ## Pieces
@@ -59,11 +59,11 @@ Notable releases are listed in the
 
 ## Language surface
 
-Only a subset of Rust is transpiled. See [Supported Rust](guides/language/) for
-the inventory, [Option and Result](guides/option-and-result/) for nil / errors,
-and [Enums](language/enums/) / [Collections](language/collections/) for focused
-pages. Transpile-time [Lints](guides/lints/) catch traps that type-check in Rust
-but miscompile in Lua. Optional [Tracing](guides/tracing/) and
-[Serde / JSON](guides/serde/) lower to Factorio builtins. Generated API stubs
-prefer concrete concepts and [Identification enums](guides/api-types/) over
+Only a subset of Rust is transpiled. See [Supported Rust](/guides/language/) for
+the inventory, [Option and Result](/guides/option-and-result/) for nil / errors,
+and [Enums](/language/enums/) / [Collections](/language/collections/) for focused
+pages. Transpile-time [Lints](/guides/lints/) catch traps that type-check in Rust
+but miscompile in Lua. Optional [Tracing](/guides/tracing/) and
+[Serde / JSON](/guides/serde/) lower to Factorio builtins. Generated API stubs
+prefer concrete concepts and [Identification enums](/guides/api-types/) over
 `LuaAny`.

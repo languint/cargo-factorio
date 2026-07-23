@@ -24,4 +24,4 @@ Flow::new()
 | `direction(GuiDirection)` | Horizontal / vertical layout |
 | `child(impl Into<Widget>)` | Append a child |
 
-See [Widgets](../) and [Frame](../frame/).
+See [Widgets](/ecosystem/factorio-rs-gui/widgets/) and [Frame](/ecosystem/factorio-rs-gui/widgets/frame/).

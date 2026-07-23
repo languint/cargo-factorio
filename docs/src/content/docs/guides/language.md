@@ -10,11 +10,11 @@ learning a feature:
 
 | Topic | Page |
 | --- | --- |
-| `Option` / `Result` / `?` | [Option and Result](option-and-result/) |
-| User `enum` + `match` | [Enums](../language/enums/) - [State machines](../recipes/state-machines/) |
-| `Vec`, ranges, `.map`/`.filter`/`.collect` | [Collections](../language/collections/) - [Filter entities](../recipes/filter-entities/) |
-| `type` aliases | [Type aliases](../language/type-aliases/) |
-| Writing `macro_rules!` / proc-macro DSLs | [Authoring macros](authoring-macros/) |
+| `Option` / `Result` / `?` | [Option and Result](/guides/option-and-result/) |
+| User `enum` + `match` | [Enums](/language/enums/) - [State machines](/recipes/state-machines/) |
+| `Vec`, ranges, `.map`/`.filter`/`.collect` | [Collections](/language/collections/) - [Filter entities](/recipes/filter-entities/) |
+| `type` aliases | [Type aliases](/language/type-aliases/) |
+| Writing `macro_rules!` / proc-macro DSLs | [Authoring macros](/guides/authoring-macros/) |
 
 Lua has no native traits or borrow checker. Option-like values are usually
 **value or `nil`**; Results are tagged `{ ok }` / `{ err }` tables. Tables also
@@ -32,11 +32,11 @@ tables (and dyn fat pointers); see [Traits](#traits).
 | `enum` + inherent `impl`    | Unit, tuple, and named variants as tagged tables                 |
 | `const`                     | Becomes a local (or exported) binding; same-module uses of `pub const` qualify as `module.NAME` |
 | `type Name = ...`           | Transparent; resolved then forgotten (no Lua emission)           |
-| `use crate::...`            | Binding crates with `[package.metadata.factorio]` also lower; see [Sharing code between mods](dependencies/). `crate::` paths become `require`s |
-| `#[factorio_rs::export]`      | Publishes a fn via remote (control) or require (shared); see [Sharing code between mods](dependencies/) |
+| `use crate::...`            | Binding crates with `[package.metadata.factorio]` also lower; see [Sharing code between mods](/guides/dependencies/). `crate::` paths become `require`s |
+| `#[factorio_rs::export]`      | Publishes a fn via remote (control) or require (shared); see [Sharing code between mods](/guides/dependencies/) |
 | `mod name;`                 | Declares a submodule file                                        |
-| Prototype / locale macros   | `mod_settings!`, `item!`, `recipe!`, ... - see [Macros](../reference/macros/) |
-| User / dep macros           | `macro_rules!` and dependency proc macros - [Authoring macros](authoring-macros/) |
+| Prototype / locale macros   | `mod_settings!`, `item!`, `recipe!`, ... - see [Macros](/reference/macros/) |
+| User / dep macros           | `macro_rules!` and dependency proc macros - [Authoring macros](/guides/authoring-macros/) |
 | Doc comments                | Emitted as Lua comments when debug comments are on               |
 
 **Not supported (yet):** `static`, tuple structs, trait generics / supertraits /
@@ -67,7 +67,7 @@ Same-crate `trait` + `impl Trait for Struct` is supported:
 Non-goals for now: generics on traits, supertraits, associated-type bounds /
 defaults, and traits imported from other Factorio mods (binding crates).
 
-See the [`traits_demo`](../examples/traits-demo/) example for a Factorio-flavored
+See the [`traits_demo`](/examples/traits-demo/) example for a Factorio-flavored
 walkthrough (cross-module `Alert`, defaults, overrides, static + dyn dispatch).
 
 ### `pub fn` vs `fn`
@@ -158,7 +158,7 @@ fn load(name: &str) -> Result<i32, String> {
 ```
 
 Full reference (Lua representation, methods, `?`, traps):
-[Option and Result](option-and-result/).
+[Option and Result](/guides/option-and-result/).
 
 ### Closures
 
@@ -184,8 +184,8 @@ value.
 | Literals                            | `i64`/`f64`/string/`bool`                                      |
 | `None`                              | -> `nil`                                                       |
 | `Some(x)` / `Option::Some(x)`       | -> `x` (for typed `Option` stub params)                        |
-| `Ok(v)` / `Err(e)`                  | -> `{ ok = v }` / `{ err = e }` - [Option and Result](option-and-result/) |
-| `expr?`                             | Result early-return - [Option and Result](option-and-result/) |
+| `Ok(v)` / `Err(e)`                  | -> `{ ok = v }` / `{ err = e }` - [Option and Result](/guides/option-and-result/) |
+| `expr?`                             | Result early-return - [Option and Result](/guides/option-and-result/) |
 | Paths / fields / calls / methods    | Including `crate::` (auto-require)                             |
 | Named struct literals               | -> Lua tables                                                  |
 | `[a, b]`                            | -> `{ a, b }`                                                  |
@@ -207,10 +207,10 @@ value.
 applies (then it becomes `:into()`).
 
 `.unwrap()` and `.expect("...")` are also stripped to the receiver, but emit
-lints `unwrap` / `expect` (default **deny**; see [Lints](lints/)).
+lints `unwrap` / `expect` (default **deny**; see [Lints](/guides/lints/)).
 
 **Option / Result helpers** (`is_some`, `ok_or`, `?`, `map`, ...): see
-[Option and Result](option-and-result/).
+[Option and Result](/guides/option-and-result/).
 
 **Special method lowering:**
 
@@ -230,11 +230,11 @@ lints `unwrap` / `expect` (default **deny**; see [Lints](lints/)).
 ### `serde_json`
 
 Enable `factorio-rs` feature `serde` (CLI default includes lowering). Serde does
-**not** run in Factorio - see [Serde / JSON](serde/) for the full mapping.
+**not** run in Factorio - see [Serde / JSON](/guides/serde/) for the full mapping.
 
 **Constructors:** `Vec::new()`, `Type::default()`, `LuaAny::new()` -> `{}` or
 `nil` as appropriate. Prefer typed concepts over `LuaAny` when the stubs expose
-them - see [API types](api-types/).
+them - see [API types](/guides/api-types/).
 
 ### Struct update / `Default`
 
@@ -252,7 +252,7 @@ purpose so optional Factorio parameter tables stay sparse. Do not expect Rust de
 ## Collections
 
 `Vec`, ranges, `ipairs` / `pairs`, and the `.map` / `.filter` / `.collect`
-subset: [Collections and iterators](../language/collections/).
+subset: [Collections and iterators](/language/collections/).
 
 ## Types
 
@@ -276,18 +276,18 @@ use crate::adjacent_blacklist;
 - Nested item paths like `use crate::a::b::C` (two+ item segments) are not
   supported - import the module, then path to the item.
 
-See [Stages](stages/) for how files map to Factorio load phases.
+See [Stages](/guides/stages/) for how files map to Factorio load phases.
 
 ## Factorio-oriented features
 
 | Feature              | Docs                                  |
 | -------------------- | ------------------------------------- |
-| Stages / discovery   | [Stages](stages/)             |
-| `#[event]` + filters | [Events](events/)             |
-| `mod_settings!`      | [Mod settings](mod-settings/) |
-| `item!` / `recipe!` / `technology!` / `fluid!` / `assembling_machine!` / ... | [Prototypes](prototypes/) / [Macros](../reference/macros/) |
-| `locale!`            | [Locale](locale/)             |
-| Profiles / prune     | [Profiles](profiles/)         |
+| Stages / discovery   | [Stages](/guides/stages/)             |
+| `#[event]` + filters | [Events](/guides/events/)             |
+| `mod_settings!`      | [Mod settings](/guides/mod-settings/) |
+| `item!` / `recipe!` / `technology!` / `fluid!` / `assembling_machine!` / ... | [Prototypes](/guides/prototypes/) / [Macros](/reference/macros/) |
+| `locale!`            | [Locale](/guides/locale/)             |
+| Profiles / prune     | [Profiles](/guides/profiles/)         |
 
 Filter arguments must be **string literals**. Events are **control-stage
 only**.
@@ -315,26 +315,26 @@ and userdata / scalars / unknown types use `tostring` (LuaObjects like
 `format!`, and `tracing::*!`. Plain `{}` still concatenates the value as-is.
 
 Enable `factorio-rs` feature `tracing` in the mod `Cargo.toml` so those macros
-type-check. Details: [Tracing](tracing/).
+type-check. Details: [Tracing](/guides/tracing/).
 
 Supported template forms: `{}`, `{0}`, `{name}`, `{:?}` / `{:#?}` / `{name:?}`,
 and `{{` / `}}` escapes. Other format specs after `:` (e.g. `{:.2}`) trigger the
-`format_spec` lint (default **warn**; see [Lints](lints/)).
+`format_spec` lint (default **warn**; see [Lints](/guides/lints/)).
 
 Macros whose expansion uses unsupported Rust still fail at lower time. For
-writing your own macros, see [Authoring macros](authoring-macros/).
+writing your own macros, see [Authoring macros](/guides/authoring-macros/).
 
 ## Safety
 
 `factorio-rs check` / `build` run **`cargo check`** against Factorio API stubs
 (real method names, arity, and Rust types) before lowering. Stubs never execute
 in Factorio - patterns that type-check can still miscompile or nil-crash at
-runtime. Transpile [lints](lints/) catch several of those traps; missing coverage
+runtime. Transpile [lints](/guides/lints/) catch several of those traps; missing coverage
 still fails the build as unsupported syntax when known unsafe.
 
 | Trap | What happens | Fix |
 | --- | --- | --- |
-| `.unwrap()` / `.expect(...)` | Stripped; lint E0001/E0002 | `if let` / `?` / `ok_or` - [Option and Result](option-and-result/) |
+| `.unwrap()` / `.expect(...)` | Stripped; lint E0001/E0002 | `if let` / `?` / `ok_or` - [Option and Result](/guides/option-and-result/) |
 | `if opt { ... }` on an Option | `Some(false)` skipped; lint E0006 | `if let Some(...)` or `is_some()` |
 | Untyped local `?` / `.map` | Assumes Result / Option; lint E0007/E0008 | Annotate `Option`/`Result` or `.ok_or` |
 | Call/method `?` | Assumes Result; lint E0012 | Typed `Option`/`Result` binding or `.ok_or` |
@@ -353,7 +353,7 @@ still fails the build as unsupported syntax when known unsafe.
 
 | Error | Typical cause |
 | --- | --- |
-| `unsupported expression (Async)` / ... | Use a supported construct (see [Language](language/)) |
+| `unsupported expression (Async)` / ... | Use a supported construct (see [Language](/guides/language/)) |
 | `unsupported item` | Unknown macro / unsupported item form (`static`, tuple struct, ...) |
 | `let binding requires an initializer` | `let x;` without value |
 | `event handlers are only allowed in control-stage modules` | Move handler to control |
@@ -362,9 +362,9 @@ still fails the build as unsupported syntax when known unsafe.
 
 ## See also
 
-- [Enums](../language/enums/) - [Collections](../language/collections/) - [Type aliases](../language/type-aliases/)
-- [Option and Result](option-and-result/) - nil, `{ ok }` / `{ err }`, `?`, methods
-- [Recipes](../recipes/first-hour/) - first hour, storage, settings, iterators, ...
-- [mandatory_spaghetti](../examples/mandatory-spaghetti/) - larger control-stage tour
-- [hello_world](../examples/hello-world/) - Result, events, tests
-- [API types](api-types/) - [Lints](lints/)
+- [Enums](/language/enums/) - [Collections](/language/collections/) - [Type aliases](/language/type-aliases/)
+- [Option and Result](/guides/option-and-result/) - nil, `{ ok }` / `{ err }`, `?`, methods
+- [Recipes](/recipes/first-hour/) - first hour, storage, settings, iterators, ...
+- [mandatory_spaghetti](/examples/mandatory-spaghetti/) - larger control-stage tour
+- [hello_world](/examples/hello-world/) - Result, events, tests
+- [API types](/guides/api-types/) - [Lints](/guides/lints/)
