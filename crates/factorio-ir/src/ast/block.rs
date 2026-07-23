@@ -1,4 +1,4 @@
-use crate::statement::Statement;
+use crate::ast::statement::Statement;
 
 /// A [`Block`] holds a list of [`Statements`][`Statement`]
 #[derive(Debug, Clone, PartialEq)]

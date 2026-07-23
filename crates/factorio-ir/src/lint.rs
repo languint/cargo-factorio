@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
-use crate::span::SourceLoc;
+use crate::meta::span::SourceLoc;
 
 /// Stable lint identifier used in diagnostics and `[lints]` config keys.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -234,7 +234,7 @@ fn bool_pair_expr(condition: &Expression, then_true: bool, else_true: bool) -> O
     }
 }
 
-fn single_return_bool(block: &[Statement]) -> Option<bool> {
+const fn single_return_bool(block: &[Statement]) -> Option<bool> {
     match block {
         [Statement::Return(Some(expr))] => as_bool(expr),
         _ => None,

@@ -1,7 +1,7 @@
-use crate::{
-    debug::StructDebug, expression::Expression, function::Function, structure::StructField,
-    r#type::Type,
+use crate::ast::{
+    expression::Expression, function::Function, structure::StructField, r#type::Type,
 };
+use crate::meta::debug::StructDebug;
 
 /// How an enum variant carries its payload.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -1,4 +1,4 @@
-use crate::{
+use crate::ast::{
     enumeration::Enum, expression::Expression, function::Function, structure::Struct, r#type::Type,
 };
 

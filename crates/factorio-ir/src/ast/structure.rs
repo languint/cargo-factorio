@@ -1,4 +1,5 @@
-use crate::{debug::StructDebug, expression::Expression, function::Function, r#type::Type};
+use crate::ast::{expression::Expression, function::Function, r#type::Type};
+use crate::meta::debug::StructDebug;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StructField {

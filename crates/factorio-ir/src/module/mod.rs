@@ -1,9 +1,13 @@
-use crate::{
-    block::Block,
+//! Compilation units: modules, Factorio stages, and locale payloads.
+
+pub mod locale;
+pub mod stage;
+
+use crate::ast::{block::Block, scope::Scope, statement::Statement};
+
+use self::{
     locale::{LocaleFile, PendingLocaleFile},
-    scope::Scope,
     stage::Stage,
-    statement::Statement,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -75,7 +79,7 @@ impl Module {
     }
 
     #[must_use]
-    pub fn is_imported_type_extension(&self, struct_decl: &crate::structure::Struct) -> bool {
+    pub fn is_imported_type_extension(&self, struct_decl: &crate::ast::structure::Struct) -> bool {
         struct_decl.fields.is_empty() && self.imported_item_local(&struct_decl.name).is_some()
     }
 }

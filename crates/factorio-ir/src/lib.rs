@@ -1,18 +1,20 @@
-pub mod block;
-pub mod debug;
-pub mod enumeration;
-pub mod expression;
-pub mod function;
+//! Intermediate representation for factorio-rs.
+//!
+//! Sources are grouped by role (`ast`, `module`, `meta`, `opt`, `prune`). The
+//! historical crate-root module paths (`expression`, `statement`, ...) remain
+//! available as re-exports.
+
+pub mod ast;
 pub mod lint;
-pub mod literal;
-pub mod locale;
+pub mod meta;
 pub mod module;
-pub mod operator;
 pub mod opt;
 pub mod prune;
-pub mod scope;
-pub mod span;
-pub mod stage;
-pub mod statement;
-pub mod structure;
-pub mod r#type;
+
+pub use ast::{
+    block, enumeration, expression, function, literal, operator, scope, statement, structure,
+};
+#[doc(inline)]
+pub use ast::r#type;
+pub use meta::{debug, span};
+pub use module::{locale, stage};

@@ -1,4 +1,5 @@
-use crate::{block::Block, debug::FunctionDebug, r#type::Type};
+use crate::ast::{block::Block, r#type::Type};
+use crate::meta::debug::FunctionDebug;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Parameter {

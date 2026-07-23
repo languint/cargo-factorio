@@ -1,4 +1,4 @@
-use crate::{block::Block, literal::Literal, operator::Operator};
+use crate::ast::{block::Block, literal::Literal, operator::Operator};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub enum MethodDispatch {
