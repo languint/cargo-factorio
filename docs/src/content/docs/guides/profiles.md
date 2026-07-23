@@ -29,19 +29,21 @@ Init templates and examples usually set release to `debug_level = 0` explicitly.
 
 After optional pruning, release builds run IR passes that:
 
-- Expand statement-context `if` expressions and empty IIFEs into real `if`/`else`
-  (keeps IIFEs only in mid-expression positions so falsey `Option` arms stay correct)
-- Simplify locals: Option `unwrap_or`, `if c then return true else return false` ->
-  `return c`, copy-prop of read-only `__...` temps (e.g. enum `match` scrutinees),
-  and collapse mid-expression IIFEs that reduce to a single `return`
+- Expand statement-context **and mid-expression** `if` / empty IIFEs into real
+  `if`/`else` (temps like `__hN` for call args and binops; never Lua `and`/`or`)
+- Simplify locals: Option `unwrap_or`, bool if->expr, `__...` copy-prop, nil-init
+  collapse, identity pattern binds, `flag == true` -> truthiness
 - Inline trivial single-use closures (e.g. `|n| n + 1` in `.map`)
 - Flatten nested string concatenations from `format!` / asserts
 
+Frontend also fuses `option.ok_or(e)?` so the Ok path skips a Result table.
+
 Codegen also shares `{ __index = Type }` metatable locals for types with methods.
 
-These reduce Lua 5.2 `CLOSURE` / `CALL` / `NEWTABLE` traffic versus naive IIFE
-emission. When investigating a hot helper, `luac -l` (Lua 5.2) on the emitted
-chunk is a useful before/after check; Factorio’s opcode list matches stock 5.2.
+These reduce Lua 5.2 `CLOSURE` / `CALL` / `NEWTABLE` / `MOVE` traffic versus
+naive IIFE emission. When investigating a hot helper, `luac -l` (Lua 5.2) on the
+emitted chunk is a useful before/after check; Factorio’s opcode list matches
+stock 5.2.
 
 ## CLI defaults
 

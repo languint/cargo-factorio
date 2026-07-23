@@ -144,6 +144,10 @@ fn lower_try_expression(
     ctx: &mut LowerContext<'_>,
     self_type: Option<&str>,
 ) -> FrontendResult<factorio_ir::expression::Expression> {
+    if let Some(fused) = try_lower_ok_or_question(&try_expr.expr, ctx, self_type)? {
+        return Ok(fused);
+    }
+
     let option_try = expr_type_key(&try_expr.expr, ctx).is_some_and(|key| key == "Option");
     if is_untyped_local_path(&try_expr.expr, ctx) {
         ctx.emit_lint(
@@ -198,6 +202,55 @@ fn lower_try_expression(
         base: Box::new(factorio_ir::expression::Expression::Identifier(tmp)),
         field: "ok".to_string(),
     })
+}
+
+fn try_lower_ok_or_question(
+    expr: &Expr,
+    ctx: &mut LowerContext<'_>,
+    self_type: Option<&str>,
+) -> FrontendResult<Option<factorio_ir::expression::Expression>> {
+    let expr = strip_try_parens(expr);
+    let Expr::MethodCall(call) = expr else {
+        return Ok(None);
+    };
+    let method = call.method.to_string();
+    let err_expr = match method.as_str() {
+        "ok_or" if call.args.len() == 1 => lower_expression(&call.args[0], ctx, self_type)?,
+        "ok_or_else" if call.args.len() == 1 => {
+            let func = lower_expression(&call.args[0], ctx, self_type)?;
+            factorio_ir::expression::Expression::Call {
+                func: Box::new(func),
+                args: vec![],
+            }
+        }
+        _ => return Ok(None),
+    };
+    let receiver = lower_expression(&call.receiver, ctx, self_type)?;
+    let tmp = ctx.alloc_try_tmp();
+    ctx.try_hoists
+        .push(factorio_ir::statement::Statement::VariableDecl {
+            name: tmp.clone(),
+            ty: factorio_ir::r#type::Type::Void,
+            source_type: None,
+            value: receiver,
+        });
+    ctx.try_hoists
+        .push(factorio_ir::statement::Statement::Conditional {
+            condition: eq_nil(factorio_ir::expression::Expression::Identifier(tmp.clone())),
+            then_block: vec![factorio_ir::statement::Statement::Return(Some(
+                result_err_wrap(err_expr),
+            ))],
+            else_block: vec![],
+        });
+    Ok(Some(factorio_ir::expression::Expression::Identifier(tmp)))
+}
+
+fn strip_try_parens(expr: &Expr) -> &Expr {
+    match expr {
+        Expr::Paren(paren) => strip_try_parens(&paren.expr),
+        Expr::Group(group) => strip_try_parens(&group.expr),
+        other => other,
+    }
 }
 
 fn expr_type_key<'a>(expr: &'a Expr, ctx: &'a LowerContext<'_>) -> Option<&'a str> {

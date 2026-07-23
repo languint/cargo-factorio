@@ -78,7 +78,7 @@ pub fn register_custom() {
 Emitted Lua (simplified):
 
 ```lua
-data.extend({
+data:extend({
   {
     type = "item",
     name = "my-mod-widget",

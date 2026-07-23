@@ -199,11 +199,11 @@ fn emits_attribute_setters_without_write_only_getters() {
         "attribute read helper missing"
     );
     assert!(
-        lookup.contains("\"surface\"=>true") || lookup.contains("\"surface\" => true"),
-        "surface should be a readable attribute"
+        lookup.contains("matches!(method,") && lookup.contains("\"surface\""),
+        "surface should be a readable attribute in matches!"
     );
     assert!(
-        lookup.contains("\"clear\"=>true") || lookup.contains("\"clear\" => true"),
+        lookup.contains("is_factorio_method") && lookup.contains("\"clear\""),
         "clear should be classified as a Factorio method"
     );
 }

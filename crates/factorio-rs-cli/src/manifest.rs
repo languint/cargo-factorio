@@ -600,7 +600,7 @@ mod tests {
             .expect("generate settings lua");
 
         assert!(lua.contains("function settings.register()"));
-        assert!(lua.contains("data.extend("));
+        assert!(lua.contains("data:extend("));
         assert!(lua.contains("type = \"bool-setting\""));
         assert!(lua.contains("name = \"ms-casual-mode\""));
         assert!(lua.contains("default_value = false"));
@@ -646,7 +646,7 @@ mod tests {
             .expect("generate data lua");
 
         assert!(lua.contains("function data.register()"));
-        assert!(lua.contains("data.extend("));
+        assert!(lua.contains("data:extend("));
         assert!(lua.contains("type = \"item\""));
         assert!(lua.contains("name = \"my-mod-widget\""));
         assert!(lua.contains("icon = \"__my_mod__/graphics/icon.png\""));
@@ -689,7 +689,7 @@ mod tests {
             .expect("generate data lua");
 
         assert!(lua.contains("function data.register()"));
-        assert!(lua.contains("data.extend("));
+        assert!(lua.contains("data:extend("));
         assert!(lua.contains("type = \"item\""));
         assert!(lua.contains("name = \"my-mod-widget\""));
         assert!(lua.contains("icon = \"__my_mod__/graphics/icon.png\""));

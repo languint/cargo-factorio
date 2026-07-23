@@ -48,7 +48,7 @@ factorio_rs_gui::shared::runtime::install("my_mod_window", lua_fn0(app));
 | `on_gui_value_changed` | `dispatch_value` | [`Slider`](../../widgets/slider/) |
 | `on_gui_selection_state_changed` | `dispatch_selection` | [`DropDown`](../../widgets/drop-down/) |
 
-You do **not** need manual `#[factorio_rs::event(OnGui…)]` stubs for those.
+You do **not** need manual `#[factorio_rs::event(OnGui...)]` stubs for those.
 
 Factorio's `script.on_event` **replaces** the previous handler. Do not also
 define competing `#[factorio_rs::event(OnGuiClick)]` (or the other GUI events

@@ -129,9 +129,15 @@ fn colon_vs_dot_for_user_methods() {
         emit(&method(id("w"), "caption", vec![lit_str("hi")])),
         "w:caption(\"hi\")"
     );
+    // Factorio attribute reads use `.` with no call (`health`, not `get_health`).
+    assert_eq!(
+        emit(&method(id("entity"), "health", vec![])),
+        "entity.health"
+    );
+    // Unknown zero-arg names are user metatable methods -> `:name()`.
     assert_eq!(
         emit(&method(id("entity"), "get_health", vec![])),
-        "entity.get_health"
+        "entity:get_health()"
     );
     assert_eq!(
         emit(&method(

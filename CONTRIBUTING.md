@@ -112,7 +112,7 @@ surface expansions, architectural refactors).
 
 ### Emitter tests (`factorio-codegen`)
 
-IR → Lua coverage lives in `crates/factorio-codegen/tests/`:
+IR -> Lua coverage lives in `crates/factorio-codegen/tests/`:
 
 - Hand-built IR cases plus `full_moon` Lua 5.2 parse checks (`common::must_ok`,
   `assert_lua_parses` / `assert_lua_fragment_parses`).

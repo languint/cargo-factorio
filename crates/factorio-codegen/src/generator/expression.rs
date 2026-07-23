@@ -59,12 +59,35 @@ const USER_COLON_METHODS: &[&str] = &[
     "on_value_changed",
 ];
 
-fn method_call_sep(method: &str) -> &'static str {
+fn method_call_sep(method: &str, receiver: &Expression) -> &'static str {
+    // Lua stdlib tables must use `.`
+    if is_lua_stdlib_receiver(receiver) {
+        return ".";
+    }
     if USER_COLON_METHODS.contains(&method) || !is_factorio_method(method) {
         ":"
     } else {
         "."
     }
+}
+
+fn is_lua_stdlib_receiver(receiver: &Expression) -> bool {
+    matches!(
+        receiver,
+        Expression::Identifier(name)
+            if matches!(
+                name.as_str(),
+                "string"
+                    | "table"
+                    | "math"
+                    | "bit32"
+                    | "coroutine"
+                    | "os"
+                    | "debug"
+                    | "package"
+                    | "utf8"
+            )
+    )
 }
 
 impl LuaGenerator {
@@ -315,6 +338,7 @@ impl LuaGenerator {
 
         let trimmed = trim_trailing_nils(args);
         if trimmed.is_empty() {
+            let sep = method_call_sep(method, receiver);
             let receiver = self.generate_expression(receiver);
             // Zero-arg API *attributes* are property reads (`entity.surface`).
             // Everything else is an invocation. Trailing-`None`-only calls stay
@@ -322,7 +346,6 @@ impl LuaGenerator {
             if args.is_empty() && is_factorio_attribute_read(method) {
                 return format!("{receiver}.{method}");
             }
-            let sep = method_call_sep(method);
             return format!("{receiver}{sep}{method}()");
         }
 
@@ -336,9 +359,9 @@ impl LuaGenerator {
             return format!("{receiver}.{property} = {value}");
         }
 
+        let sep = method_call_sep(method, receiver);
         let receiver = self.generate_expression(receiver);
         let args_lua = self.generate_arg_list(trimmed);
-        let sep = method_call_sep(method);
         // Factorio LuaObjects: `.method(args)` (engine binds self).
         // User structs / cross-mod builders: `:method(args)` via `__index`.
         format!("{receiver}{sep}{method}({args_lua})")

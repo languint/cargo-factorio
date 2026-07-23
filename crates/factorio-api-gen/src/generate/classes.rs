@@ -335,13 +335,13 @@ pub fn generate_attribute_setter_lookup(api: &RuntimeApi) -> String {
         let prop_lit = prop.as_str();
         quote! { #setter_lit => Some(#prop_lit), }
     });
-    let attr_arms = readable_attrs.iter().map(|name| {
+    let attr_pats = readable_attrs.iter().map(|name| {
         let lit = name.as_str();
-        quote! { #lit => true, }
+        quote! { #lit }
     });
-    let method_arms = method_names.iter().map(|name| {
+    let method_pats = method_names.iter().map(|name| {
         let lit = name.as_str();
-        quote! { #lit => true, }
+        quote! { #lit }
     });
 
     let tokens = quote! {
@@ -360,20 +360,14 @@ pub fn generate_attribute_setter_lookup(api: &RuntimeApi) -> String {
         /// Zero-arg Rust calls with these names emit property reads, not invocations.
         #[must_use]
         pub fn is_factorio_attribute_read(method: &str) -> bool {
-            match method {
-                #( #attr_arms )*
-                _ => false,
-            }
+            matches!(method, #(#attr_pats)|*)
         }
 
         /// Factorio `LuaObject` methods (`die`, `clear`, ...). Unknown names are treated
         /// as user metatable methods and use `:` so `self` is passed.
         #[must_use]
         pub fn is_factorio_method(method: &str) -> bool {
-            match method {
-                #( #method_arms )*
-                _ => false,
-            }
+            matches!(method, #(#method_pats)|*)
         }
     };
     tokens.to_string()

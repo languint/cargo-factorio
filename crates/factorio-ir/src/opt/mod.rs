@@ -129,6 +129,13 @@ mod tests {
         assert!(
             body.iter().any(|s| matches!(
                 s,
+                Statement::VariableDecl {
+                    name,
+                    value: Expression::Literal(Literal::Int(42)),
+                    ..
+                } if name == "x"
+            ) || matches!(
+                s,
                 Statement::Assignment {
                     target: Expression::Identifier(name),
                     value: Expression::Literal(Literal::Int(42)),
@@ -207,6 +214,115 @@ mod tests {
                 ],
             }
         );
+    }
+
+    #[test]
+    fn hoists_if_from_binop_rhs() {
+        let mut module = module_with_fn(vec![Statement::Assignment {
+            target: Expression::Index {
+                base: Box::new(Expression::Identifier("storage".to_string())),
+                key: Box::new(Expression::Literal(Literal::String("n".to_string()))),
+            },
+            value: Expression::BinaryOp {
+                lhs: Box::new(Expression::If {
+                    condition: Box::new(Expression::BinaryOp {
+                        lhs: Box::new(Expression::Identifier("x".to_string())),
+                        op: Operator::Ne,
+                        rhs: Box::new(Expression::Literal(Literal::Nil)),
+                    }),
+                    then_expr: Box::new(Expression::Identifier("x".to_string())),
+                    else_expr: Box::new(Expression::Literal(Literal::Int(0))),
+                }),
+                op: Operator::Add,
+                rhs: Box::new(Expression::Literal(Literal::Int(1))),
+            },
+        }]);
+        optimize_modules(std::slice::from_mut(&mut module));
+        let body = fn_body(&module);
+        let still_nested = body.iter().any(|s| {
+            matches!(
+                s,
+                Statement::Assignment {
+                    value: Expression::BinaryOp { lhs, .. },
+                    ..
+                } if matches!(lhs.as_ref(), Expression::If { .. } | Expression::Call { .. })
+            )
+        });
+        assert!(
+            !still_nested,
+            "mid-expr If should be hoisted out of binop:\n{body:?}"
+        );
+        assert!(
+            body.iter()
+                .any(|s| matches!(s, Statement::Conditional { .. }))
+                || body.iter().any(|s| {
+                    matches!(
+                        s,
+                        Statement::VariableDecl { name, .. } if name.starts_with("__h")
+                    )
+                }),
+            "{body:?}"
+        );
+    }
+
+    #[test]
+    fn collapses_nil_init_then_assign() {
+        let mut module = module_with_fn(vec![
+            Statement::VariableDecl {
+                name: "a".to_string(),
+                ty: Type::Void,
+                source_type: None,
+                value: Expression::Literal(Literal::Nil),
+            },
+            Statement::Assignment {
+                target: Expression::Identifier("a".to_string()),
+                value: Expression::BinaryOp {
+                    lhs: Box::new(Expression::FieldAccess {
+                        base: Box::new(Expression::Identifier("msg".to_string())),
+                        field: "tag".to_string(),
+                    }),
+                    op: Operator::Eq,
+                    rhs: Box::new(Expression::Literal(Literal::String("Move".to_string()))),
+                },
+            },
+        ]);
+        optimize_modules(std::slice::from_mut(&mut module));
+        let body = fn_body(&module);
+        assert_eq!(body.len(), 1, "{body:?}");
+        assert!(
+            matches!(
+                &body[0],
+                Statement::VariableDecl {
+                    name,
+                    value: Expression::BinaryOp { .. },
+                    ..
+                } if name == "a"
+            ),
+            "{body:?}"
+        );
+    }
+
+    #[test]
+    fn folds_bool_eq_true_condition() {
+        let mut module = module_with_fn(vec![Statement::Conditional {
+            condition: Expression::BinaryOp {
+                lhs: Box::new(Expression::Identifier("flag".to_string())),
+                op: Operator::Eq,
+                rhs: Box::new(Expression::Literal(Literal::Bool(true))),
+            },
+            then_block: vec![Statement::Return(Some(Expression::Literal(Literal::Int(
+                1,
+            ))))],
+            else_block: vec![Statement::Return(Some(Expression::Literal(Literal::Int(
+                0,
+            ))))],
+        }]);
+        optimize_modules(std::slice::from_mut(&mut module));
+        let body = fn_body(&module);
+        let Statement::Conditional { condition, .. } = &body[0] else {
+            panic!("{body:?}");
+        };
+        assert_eq!(condition, &Expression::Identifier("flag".to_string()));
     }
 
     #[test]

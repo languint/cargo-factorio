@@ -9,7 +9,7 @@ Reactive, builder-style GUI helpers for [factorio-rs](https://crates.io/crates/f
 | Factorio mod | [`factorio-rs-gui`](https://mods.factorio.com/mod/factorio-rs-gui) |
 
 Add the Cargo crate for authoring; install the Factorio library mod so runtime
-`require("__factorio-rs-gui__/…")` resolves. Players need **both** your mod and
+`require("__factorio-rs-gui__/...")` resolves. Players need **both** your mod and
 `factorio-rs-gui` enabled.
 
 ```toml
@@ -50,12 +50,12 @@ fn app() -> impl Into<Widget> {
 
 Each mount takes a **unique** `root_name` (applied to the root frame for you).
 `Frame::child` takes `impl Into<Widget>` via `From` impls on builders (`Text`,
-`Button`, `Flow`, `Checkbox`, …). Hooks and handlers are namespaced per root so
+`Button`, `Flow`, `Checkbox`, ...). Hooks and handlers are namespaced per root so
 multiple windows can coexist.
 
 v1 rebuilds the whole tree when state changes (destroy root + re-run `app`).
 `mount` / `install` register GUI events via `script.on_event` in your mod, no
-manual `dispatch_*` stubs. Do not also define competing `#[factorio_rs::event(OnGui…)]`
+manual `dispatch_*` stubs. Do not also define competing `#[factorio_rs::event(OnGui...)]`
 handlers; use `runtime::on_click` for extra click logic.
 
 ```bash

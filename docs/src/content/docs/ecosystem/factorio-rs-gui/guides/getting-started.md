@@ -13,7 +13,7 @@ factorio-rs-gui = "0.1"
 Also install the
 [`factorio-rs-gui`](https://mods.factorio.com/mod/factorio-rs-gui) **library mod**
 from the [Factorio mod portal](https://mods.factorio.com/mod/factorio-rs-gui)
-and enable it with your mod. Your build emits `require("__factorio-rs-gui__/…")`
+and enable it with your mod. Your build emits `require("__factorio-rs-gui__/...")`
 and lists `factorio-rs-gui` in `info.json` dependencies.
 
 For local monorepo work (examples in this repo):

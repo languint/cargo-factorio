@@ -81,7 +81,7 @@ fn lowers_enum_variants_constructors_matches_and_methods() {
 #[test]
 fn enum_method_after_unwrap_or_lowers_to_type_call() {
     let module = must_ok_parse(parse_module(
-        r#"
+        r"
         pub enum Phase {
             Idle,
             Mining { ticks: i64 },
@@ -98,7 +98,7 @@ fn enum_method_after_unwrap_or_lowers_to_type_call() {
             phase = phase.tick();
             phase
         }
-        "#,
+        ",
         "shared.phase_tick",
     ));
 

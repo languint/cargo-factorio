@@ -1544,7 +1544,7 @@ fn bind_let_local_type(
         ctx.bind_type(name.to_string(), enum_name.clone());
         return;
     }
-    // `let x = opt.unwrap_or(Phase::Idle)` / `storage.get::<Phase>(…)` — keep the
+    // `let x = opt.unwrap_or(Phase::Idle)` / `storage.get::<Phase>(...)` — keep the
     // concrete type so later `x.tick()` lowers as `Phase.tick(x)`, not a property read.
     if let Some(key) = type_key_from_rust_expr(init_expr, ctx) {
         ctx.bind_type(name.to_string(), key);

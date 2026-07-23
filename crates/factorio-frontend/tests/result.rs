@@ -293,6 +293,44 @@ pub fn place(entity: Option<i32>) -> Result<i32, String> {
 }
 
 #[test]
+fn ok_or_question_skips_ok_result_table() {
+    let source = r#"
+pub fn place(entity: Option<i32>) -> Result<i32, String> {
+    let v = entity.ok_or("missing")?;
+    Ok(v)
+}
+"#;
+    let module = must_ok_parse(parse_module(source, "control.ok_or_try"));
+    let Statement::FunctionDecl(function) = &module.symbols[0].statement else {
+        panic!("expected function");
+    };
+    let body = &function.body.statements;
+    let err_early_return = body.iter().any(|s| {
+        matches!(
+            s,
+            Statement::Conditional { then_block, .. }
+                if then_block.iter().any(|t| {
+                    matches!(
+                        t,
+                        Statement::Return(Some(Expression::StructLiteral { fields, .. }))
+                            if fields.len() == 1 && fields[0].0 == "err"
+                    )
+                })
+        )
+    });
+    assert!(
+        err_early_return,
+        "expected nil -> return {{ err = ... }}, got {body:?}"
+    );
+
+    let loads_ok_field = format!("{body:?}").contains("field: \"ok\"");
+    assert!(
+        !loads_ok_field,
+        "ok_or? should not read `.ok` from a Result table: {body:?}"
+    );
+}
+
+#[test]
 fn ok_or_binds_side_effecting_receiver_once() {
     use factorio_codegen::LuaGenerator;
 

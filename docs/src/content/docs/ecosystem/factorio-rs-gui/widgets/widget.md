@@ -4,7 +4,7 @@ description: The Widget enum - mountable container and leaf nodes.
 ---
 
 `Widget` is the concrete tree type the runtime mounts. Variants cover every
-builder (`Frame`, `Flow`, `Button`, `Checkbox`, …). See the
+builder (`Frame`, `Flow`, `Button`, `Checkbox`, ...). See the
 [widgets overview](../) for the full list.
 
 ## Conversions

@@ -656,7 +656,8 @@ mod unit_tests {
             lua.contains("__frs_steps()"),
             "expected __frs_steps intrinsic in:\n{lua}"
         );
-        assert!(lua.contains(".wait(5)"), "expected wait in:\n{lua}");
+        // Builder methods are unknown to the Factorio API -> `:` dispatch.
+        assert!(lua.contains(":wait(5)"), "expected wait in:\n{lua}");
     }
 
     #[test]

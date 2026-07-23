@@ -174,14 +174,15 @@ mod tests {
 
     #[test]
     fn transpile_files_emits_mod_packaging() {
-        let files = serde_json::json!({
-            "control/on_singleplayer_init.rs": r#"
+        let files = fixture_files(&[(
+            "control/on_singleplayer_init.rs",
+            r#"
 #[factorio_rs::event(OnSingleplayerInit)]
 pub fn on_singleplayer_init() {
     println!("Hello factorio-rs!");
 }
 "#,
-        });
+        )]);
         let result = transpile_files(&files.to_string(), "debug");
         assert!(result.ok, "{:?}", result.message);
         let map: serde_json::Map<String, serde_json::Value> =
@@ -198,14 +199,15 @@ pub fn on_singleplayer_init() {
 
     #[test]
     fn transpile_files_release_runs_optimize() {
-        let files = serde_json::json!({
-                                                                                                    "control/pick.rs": r"
+        let files = fixture_files(&[(
+            "control/pick.rs",
+            r"
 pub fn pick(c: bool) -> i32 {
     let x = if c { 1 } else { 0 };
     x
 }
 ",
-                                                                                                });
+        )]);
         let debug = transpile_files(&files.to_string(), "debug");
         assert!(debug.ok, "{:?}", debug.message);
         let release = transpile_files(&files.to_string(), "release");
@@ -230,8 +232,9 @@ pub fn pick(c: bool) -> i32 {
 
     #[test]
     fn transpile_files_release_simplifies_unwrap_or() {
-        let files = serde_json::json!({
-            "control/boot.rs": r#"
+        let files = fixture_files(&[(
+            "control/boot.rs",
+            r#"
 #[factorio_rs::event(OnSingleplayerInit)]
 pub fn on_singleplayer_init() {
     let n = storage.get::<u32>("boots").unwrap_or(0);
@@ -239,7 +242,7 @@ pub fn on_singleplayer_init() {
     println!("boot count: {}", n + 1);
 }
 "#,
-        });
+        )]);
         let release = transpile_files(&files.to_string(), "release");
         assert!(release.ok, "{:?}", release.message);
         let map: BTreeMap<String, String> =
@@ -262,9 +265,75 @@ pub fn on_singleplayer_init() {
     }
 
     #[test]
+    fn transpile_files_release_hoists_unwrap_or_in_binop() {
+        let files = fixture_files(&[(
+            "control/counter.rs",
+            r#"
+#[factorio_rs::event(OnSingleplayerInit)]
+pub fn on_singleplayer_init() {
+    storage.set("n", storage.get::<u32>("n").unwrap_or(0) + 1);
+}
+"#,
+        )]);
+        let release = transpile_files(&files.to_string(), "release");
+        assert!(release.ok, "{:?}", release.message);
+        let map: BTreeMap<String, String> =
+            serde_json::from_str(&release.files_json.expect("files")).expect("json");
+        let lua = map.get("lua/control/counter.lua").expect("lua");
+        assert!(
+            !lua.contains("(function()"),
+            "unwrap_or in binop should not stay an IIFE:\n{lua}"
+        );
+        assert!(
+            lua.contains("== nil") || lua.contains("~= nil"),
+            "expected nil check:\n{lua}"
+        );
+    }
+
+    #[test]
+    fn transpile_files_release_fuses_ok_or_question() {
+        let files = fixture_files(&[(
+            "control/place.rs",
+            r#"
+fn bump() -> Result<u32, String> {
+    let n = storage.get::<u32>("n").ok_or("missing")?;
+    storage.set("n", n + 1);
+    Ok(n)
+}
+
+#[factorio_rs::event(OnSingleplayerInit)]
+pub fn on_singleplayer_init() {
+    let _ = bump();
+}
+"#,
+        )]);
+        let release = transpile_files(&files.to_string(), "release");
+        assert!(release.ok, "{:?}", release.message);
+        let map: BTreeMap<String, String> =
+            serde_json::from_str(&release.files_json.expect("files")).expect("json");
+        let lua = map.get("lua/control/place.lua").expect("lua");
+        assert!(
+            lua.contains("if __try_")
+                && lua.contains("== nil")
+                && lua.contains("err = \"missing\""),
+            "expected fused nil -> return err:\n{lua}"
+        );
+        assert!(
+            !lua.contains("__try_") || !lua.contains(".ok"),
+            "ok_or? should not load `.ok` from a Result wrapper:\n{lua}"
+        );
+        assert!(
+            lua.contains("local n = __try_") || lua.contains("local n=__try_"),
+            "{lua}"
+        );
+    }
+
+    #[test]
     fn transpile_files_release_calls_enum_tick_method() {
-        let files = serde_json::json!({
-            "shared/phase.rs": r#"
+        let files = fixture_files(&[
+            (
+                "shared/phase.rs",
+                r"
 pub enum Phase {
     Idle,
     Mining { ticks: i64 },
@@ -278,8 +347,11 @@ impl Phase {
         }
     }
 }
-"#,
-            "control/tick.rs": r#"
+",
+            ),
+            (
+                "control/tick.rs",
+                r#"
 use crate::shared::phase::Phase;
 
 #[factorio_rs::event(OnSingleplayerInit)]
@@ -289,7 +361,8 @@ pub fn on_singleplayer_init() {
     storage.set("phase", phase);
 }
 "#,
-        });
+            ),
+        ]);
         let release = transpile_files(&files.to_string(), "release");
         assert!(release.ok, "{:?}", release.message);
         let map: BTreeMap<String, String> =
@@ -307,8 +380,9 @@ pub fn on_singleplayer_init() {
 
     #[test]
     fn transpile_files_release_folds_match_in_if_condition() {
-        let files = serde_json::json!({
-            "control/tick.rs": r#"
+        let files = fixture_files(&[(
+            "control/tick.rs",
+            r#"
 pub enum Phase {
     Idle,
     Mining,
@@ -322,7 +396,7 @@ pub fn on_singleplayer_init() {
     }
 }
 "#,
-        });
+        )]);
         let release = transpile_files(&files.to_string(), "release");
         assert!(release.ok, "{:?}", release.message);
         let map: BTreeMap<String, String> =
@@ -344,8 +418,9 @@ pub fn on_singleplayer_init() {
 
     #[test]
     fn transpile_files_release_folds_enum_tag_match() {
-        let files = serde_json::json!({
-            "control/phase.rs": r#"
+        let files = fixture_files(&[(
+            "control/phase.rs",
+            r#"
 pub enum Phase {
     Idle,
     Running,
@@ -366,7 +441,7 @@ pub fn on_singleplayer_init() {
     }
 }
 "#,
-        });
+        )]);
         let release = transpile_files(&files.to_string(), "release");
         assert!(release.ok, "{:?}", release.message);
         let map: BTreeMap<String, String> =

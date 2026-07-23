@@ -35,10 +35,14 @@ fn optimize_statement(statement: &mut Statement) {
             ..
         } => {
             fold_bool_if_expr(condition);
+            fold_bool_cmp_condition(condition);
             let then_taken = std::mem::take(then_block);
             *then_block = simplify_statements(&then_taken);
             let else_taken = std::mem::take(else_block);
             *else_block = simplify_statements(&else_taken);
+            simplify_identity_binds(then_block);
+            simplify_identity_binds(else_block);
+            drop_redundant_nil_else(condition, else_block);
         }
         Statement::ForIn { iter, body, .. } => {
             fold_bool_if_expr(iter);
@@ -91,6 +95,8 @@ fn simplify_statements(statements: &[Statement]) -> Vec<Statement> {
         }
         i += 1;
     }
+    let out = eliminate_copy_temps(out);
+    let out = collapse_nil_inits(&out);
     eliminate_copy_temps(out)
 }
 
@@ -813,6 +819,169 @@ fn replace_ident_in_expr(expr: &mut Expression, name: &str, with: &Expression) {
             }
             for statement in &mut body.statements {
                 replace_ident_in_statement(statement, name, with);
+            }
+        }
+        Expression::Literal(_) | Expression::Identifier(_) | Expression::QualifiedPath { .. } => {}
+    }
+}
+
+/// `local x = nil; x = e` -> `local x = e` (no intervening use of `x`).
+fn collapse_nil_inits(stmts: &[Statement]) -> Vec<Statement> {
+    let mut out = Vec::with_capacity(stmts.len());
+    let mut i = 0;
+    while i < stmts.len() {
+        if let Statement::VariableDecl {
+            name,
+            ty,
+            source_type,
+            value: Expression::Literal(Literal::Nil),
+        } = &stmts[i]
+            && let Some(Statement::Assignment {
+                target: Expression::Identifier(dest),
+                value,
+            }) = stmts.get(i + 1)
+            && dest == name
+        {
+            out.push(Statement::VariableDecl {
+                name: name.clone(),
+                ty: ty.clone(),
+                source_type: source_type.clone(),
+                value: value.clone(),
+            });
+            i += 2;
+            continue;
+        }
+        out.push(stmts[i].clone());
+        i += 1;
+    }
+    out
+}
+
+/// `if v ~= nil then local x = v; return x end` -> `return v` (identity binds).
+fn simplify_identity_binds(block: &mut Vec<Statement>) {
+    if let [
+        Statement::VariableDecl { name, value, .. },
+        Statement::Return(Some(Expression::Identifier(ret))),
+    ] = block.as_slice()
+        && name == ret
+    {
+        *block = vec![Statement::Return(Some(value.clone()))];
+        return;
+    }
+    if let [
+        Statement::VariableDecl { name, value, .. },
+        Statement::Assignment {
+            target,
+            value: Expression::Identifier(src),
+        },
+    ] = block.as_slice()
+        && name == src
+    {
+        *block = vec![Statement::Assignment {
+            target: target.clone(),
+            value: value.clone(),
+        }];
+    }
+}
+
+/// `if v ~= nil then ... else if v == nil then BODY end end` -> else BODY.
+fn drop_redundant_nil_else(condition: &Expression, else_block: &mut Vec<Statement>) {
+    let Some(name) = ne_nil_ident(condition) else {
+        return;
+    };
+    if let [
+        Statement::Conditional {
+            condition: inner_cond,
+            then_block,
+            else_block: inner_else,
+        },
+    ] = else_block.as_slice()
+        && is_eq_nil(inner_cond, &name)
+        && inner_else.is_empty()
+    {
+        *else_block = then_block.clone();
+    }
+}
+
+fn is_eq_nil(condition: &Expression, name: &str) -> bool {
+    matches!(
+        condition,
+        Expression::BinaryOp {
+            lhs,
+            op: Operator::Eq,
+            rhs,
+        } if matches!(lhs.as_ref(), Expression::Identifier(id) if id == name)
+            && matches!(rhs.as_ref(), Expression::Literal(Literal::Nil))
+    )
+}
+
+/// `flag == true` -> `flag`; `flag == false` -> `not flag`.
+fn fold_bool_cmp_condition(expr: &mut Expression) {
+    match expr {
+        Expression::BinaryOp {
+            lhs,
+            op: Operator::Eq,
+            rhs,
+        } => {
+            fold_bool_cmp_condition(lhs);
+            fold_bool_cmp_condition(rhs);
+            match (as_bool(rhs), as_bool(lhs)) {
+                (Some(true), _) => *expr = lhs.as_ref().clone(),
+                (Some(false), _) => *expr = Expression::Not(Box::new(lhs.as_ref().clone())),
+                (_, Some(true)) => *expr = rhs.as_ref().clone(),
+                (_, Some(false)) => *expr = Expression::Not(Box::new(rhs.as_ref().clone())),
+                _ => {}
+            }
+        }
+        Expression::BinaryOp { lhs, rhs, .. } => {
+            fold_bool_cmp_condition(lhs);
+            fold_bool_cmp_condition(rhs);
+        }
+        Expression::Not(inner)
+        | Expression::Len(inner)
+        | Expression::FieldAccess { base: inner, .. }
+        | Expression::FatPointer { data: inner, .. } => fold_bool_cmp_condition(inner),
+        Expression::Call { func, args } => {
+            fold_bool_cmp_condition(func);
+            for arg in args {
+                fold_bool_cmp_condition(arg);
+            }
+        }
+        Expression::MethodCall { receiver, args, .. }
+        | Expression::DynMethodCall { receiver, args, .. } => {
+            fold_bool_cmp_condition(receiver);
+            for arg in args {
+                fold_bool_cmp_condition(arg);
+            }
+        }
+        Expression::Index { base, key } => {
+            fold_bool_cmp_condition(base);
+            fold_bool_cmp_condition(key);
+        }
+        Expression::If {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
+            fold_bool_cmp_condition(condition);
+            fold_bool_cmp_condition(then_expr);
+            fold_bool_cmp_condition(else_expr);
+        }
+        Expression::FormatConcat { parts } | Expression::Array { elements: parts } => {
+            for part in parts {
+                fold_bool_cmp_condition(part);
+            }
+        }
+        Expression::StructLiteral { fields, .. } | Expression::EnumLiteral { fields, .. } => {
+            for (_, value) in fields {
+                fold_bool_cmp_condition(value);
+            }
+        }
+        Expression::Closure { body, .. } => {
+            for statement in &mut body.statements {
+                if let Statement::Conditional { condition, .. } = statement {
+                    fold_bool_cmp_condition(condition);
+                }
             }
         }
         Expression::Literal(_) | Expression::Identifier(_) | Expression::QualifiedPath { .. } => {}

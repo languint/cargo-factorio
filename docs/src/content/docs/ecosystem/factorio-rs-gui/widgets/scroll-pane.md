@@ -11,7 +11,7 @@ use factorio_rs_gui::shared::text::Text;
 
 ScrollPane::new()
     .vertical_scroll_policy(ScrollPolicy::Always)
-    .child(Text::new("Long content…"))
+    .child(Text::new("Long content..."))
 ```
 
 ## Builder API

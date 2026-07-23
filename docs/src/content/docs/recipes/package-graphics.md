@@ -107,7 +107,7 @@ locale keys for the item name.
 Emitted shape (simplified):
 
 ```lua
-data.extend({
+data:extend({
   {
     type = "item",
     name = "my-mod-widget",
