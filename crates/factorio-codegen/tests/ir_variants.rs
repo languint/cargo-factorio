@@ -120,6 +120,7 @@ fn every_expression_variant_emits_and_parses() {
                 receiver: Box::new(id("e")),
                 method: "get_health".to_string(),
                 args: vec![],
+                dispatch: factorio_ir::expression::MethodDispatch::Infer,
             },
         ),
         (

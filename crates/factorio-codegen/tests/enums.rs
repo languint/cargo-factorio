@@ -66,7 +66,10 @@ fn generates_tagged_enum_tables_and_methods() {
         output.contains("local __mt_Msg = { __index = Msg }"),
         "{output}"
     );
-    assert!(output.contains("Msg.Quit = { tag = \"Quit\" }"));
+    assert!(
+        output.contains("Msg.Quit = setmetatable({ tag = \"Quit\" }, __mt_Msg)"),
+        "unit-variant singletons must share the method metatable:\n{output}"
+    );
     assert!(output.contains("function Msg.quit()"));
     assert!(
         output.contains("return setmetatable({ tag = \"Quit\" }, __mt_Msg)"),
@@ -75,7 +78,58 @@ fn generates_tagged_enum_tables_and_methods() {
 }
 
 #[test]
-fn from_into_attaches_target_enum_metatable() {
+fn method_less_enum_skips_setmetatable() {
+    let module = Module {
+        name: "phase".to_string(),
+        stage: Stage::Control,
+        body: Block {
+            statements: vec![
+                Statement::EnumDecl(Enum {
+                    name: "Phase".to_string(),
+                    variants: vec![
+                        EnumVariant {
+                            name: "Idle".to_string(),
+                            fields: EnumVariantFields::Unit,
+                        },
+                        EnumVariant {
+                            name: "Run".to_string(),
+                            fields: EnumVariantFields::Tuple { types: vec![] },
+                        },
+                    ],
+                    constants: vec![],
+                    methods: vec![],
+                    doc: None,
+                    debug: None,
+                }),
+                Statement::Return(Some(Expression::EnumLiteral {
+                    enum_name: "Phase".to_string(),
+                    variant: "Run".to_string(),
+                    fields: vec![],
+                })),
+            ],
+        },
+        symbols: vec![],
+        imports: vec![],
+        submodules: vec![],
+        locales: vec![],
+        pending_locales: vec![],
+        vtables: vec![],
+    };
+
+    let output = must_ok(LuaGenerator::new().generate_module(&module));
+    assert!(
+        !output.contains("setmetatable"),
+        "method-less enums should be plain tables:\n{output}"
+    );
+    assert!(
+        output.contains("Phase.Idle = { tag = \"Idle\" }"),
+        "{output}"
+    );
+    assert!(output.contains("return { tag = \"Run\" }"), "{output}");
+}
+
+#[test]
+fn from_into_method_less_enum_is_plain_table() {
     use factorio_ir::{
         enumeration::{Enum, EnumVariant, EnumVariantFields},
         function::{Function, Parameter},
@@ -157,9 +211,11 @@ fn from_into_attaches_target_enum_metatable() {
 
     let output = must_ok(LuaGenerator::new().generate_module(&module));
     assert!(
-        output.contains(
-            "return setmetatable({ tag = \"Frame\", _1 = self }, { __index = sharedWidget.Widget })"
-        ) || output.contains("return setmetatable({ tag = \"Frame\", _1 = self }, __mt_Widget)"),
-        "Frame:into must attach Widget metatable; got:\n{output}"
+        output.contains("return { tag = \"Frame\", _1 = self }"),
+        "method-less Widget should not wrap with setmetatable; got:\n{output}"
+    );
+    assert!(
+        !output.contains("setmetatable"),
+        "unexpected setmetatable for method-less enum:\n{output}"
     );
 }

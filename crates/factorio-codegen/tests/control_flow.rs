@@ -72,3 +72,49 @@ fn generates_while_continue_and_break() {
     assert!(output.contains("goto __continue_1"));
     assert!(output.contains("::__continue_1::"));
 }
+
+#[test]
+fn nested_else_if_emits_elseif() {
+    let module = Module {
+        name: "m".to_string(),
+        stage: Stage::Control,
+        body: Block {
+            statements: vec![Statement::Conditional {
+                condition: Expression::Identifier("a".to_string()),
+                then_block: vec![Statement::Return(Some(Expression::Literal(Literal::Int(
+                    1,
+                ))))],
+                else_block: vec![Statement::Conditional {
+                    condition: Expression::Identifier("b".to_string()),
+                    then_block: vec![Statement::Return(Some(Expression::Literal(Literal::Int(
+                        2,
+                    ))))],
+                    else_block: vec![Statement::Return(Some(Expression::Literal(Literal::Int(
+                        3,
+                    ))))],
+                }],
+            }],
+        },
+        imports: vec![],
+        submodules: vec![],
+        locales: vec![],
+        pending_locales: vec![],
+        vtables: vec![],
+        symbols: vec![],
+    };
+
+    let output = must_ok(LuaGenerator::new().generate_module(&module));
+    assert!(
+        output.contains("elseif b then"),
+        "expected elseif chain, got:\n{output}"
+    );
+    assert!(
+        !output.contains("else\n  if b then"),
+        "should not nest else/if:\n{output}"
+    );
+    let end_count = output.matches("\nend").count() + usize::from(output.ends_with("end"));
+    assert!(
+        end_count <= 2,
+        "elseif chain should use a single end for the if, got {end_count} in:\n{output}"
+    );
+}

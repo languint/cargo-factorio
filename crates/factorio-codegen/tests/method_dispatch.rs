@@ -10,7 +10,10 @@ mod common;
 
 use common::assert_lua_fragment_parses;
 use factorio_codegen::LuaGenerator;
-use factorio_ir::{expression::Expression, literal::Literal};
+use factorio_ir::{
+    expression::{Expression, MethodDispatch},
+    literal::Literal,
+};
 
 fn id(name: &str) -> Expression {
     Expression::Identifier(name.to_string())
@@ -29,11 +32,16 @@ fn lit_nil() -> Expression {
 }
 
 fn method(receiver: Expression, method: &str, args: Vec<Expression>) -> Expression {
-    Expression::MethodCall {
-        receiver: Box::new(receiver),
-        method: method.to_string(),
-        args,
-    }
+    Expression::method_call(receiver, method, args)
+}
+
+fn method_with(
+    receiver: Expression,
+    method: &str,
+    args: Vec<Expression>,
+    dispatch: MethodDispatch,
+) -> Expression {
+    Expression::method_call_with(receiver, method, args, dispatch)
 }
 
 fn emit(expr: &Expression) -> String {
@@ -166,6 +174,50 @@ fn trailing_nil_elision_and_attribute_setters() {
 }
 
 #[test]
+fn typed_dispatch_overrides_name_heuristics() {
+    assert_eq!(
+        emit(&method_with(
+            id("bag"),
+            "clear",
+            vec![],
+            MethodDispatch::Colon
+        )),
+        "bag:clear()"
+    );
+    assert_eq!(
+        emit(&method_with(id("w"), "name", vec![], MethodDispatch::Colon)),
+        "w:name()"
+    );
+    assert_eq!(
+        emit(&method_with(
+            id("entity"),
+            "health",
+            vec![],
+            MethodDispatch::Factorio
+        )),
+        "entity.health"
+    );
+    assert_eq!(
+        emit(&method_with(
+            id("entity"),
+            "die",
+            vec![],
+            MethodDispatch::Factorio
+        )),
+        "entity.die()"
+    );
+    assert_eq!(
+        emit(&method_with(
+            id("data"),
+            "extend",
+            vec![Expression::Array { elements: vec![] }],
+            MethodDispatch::Colon
+        )),
+        "data:extend({  })"
+    );
+}
+
+#[test]
 fn method_dispatch_table_covers_rewrites() {
     let cases: &[(&str, Expression, &str)] = &[
         (
@@ -176,6 +228,16 @@ fn method_dispatch_table_covers_rewrites() {
         (
             "generic_get",
             method(id("t"), "get", vec![lit_str("a")]),
+            "t.get(\"a\")",
+        ),
+        (
+            "settings_get_tagged",
+            method_with(
+                id("t"),
+                "get",
+                vec![lit_str("a")],
+                MethodDispatch::SettingsGet,
+            ),
             "t[\"a\"].value",
         ),
         ("len", method(id("t"), "len", vec![]), "#t"),

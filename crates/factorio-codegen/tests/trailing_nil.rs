@@ -42,6 +42,7 @@ fn omit_trailing_nil_args_from_calls() {
                             Expression::Literal(Literal::Nil),
                             Expression::Literal(Literal::Nil),
                         ],
+                        dispatch: factorio_ir::expression::MethodDispatch::Infer,
                     })],
                 },
                 doc: None,
@@ -85,6 +86,7 @@ fn storage_set_lowers_to_index_assignment() {
             Expression::Literal(Literal::String("counter".to_string())),
             Expression::Literal(Literal::Int(1)),
         ],
+        dispatch: factorio_ir::expression::MethodDispatch::Infer,
     };
     let lua = LuaGenerator::new().generate_expression(&expr);
     assert_lua_fragment_parses(&lua);
@@ -97,6 +99,7 @@ fn attribute_setter_lowers_to_property_assignment() {
         receiver: Box::new(Expression::Identifier("elem".to_string())),
         method: "set_caption".to_string(),
         args: vec![Expression::Literal(Literal::String("Hello".to_string()))],
+        dispatch: factorio_ir::expression::MethodDispatch::Infer,
     };
     let lua = LuaGenerator::new().generate_expression(&expr);
     assert_eq!(lua, "elem.caption = \"Hello\"");
@@ -106,9 +109,11 @@ fn attribute_setter_lowers_to_property_assignment() {
             receiver: Box::new(Expression::Identifier("elem".to_string())),
             method: "style".to_string(),
             args: vec![],
+            dispatch: factorio_ir::expression::MethodDispatch::Infer,
         }),
         method: "set_width".to_string(),
         args: vec![Expression::Literal(Literal::Int(32))],
+            dispatch: factorio_ir::expression::MethodDispatch::Infer,
     };
     assert_eq!(
         LuaGenerator::new().generate_expression(&style),
@@ -125,6 +130,7 @@ fn real_factorio_set_method_stays_method_call() {
             Expression::Literal(Literal::Int(1)),
             Expression::Literal(Literal::String("iron-ore".to_string())),
         ],
+        dispatch: factorio_ir::expression::MethodDispatch::Infer,
     };
     let lua = LuaGenerator::new().generate_expression(&expr);
     assert_eq!(lua, "entity.set_filter(1, \"iron-ore\")");
@@ -136,6 +142,7 @@ fn storage_get_lowers_to_index_without_settings_value() {
         receiver: Box::new(Expression::Identifier("storage".to_string())),
         method: "get".to_string(),
         args: vec![Expression::Literal(Literal::String("counter".to_string()))],
+        dispatch: factorio_ir::expression::MethodDispatch::Infer,
     };
     let lua = LuaGenerator::new().generate_expression(&expr);
     assert_eq!(lua, "storage[\"counter\"]");
@@ -152,6 +159,7 @@ fn settings_get_still_appends_value() {
         args: vec![Expression::Literal(Literal::String(
             "ms-casual-mode".to_string(),
         ))],
+        dispatch: factorio_ir::expression::MethodDispatch::Infer,
     };
     let lua = LuaGenerator::new().generate_expression(&expr);
     assert_eq!(lua, "settings.startup[\"ms-casual-mode\"].value");
@@ -168,6 +176,7 @@ fn settings_get_bool_appends_value() {
         args: vec![Expression::Literal(Literal::String(
             "ms-casual-mode".to_string(),
         ))],
+        dispatch: factorio_ir::expression::MethodDispatch::Infer,
     };
     let lua = LuaGenerator::new().generate_expression(&expr);
     assert_eq!(lua, "settings.startup[\"ms-casual-mode\"].value");

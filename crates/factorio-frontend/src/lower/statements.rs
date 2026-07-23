@@ -40,6 +40,7 @@ fn maybe_wrap_return_into(
         receiver: Box::new(value),
         method: "into".to_string(),
         args: Vec::new(),
+        dispatch: factorio_ir::expression::MethodDispatch::Infer,
     }
 }
 
@@ -940,12 +941,28 @@ fn fold_match_arms(
                 &scrutinee,
                 guard.clone(),
                 body.clone(),
-                else_block,
+                &else_block,
                 ctx,
             )?;
         }
     }
-    Ok(else_block)
+
+    let tag_tmp = format!("{tmp}_tag");
+    if hoist_scrutinee_tag_reads(&mut else_block, &scrutinee, &tag_tmp) {
+        let mut out = vec![factorio_ir::statement::Statement::VariableDecl {
+            name: tag_tmp,
+            ty: factorio_ir::r#type::Type::Void,
+            source_type: None,
+            value: factorio_ir::expression::Expression::FieldAccess {
+                base: Box::new(scrutinee),
+                field: "tag".to_string(),
+            },
+        }];
+        out.extend(else_block);
+        Ok(out)
+    } else {
+        Ok(else_block)
+    }
 }
 
 fn emit_match_pattern_arm(
@@ -953,15 +970,17 @@ fn emit_match_pattern_arm(
     scrutinee: &factorio_ir::expression::Expression,
     guard: Option<factorio_ir::expression::Expression>,
     body: Vec<factorio_ir::statement::Statement>,
-    else_block: Vec<factorio_ir::statement::Statement>,
+    else_block: &[factorio_ir::statement::Statement],
     ctx: &mut LowerContext<'_>,
 ) -> FrontendResult<Vec<factorio_ir::statement::Statement>> {
     let (condition, bindings) = lower_match_pattern(pat, scrutinee, ctx)?;
     let mut then_block = Vec::new();
+    let mut bound_fields = Vec::new();
     for (name, value) in bindings {
         if let Some(key) = infer_debug_type_key(&value, ctx) {
             ctx.bind_type(name.clone(), key);
         }
+        bound_fields.push((name.clone(), value.clone()));
         then_block.push(factorio_ir::statement::Statement::VariableDecl {
             name,
             ty: factorio_ir::r#type::Type::Void,
@@ -970,13 +989,13 @@ fn emit_match_pattern_arm(
         });
     }
 
-    // Guards run after bindings so they can use pattern names. Guard failure
-    // falls through to later arms (same else_block as a pattern miss).
     if let Some(guard) = guard {
+        let guard_fail_else =
+            fallthrough_after_guard_fail(else_block, condition.as_ref(), &bound_fields);
         then_block.push(factorio_ir::statement::Statement::Conditional {
             condition: guard,
             then_block: body,
-            else_block: else_block.clone(),
+            else_block: guard_fail_else,
         });
     } else {
         then_block.extend(body);
@@ -985,13 +1004,236 @@ fn emit_match_pattern_arm(
     Ok(match condition {
         None => then_block,
         Some(condition) => {
+            let pattern_miss_else = fallthrough_after_pattern_miss(else_block, &condition);
             vec![factorio_ir::statement::Statement::Conditional {
                 condition,
                 then_block,
-                else_block,
+                else_block: pattern_miss_else,
             }]
         }
     })
+}
+
+fn fallthrough_after_guard_fail(
+    else_block: &[factorio_ir::statement::Statement],
+    matched_condition: Option<&factorio_ir::expression::Expression>,
+    already_bound: &[(String, factorio_ir::expression::Expression)],
+) -> Vec<factorio_ir::statement::Statement> {
+    let Some(matched) = matched_condition else {
+        return else_block.to_vec();
+    };
+    match else_block {
+        [
+            factorio_ir::statement::Statement::Conditional {
+                condition: next_cond,
+                then_block,
+                else_block: nested,
+            },
+        ] if match_conditions_equiv(matched, next_cond) => {
+            let _ = nested;
+            strip_redundant_pattern_bindings(then_block.clone(), already_bound)
+        }
+        _ => else_block.to_vec(),
+    }
+}
+
+fn strip_redundant_pattern_bindings(
+    stmts: Vec<factorio_ir::statement::Statement>,
+    already_bound: &[(String, factorio_ir::expression::Expression)],
+) -> Vec<factorio_ir::statement::Statement> {
+    stmts
+        .into_iter()
+        .filter(|statement| match statement {
+            factorio_ir::statement::Statement::VariableDecl { name, value, .. } => !already_bound
+                .iter()
+                .any(|(bound_name, bound_value)| bound_name == name && bound_value == value),
+            _ => true,
+        })
+        .collect()
+}
+
+fn hoist_scrutinee_tag_reads(
+    stmts: &mut [factorio_ir::statement::Statement],
+    scrutinee: &factorio_ir::expression::Expression,
+    tag_tmp: &str,
+) -> bool {
+    let mut changed = false;
+    for statement in stmts.iter_mut() {
+        changed |= hoist_scrutinee_tag_in_statement(statement, scrutinee, tag_tmp);
+    }
+    changed
+}
+
+fn hoist_scrutinee_tag_in_statement(
+    statement: &mut factorio_ir::statement::Statement,
+    scrutinee: &factorio_ir::expression::Expression,
+    tag_tmp: &str,
+) -> bool {
+    match statement {
+        factorio_ir::statement::Statement::Conditional {
+            condition,
+            then_block,
+            else_block,
+        } => {
+            let mut changed = replace_scrutinee_tag_expr(condition, scrutinee, tag_tmp);
+            for statement in then_block.iter_mut().chain(else_block.iter_mut()) {
+                changed |= hoist_scrutinee_tag_in_statement(statement, scrutinee, tag_tmp);
+            }
+            changed
+        }
+        factorio_ir::statement::Statement::VariableDecl { value, .. }
+        | factorio_ir::statement::Statement::Return(Some(value))
+        | factorio_ir::statement::Statement::Expr(value) => {
+            replace_scrutinee_tag_expr(value, scrutinee, tag_tmp)
+        }
+        factorio_ir::statement::Statement::Assignment { target, value } => {
+            replace_scrutinee_tag_expr(target, scrutinee, tag_tmp)
+                | replace_scrutinee_tag_expr(value, scrutinee, tag_tmp)
+        }
+        factorio_ir::statement::Statement::ForIn { iter, body, .. } => {
+            let mut changed = replace_scrutinee_tag_expr(iter, scrutinee, tag_tmp);
+            for statement in body {
+                changed |= hoist_scrutinee_tag_in_statement(statement, scrutinee, tag_tmp);
+            }
+            changed
+        }
+        factorio_ir::statement::Statement::ForNumeric {
+            start, limit, body, ..
+        } => {
+            let mut changed = replace_scrutinee_tag_expr(start, scrutinee, tag_tmp);
+            changed |= replace_scrutinee_tag_expr(limit, scrutinee, tag_tmp);
+            for statement in body {
+                changed |= hoist_scrutinee_tag_in_statement(statement, scrutinee, tag_tmp);
+            }
+            changed
+        }
+        factorio_ir::statement::Statement::While { condition, body } => {
+            let mut changed = replace_scrutinee_tag_expr(condition, scrutinee, tag_tmp);
+            for statement in body {
+                changed |= hoist_scrutinee_tag_in_statement(statement, scrutinee, tag_tmp);
+            }
+            changed
+        }
+        factorio_ir::statement::Statement::FunctionDecl(_)
+        | factorio_ir::statement::Statement::StructDecl(_)
+        | factorio_ir::statement::Statement::EnumDecl(_)
+        | factorio_ir::statement::Statement::Return(None)
+        | factorio_ir::statement::Statement::Continue
+        | factorio_ir::statement::Statement::Break => false,
+    }
+}
+
+fn replace_scrutinee_tag_expr(
+    expr: &mut factorio_ir::expression::Expression,
+    scrutinee: &factorio_ir::expression::Expression,
+    tag_tmp: &str,
+) -> bool {
+    if is_scrutinee_tag(expr, scrutinee) {
+        *expr = factorio_ir::expression::Expression::Identifier(tag_tmp.to_string());
+        return true;
+    }
+    match expr {
+        factorio_ir::expression::Expression::FieldAccess { base, .. }
+        | factorio_ir::expression::Expression::Not(base)
+        | factorio_ir::expression::Expression::Len(base)
+        | factorio_ir::expression::Expression::FatPointer { data: base, .. } => {
+            replace_scrutinee_tag_expr(base, scrutinee, tag_tmp)
+        }
+        factorio_ir::expression::Expression::BinaryOp { lhs, rhs, .. }
+        | factorio_ir::expression::Expression::Index {
+            base: lhs,
+            key: rhs,
+        } => {
+            replace_scrutinee_tag_expr(lhs, scrutinee, tag_tmp)
+                | replace_scrutinee_tag_expr(rhs, scrutinee, tag_tmp)
+        }
+        factorio_ir::expression::Expression::Call { func, args } => {
+            let mut changed = replace_scrutinee_tag_expr(func, scrutinee, tag_tmp);
+            for arg in args {
+                changed |= replace_scrutinee_tag_expr(arg, scrutinee, tag_tmp);
+            }
+            changed
+        }
+        factorio_ir::expression::Expression::MethodCall { receiver, args, .. }
+        | factorio_ir::expression::Expression::DynMethodCall { receiver, args, .. } => {
+            let mut changed = replace_scrutinee_tag_expr(receiver, scrutinee, tag_tmp);
+            for arg in args {
+                changed |= replace_scrutinee_tag_expr(arg, scrutinee, tag_tmp);
+            }
+            changed
+        }
+        factorio_ir::expression::Expression::If {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
+            replace_scrutinee_tag_expr(condition, scrutinee, tag_tmp)
+                | replace_scrutinee_tag_expr(then_expr, scrutinee, tag_tmp)
+                | replace_scrutinee_tag_expr(else_expr, scrutinee, tag_tmp)
+        }
+        factorio_ir::expression::Expression::FormatConcat { parts }
+        | factorio_ir::expression::Expression::Array { elements: parts } => {
+            let mut changed = false;
+            for part in parts {
+                changed |= replace_scrutinee_tag_expr(part, scrutinee, tag_tmp);
+            }
+            changed
+        }
+        factorio_ir::expression::Expression::StructLiteral { fields, .. }
+        | factorio_ir::expression::Expression::EnumLiteral { fields, .. } => {
+            let mut changed = false;
+            for (_, value) in fields {
+                changed |= replace_scrutinee_tag_expr(value, scrutinee, tag_tmp);
+            }
+            changed
+        }
+        factorio_ir::expression::Expression::Closure { body, .. } => {
+            hoist_scrutinee_tag_reads(&mut body.statements, scrutinee, tag_tmp)
+        }
+        factorio_ir::expression::Expression::Literal(_)
+        | factorio_ir::expression::Expression::Identifier(_)
+        | factorio_ir::expression::Expression::QualifiedPath { .. } => false,
+    }
+}
+
+fn is_scrutinee_tag(
+    expr: &factorio_ir::expression::Expression,
+    scrutinee: &factorio_ir::expression::Expression,
+) -> bool {
+    matches!(
+        expr,
+        factorio_ir::expression::Expression::FieldAccess { base, field }
+            if field == "tag" && base.as_ref() == scrutinee
+    )
+}
+
+fn fallthrough_after_pattern_miss(
+    else_block: &[factorio_ir::statement::Statement],
+    failed_condition: &factorio_ir::expression::Expression,
+) -> Vec<factorio_ir::statement::Statement> {
+    let mut block = else_block.to_vec();
+    while let [
+        factorio_ir::statement::Statement::Conditional {
+            condition: next_cond,
+            else_block: nested,
+            ..
+        },
+    ] = block.as_slice()
+    {
+        if match_conditions_equiv(failed_condition, next_cond) {
+            block = nested.clone();
+        } else {
+            break;
+        }
+    }
+    block
+}
+
+fn match_conditions_equiv(
+    a: &factorio_ir::expression::Expression,
+    b: &factorio_ir::expression::Expression,
+) -> bool {
+    a == b
 }
 
 fn lower_match_arm_body(

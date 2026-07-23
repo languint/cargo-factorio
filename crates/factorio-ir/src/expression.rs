@@ -1,5 +1,21 @@
 use crate::{block::Block, literal::Literal, operator::Operator};
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
+pub enum MethodDispatch {
+    #[default]
+    Infer,
+    /// User / metatable / `data:extend`-style: `recv:method(args)`.
+    Colon,
+    /// Factorio `LuaObject`: attribute reads, setters, and `.method(args)`.
+    Factorio,
+    /// `storage[key]`
+    StorageGet,
+    /// `storage[key] = value`
+    StorageSet,
+    /// Mod-settings: `recv[key].value` (or `recv[key]` for `.setting`).
+    SettingsGet,
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
     Literal(Literal),
@@ -19,6 +35,7 @@ pub enum Expression {
         receiver: Box<Self>,
         method: String,
         args: Vec<Self>,
+        dispatch: MethodDispatch,
     },
     StructLiteral {
         /// The Rust struct name that produced this literal, used by codegen to inject
@@ -79,4 +96,33 @@ pub enum Expression {
         method: String,
         args: Vec<Self>,
     },
+}
+
+impl Expression {
+    /// Build a [`MethodCall`] with [`MethodDispatch::Infer`].
+    #[must_use]
+    pub fn method_call(receiver: Self, method: impl Into<String>, args: Vec<Self>) -> Self {
+        Self::MethodCall {
+            receiver: Box::new(receiver),
+            method: method.into(),
+            args,
+            dispatch: MethodDispatch::Infer,
+        }
+    }
+
+    /// Build a [`MethodCall`] with an explicit dispatch tag.
+    #[must_use]
+    pub fn method_call_with(
+        receiver: Self,
+        method: impl Into<String>,
+        args: Vec<Self>,
+        dispatch: MethodDispatch,
+    ) -> Self {
+        Self::MethodCall {
+            receiver: Box::new(receiver),
+            method: method.into(),
+            args,
+            dispatch,
+        }
+    }
 }

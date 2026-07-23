@@ -1,73 +1,27 @@
 use std::fmt::Write as _;
 
-use factorio_ir::expression::Expression;
+use factorio_ir::expression::{Expression, MethodDispatch};
 
 use crate::{
     LuaGenerator, attribute_property_for_setter, is_factorio_attribute_read, is_factorio_method,
     prototype_lua_typename,
 };
 
-/// User-struct / metatable methods need `:method(...)` so Lua passes `self`.
-/// Factorio `LuaObject` methods use `.method(...)` (colon would pass an extra
-/// argument and error at runtime). Unknown names default to `:`.
-const USER_COLON_METHODS: &[&str] = &[
-    "get",
-    "set",
-    "caption",
-    "name",
-    "ensure_name",
-    "with_root_name",
-    "child",
-    "direction",
-    "align_horizontal",
-    "align_vertical",
-    "centered",
-    "on_click",
-    "mount",
-    "use_state",
-    "from_frame",
-    "from_text",
-    "from_button",
-    "from_flow",
-    "from_line",
-    "from_scroll_pane",
-    "into",
-    "new",
-    "horizontal_scroll_policy",
-    "vertical_scroll_policy",
-    "text",
-    "numeric",
-    "allow_decimal",
-    "allow_negative",
-    "is_password",
-    "lose_focus_on_confirm",
-    "on_text_changed",
-    "on_confirmed",
-    "resize_to_sprite",
-    "clicked_sprite",
-    "hovered_sprite",
-    "number",
-    "selected_index",
-    "on_selection_changed",
-    "state",
-    "on_checked",
-    "minimum_value",
-    "maximum_value",
-    "value",
-    "value_step",
-    "discrete_values",
-    "on_value_changed",
-];
-
-fn method_call_sep(method: &str, receiver: &Expression) -> &'static str {
+fn method_call_sep(method: &str, receiver: &Expression, dispatch: MethodDispatch) -> &'static str {
     // Lua stdlib tables must use `.`
     if is_lua_stdlib_receiver(receiver) {
         return ".";
     }
-    if USER_COLON_METHODS.contains(&method) || !is_factorio_method(method) {
-        ":"
-    } else {
-        "."
+    match dispatch {
+        MethodDispatch::Colon => ":",
+        MethodDispatch::Factorio
+        | MethodDispatch::StorageGet
+        | MethodDispatch::StorageSet
+        | MethodDispatch::SettingsGet => ".",
+        MethodDispatch::Infer => {
+            // Untyped / hand-built IR: Factorio API names use `.`, everything else `:`.
+            if is_factorio_method(method) { "." } else { ":" }
+        }
     }
 }
 
@@ -155,7 +109,8 @@ impl LuaGenerator {
                 receiver,
                 method,
                 args,
-            } => self.generate_method_call(receiver, method, args),
+                dispatch,
+            } => self.generate_method_call(receiver, method, args, *dispatch),
             Expression::StructLiteral {
                 struct_name,
                 fields,
@@ -283,41 +238,53 @@ impl LuaGenerator {
         receiver: &Expression,
         method: &str,
         args: &[Expression],
+        dispatch: MethodDispatch,
     ) -> String {
-        // `storage.get(key)` -> `storage[key]` (missing -> nil / Option::None).
-        // Must run before the settings `.get` rewrite (`recv[key].value`).
-        if method == "get" && args.len() == 1 && is_storage_receiver(receiver) {
-            let receiver = self.generate_expression(receiver);
-            let key = self.generate_expression(&args[0]);
-            return format!("{receiver}[{key}]");
-        }
+        // Explicit / inferred storage + settings rewrites.
+        let effective = match dispatch {
+            MethodDispatch::Infer
+                if method == "get" && args.len() == 1 && is_storage_receiver(receiver) =>
+            {
+                MethodDispatch::StorageGet
+            }
+            MethodDispatch::Infer
+                if method == "set" && args.len() == 2 && is_storage_receiver(receiver) =>
+            {
+                MethodDispatch::StorageSet
+            }
+            MethodDispatch::Infer
+                if matches!(
+                    method,
+                    "get" | "get_bool" | "get_int" | "get_double" | "get_string" | "setting"
+                ) && args.len() == 1
+                    && is_settings_receiver(receiver) =>
+            {
+                MethodDispatch::SettingsGet
+            }
+            other => other,
+        };
 
-        if method == "get" && args.len() == 1 {
-            let receiver = self.generate_expression(receiver);
-            let key = self.generate_expression(&args[0]);
-            return format!("{receiver}[{key}].value");
-        }
-
-        // Typed settings accessors share the same Lua shape as `.get`.
-        if matches!(
-            method,
-            "get_bool" | "get_int" | "get_double" | "get_string" | "setting"
-        ) && args.len() == 1
-        {
-            let receiver = self.generate_expression(receiver);
-            let key = self.generate_expression(&args[0]);
-            if method == "setting" {
+        match effective {
+            MethodDispatch::StorageGet if args.len() == 1 => {
+                let receiver = self.generate_expression(receiver);
+                let key = self.generate_expression(&args[0]);
                 return format!("{receiver}[{key}]");
             }
-            return format!("{receiver}[{key}].value");
-        }
-
-        // `storage.set(key, value)` -> `storage[key] = value` (Factorio persistent table).
-        if method == "set" && args.len() == 2 && is_storage_receiver(receiver) {
-            let receiver = self.generate_expression(receiver);
-            let key = self.generate_expression(&args[0]);
-            let value = self.generate_expression(&args[1]);
-            return format!("{receiver}[{key}] = {value}");
+            MethodDispatch::StorageSet if args.len() == 2 => {
+                let receiver = self.generate_expression(receiver);
+                let key = self.generate_expression(&args[0]);
+                let value = self.generate_expression(&args[1]);
+                return format!("{receiver}[{key}] = {value}");
+            }
+            MethodDispatch::SettingsGet if args.len() == 1 => {
+                let receiver = self.generate_expression(receiver);
+                let key = self.generate_expression(&args[0]);
+                if method == "setting" {
+                    return format!("{receiver}[{key}]");
+                }
+                return format!("{receiver}[{key}].value");
+            }
+            _ => {}
         }
 
         if method == "len" && args.is_empty() {
@@ -337,21 +304,24 @@ impl LuaGenerator {
         }
 
         let trimmed = trim_trailing_nils(args);
+        let allow_factorio_attr =
+            matches!(effective, MethodDispatch::Factorio | MethodDispatch::Infer);
+
         if trimmed.is_empty() {
-            let sep = method_call_sep(method, receiver);
-            let receiver = self.generate_expression(receiver);
+            let sep = method_call_sep(method, receiver, effective);
+            let receiver_lua = self.generate_expression(receiver);
             // Zero-arg API *attributes* are property reads (`entity.surface`).
-            // Everything else is an invocation. Trailing-`None`-only calls stay
-            // invocations (`entity.die()`). User / unknown names use `:`.
-            if args.is_empty() && is_factorio_attribute_read(method) {
-                return format!("{receiver}.{method}");
+            // Never apply this for known user (`Colon`) receivers.
+            if allow_factorio_attr && args.is_empty() && is_factorio_attribute_read(method) {
+                return format!("{receiver_lua}.{method}");
             }
-            return format!("{receiver}{sep}{method}()");
+            return format!("{receiver_lua}{sep}{method}()");
         }
 
         // Attribute writers (`set_caption` / `write_driving`) -> property assign.
-        // Real Factorio `set_*` methods and user methods are absent from the lookup.
-        if trimmed.len() == 1
+
+        if allow_factorio_attr
+            && trimmed.len() == 1
             && let Some(property) = attribute_property_for_setter(method)
         {
             let receiver = self.generate_expression(receiver);
@@ -359,11 +329,9 @@ impl LuaGenerator {
             return format!("{receiver}.{property} = {value}");
         }
 
-        let sep = method_call_sep(method, receiver);
+        let sep = method_call_sep(method, receiver, effective);
         let receiver = self.generate_expression(receiver);
         let args_lua = self.generate_arg_list(trimmed);
-        // Factorio LuaObjects: `.method(args)` (engine binds self).
-        // User structs / cross-mod builders: `:method(args)` via `__index`.
         format!("{receiver}{sep}{method}({args_lua})")
     }
 
@@ -556,27 +524,18 @@ impl LuaGenerator {
                 .map(|(name, value)| format!("{name} = {}", self.generate_expression(value))),
         );
         let literal = format!("{{ {} }}", parts.join(", "));
-        if let Some(table_path) = self.enum_method_table_path(enum_name) {
-            let mt = self.metatable_expr(enum_name, &table_path);
-            format!("setmetatable({literal}, {mt})")
-        } else {
-            literal
-        }
-    }
 
-    fn enum_method_table_path(&self, enum_name: &str) -> Option<String> {
-        let Some((ctx_name, table_path, _)) = &self.struct_table_context else {
-            return None;
-        };
-        if ctx_name == enum_name {
-            return Some(table_path.clone());
+        if let Some(mt) = self.shared_metatable_locals.get(enum_name) {
+            return format!("setmetatable({literal}, {mt})");
         }
-        if self.module_type_names.contains(enum_name)
-            && let Some(module_table) = &self.current_module_table
+        if let Some((ctx_name, table_path, has_methods)) = &self.struct_table_context
+            && ctx_name == enum_name
+            && *has_methods
         {
-            return Some(format!("{module_table}.{enum_name}"));
+            let mt = self.metatable_expr(enum_name, table_path);
+            return format!("setmetatable({literal}, {mt})");
         }
-        None
+        literal
     }
 
     fn generate_index(&self, base: &Expression, key: &Expression) -> String {
@@ -598,6 +557,7 @@ impl LuaGenerator {
             receiver,
             method,
             args,
+            ..
         } = inner
             && method == "is_empty"
             && args.is_empty()
@@ -658,6 +618,17 @@ fn is_storage_receiver(receiver: &Expression) -> bool {
         Expression::Identifier(name) => name == "storage",
         Expression::QualifiedPath { segments } => {
             segments.last().is_some_and(|name| name == "storage")
+        }
+        _ => false,
+    }
+}
+
+fn is_settings_receiver(receiver: &Expression) -> bool {
+    match receiver {
+        Expression::Identifier(name) => name == "settings",
+        Expression::FieldAccess { base, .. } => is_settings_receiver(base),
+        Expression::QualifiedPath { segments } => {
+            segments.first().is_some_and(|name| name == "settings")
         }
         _ => false,
     }

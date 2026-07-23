@@ -376,6 +376,7 @@ pub fn encode(data: i64) -> &'static str {
         receiver,
         method,
         args,
+        ..
     } = return_expr(&module)
     else {
         panic!("expected method call");
@@ -401,6 +402,7 @@ pub fn decode(s: &'static str) -> i64 {
         receiver,
         method,
         args,
+        ..
     } = return_expr(&module)
     else {
         panic!("expected method call");
@@ -441,6 +443,7 @@ pub fn encode_bin(data: i64) -> &'static str {
         receiver,
         method,
         args,
+        ..
     } = return_expr(&module)
     else {
         panic!("expected string.pack call");
@@ -482,6 +485,7 @@ pub fn decode_bin(blob: &'static str) -> i64 {
         receiver,
         method: unpack,
         args: unpack_args,
+        ..
     } = &args[0]
     else {
         panic!("expected string.unpack");

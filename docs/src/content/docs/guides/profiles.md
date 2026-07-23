@@ -31,14 +31,20 @@ After optional pruning, release builds run IR passes that:
 
 - Expand statement-context **and mid-expression** `if` / empty IIFEs into real
   `if`/`else` (temps like `__hN` for call args and binops; never Lua `and`/`or`)
-- Simplify locals: Option `unwrap_or`, bool if->expr, `__...` copy-prop, nil-init
-  collapse, identity pattern binds, `flag == true` -> truthiness
-- Inline trivial single-use closures (e.g. `|n| n + 1` in `.map`)
-- Flatten nested string concatenations from `format!` / asserts
+- Simplify locals: Option/Result `unwrap_or`, bool if->expr, `not not` / comparison
+  negation folds, `__...` copy-prop (idents/literals freely; field loads and impure
+  values only for a single straight-line use so hoisted `self.tag` stays bound),
+  nil-init collapse, identity pattern binds, `flag == true` -> truthiness
+- Inline trivial single-use closures (e.g. `|n| n + 1` in `.map`), then simplify
+  again so inlined shapes get the same folds
+- Flatten nested string concatenations from `format!` / asserts (drop empty `""`
+  parts)
 
 Frontend also fuses `option.ok_or(e)?` so the Ok path skips a Result table.
 
-Codegen also shares `{ __index = Type }` metatable locals for types with methods.
+Codegen emits `elseif` for nested else-if chains, shares `{ __index = Type }`
+metatable locals for types **with methods**, and skips `setmetatable` on
+method-less enums.
 
 These reduce Lua 5.2 `CLOSURE` / `CALL` / `NEWTABLE` / `MOVE` traffic versus
 naive IIFE emission. When investigating a hot helper, `luac -l` (Lua 5.2) on the

@@ -722,6 +722,7 @@ fn lower_method_call(
                 receiver: Box::new(receiver),
                 method: "into".to_string(),
                 args: Vec::new(),
+                dispatch: factorio_ir::expression::MethodDispatch::Infer,
             });
         }
         return lower_expression(&call.receiver, ctx, self_type);
@@ -805,11 +806,159 @@ fn lower_method_call(
         });
     }
 
-    Ok(factorio_ir::expression::Expression::MethodCall {
-        receiver: Box::new(receiver),
-        method: method_name,
+    let dispatch = classify_method_dispatch(&call.receiver, &receiver, &method_name, args.len(), ctx);
+    Ok(factorio_ir::expression::Expression::method_call_with(
+        receiver,
+        method_name,
         args,
-    })
+        dispatch,
+    ))
+}
+
+fn classify_method_dispatch(
+    receiver_syn: &Expr,
+    receiver_ir: &factorio_ir::expression::Expression,
+    method: &str,
+    args_len: usize,
+    ctx: &LowerContext<'_>,
+) -> factorio_ir::expression::MethodDispatch {
+    use factorio_ir::expression::MethodDispatch;
+
+    if ir_is_storage_receiver(receiver_ir) || syn_is_storage_receiver(receiver_syn) {
+        return match (method, args_len) {
+            ("get", 1) => MethodDispatch::StorageGet,
+            ("set", 2) => MethodDispatch::StorageSet,
+            _ => MethodDispatch::Infer,
+        };
+    }
+
+    if ir_is_settings_receiver(receiver_ir)
+        && matches!(
+            method,
+            "get" | "get_bool" | "get_int" | "get_double" | "get_string" | "setting"
+        )
+        && args_len == 1
+    {
+        return MethodDispatch::SettingsGet;
+    }
+
+    if method == "extend" && ir_is_data_receiver(receiver_ir) {
+        return MethodDispatch::Colon;
+    }
+
+    if ir_suggests_user_receiver(receiver_ir, ctx) || syn_suggests_user_receiver(receiver_syn, ctx)
+    {
+        return MethodDispatch::Colon;
+    }
+
+    if let Some(key) = syn_receiver_type_key(receiver_syn, ctx)
+        && (key.starts_with("Lua") || key == "LuaGameScript")
+    {
+        return MethodDispatch::Factorio;
+    }
+
+    MethodDispatch::Infer
+}
+
+fn ir_is_storage_receiver(expr: &factorio_ir::expression::Expression) -> bool {
+    match expr {
+        factorio_ir::expression::Expression::Identifier(name) => name == "storage",
+        factorio_ir::expression::Expression::QualifiedPath { segments } => {
+            segments.last().is_some_and(|s| s == "storage")
+        }
+        _ => false,
+    }
+}
+
+fn syn_is_storage_receiver(expr: &Expr) -> bool {
+    match expr {
+        Expr::Path(path) => path
+            .path
+            .segments
+            .last()
+            .is_some_and(|s| s.ident == "storage"),
+        Expr::Paren(paren) => syn_is_storage_receiver(&paren.expr),
+        Expr::Group(group) => syn_is_storage_receiver(&group.expr),
+        Expr::Reference(reference) => syn_is_storage_receiver(&reference.expr),
+        _ => false,
+    }
+}
+
+fn ir_is_settings_receiver(expr: &factorio_ir::expression::Expression) -> bool {
+    match expr {
+        factorio_ir::expression::Expression::Identifier(name) => name == "settings",
+        factorio_ir::expression::Expression::FieldAccess { base, .. } => {
+            ir_is_settings_receiver(base)
+        }
+        factorio_ir::expression::Expression::QualifiedPath { segments } => {
+            segments.first().is_some_and(|s| s == "settings")
+        }
+        _ => false,
+    }
+}
+
+fn ir_is_data_receiver(expr: &factorio_ir::expression::Expression) -> bool {
+    matches!(
+        expr,
+        factorio_ir::expression::Expression::Identifier(name) if name == "data"
+    )
+}
+
+fn ir_suggests_user_receiver(
+    expr: &factorio_ir::expression::Expression,
+    ctx: &LowerContext<'_>,
+) -> bool {
+    match expr {
+        factorio_ir::expression::Expression::Identifier(name) => ctx
+            .binding_type(name)
+            .is_some_and(|key| ctx.is_user_struct(key)),
+        factorio_ir::expression::Expression::MethodCall { receiver, .. } => {
+            ir_suggests_user_receiver(receiver, ctx)
+        }
+        factorio_ir::expression::Expression::Call { func, .. } => match func.as_ref() {
+            factorio_ir::expression::Expression::QualifiedPath { segments } => segments
+                .first()
+                .is_some_and(|s| ctx.is_user_struct(s)),
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+fn syn_suggests_user_receiver(expr: &Expr, ctx: &LowerContext<'_>) -> bool {
+    match expr {
+        Expr::Path(path) if path.path.segments.len() == 1 => {
+            let name = path.path.segments[0].ident.to_string();
+            ctx.binding_type(&name)
+                .is_some_and(|key| ctx.is_user_struct(key))
+        }
+        Expr::MethodCall(call) => syn_suggests_user_receiver(&call.receiver, ctx),
+        Expr::Call(call) => {
+            if let Expr::Path(path) = call.func.as_ref()
+                && let Some(first) = path.path.segments.first()
+            {
+                return ctx.is_user_struct(&first.ident.to_string());
+            }
+            false
+        }
+        Expr::Paren(paren) => syn_suggests_user_receiver(&paren.expr, ctx),
+        Expr::Group(group) => syn_suggests_user_receiver(&group.expr, ctx),
+        Expr::Reference(reference) => syn_suggests_user_receiver(&reference.expr, ctx),
+        _ => false,
+    }
+}
+
+fn syn_receiver_type_key<'a>(expr: &Expr, ctx: &'a LowerContext<'_>) -> Option<&'a str> {
+    match expr {
+        Expr::Path(path) if path.path.segments.len() == 1 => {
+            let name = path.path.segments[0].ident.to_string();
+            ctx.binding_type(&name)
+        }
+        Expr::Paren(paren) => syn_receiver_type_key(&paren.expr, ctx),
+        Expr::Group(group) => syn_receiver_type_key(&group.expr, ctx),
+        Expr::Reference(reference) => syn_receiver_type_key(&reference.expr, ctx),
+        _ => None,
+    }
 }
 
 fn user_method_owner(

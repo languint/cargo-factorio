@@ -787,6 +787,7 @@ fn maybe_debug_format(
             )),
             method: "table_to_json".to_string(),
             args: vec![value],
+            dispatch: factorio_ir::expression::MethodDispatch::Infer,
         };
     }
 

@@ -247,8 +247,56 @@ pub fn handle(value: Option<i32>) {
     else {
         panic!("expected guard conditional");
     };
-    // Guard failure and pattern miss both reach the `_` arm.
+    // Irrefutable `_` fallthrough is identical for guard-fail and pattern-miss.
     assert_eq!(guard_else, else_block);
+}
+
+#[test]
+fn guarded_enum_arms_do_not_duplicate_later_tag_tests() {
+    let source = r"
+pub enum Phase {
+    Idle,
+    Mining { ticks: i64 },
+    Done,
+}
+
+impl Phase {
+    pub fn tick(self) -> Phase {
+        match self {
+            Phase::Idle => Phase::Mining { ticks: 0 },
+            Phase::Mining { ticks } if ticks + 1 >= 60 => Phase::Done,
+            Phase::Mining { ticks } => Phase::Mining { ticks: ticks + 1 },
+            Phase::Done => Phase::Done,
+        }
+    }
+}
+";
+
+    let mut module = must_ok_parse(parse_module(source, "shared.phase"));
+    factorio_ir::opt::optimize_modules(std::slice::from_mut(&mut module));
+    let lua = factorio_codegen::LuaGenerator::new()
+        .generate_module(&module)
+        .expect("generate");
+
+    let tag_rawgets = lua.matches("rawget(self, \"tag\")").count();
+    assert_eq!(
+        tag_rawgets, 1,
+        "tag should be rawget'd once into a local, got {tag_rawgets} in:\n{lua}"
+    );
+    let ticks_rawgets = lua.matches("rawget(self, \"ticks\")").count();
+    assert_eq!(
+        ticks_rawgets, 1,
+        "ticks binding should not be repeated on guard fallthrough, got {ticks_rawgets} in:\n{lua}"
+    );
+    assert!(
+        lua.contains("ticks + 1 >= 60"),
+        "expected guard condition:\n{lua}"
+    );
+    let mining_checks = lua.matches("== \"Mining\"").count();
+    assert_eq!(
+        mining_checks, 1,
+        "expected a single Mining discriminant test, got {mining_checks} in:\n{lua}"
+    );
 }
 
 #[test]

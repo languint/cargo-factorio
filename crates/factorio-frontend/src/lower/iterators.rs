@@ -161,6 +161,7 @@ fn lower_adapter_body(
             receiver: Box::new(Expression::Identifier(output.to_string())),
             method: "push".to_string(),
             args: vec![value],
+            dispatch: factorio_ir::expression::MethodDispatch::Infer,
         })];
     };
 

@@ -76,24 +76,13 @@ impl LuaGenerator {
                 then_block,
                 else_block,
             } => {
-                let condition = self.generate_expression(condition);
-                self.write_line(&format!("if {condition} then"));
-
-                self.indent_level += 1;
-                for statement in then_block {
-                    self.generate_statement(statement, module, module_name, Scope::Private)?;
-                }
-                self.indent_level -= 1;
-
-                if !else_block.is_empty() {
-                    self.write_line("else");
-                    self.indent_level += 1;
-                    for statement in else_block {
-                        self.generate_statement(statement, module, module_name, Scope::Private)?;
-                    }
-                    self.indent_level -= 1;
-                }
-                self.write_line("end");
+                self.generate_conditional_chain(
+                    condition,
+                    then_block,
+                    else_block,
+                    module,
+                    module_name,
+                )?;
             }
             Statement::Return(value) => {
                 let line = value.as_ref().map_or_else(
@@ -173,6 +162,58 @@ impl LuaGenerator {
             }
         }
 
+        Ok(())
+    }
+
+    fn generate_conditional_chain(
+        &mut self,
+        condition: &factorio_ir::expression::Expression,
+        then_block: &[Statement],
+        else_block: &[Statement],
+        module: Option<&Module>,
+        module_name: Option<&str>,
+    ) -> LuaGeneratorResult<()> {
+        let condition = self.generate_expression(condition);
+        self.write_line(&format!("if {condition} then"));
+        self.indent_level += 1;
+        for statement in then_block {
+            self.generate_statement(statement, module, module_name, Scope::Private)?;
+        }
+        self.indent_level -= 1;
+
+        let mut else_block = else_block;
+        loop {
+            match else_block {
+                [
+                    Statement::Conditional {
+                        condition,
+                        then_block,
+                        else_block: nested_else,
+                    },
+                ] => {
+                    let condition = self.generate_expression(condition);
+                    self.write_line(&format!("elseif {condition} then"));
+                    self.indent_level += 1;
+                    for statement in then_block {
+                        self.generate_statement(statement, module, module_name, Scope::Private)?;
+                    }
+                    self.indent_level -= 1;
+                    else_block = nested_else;
+                }
+                [] => break,
+                _ => {
+                    self.write_line("else");
+                    self.indent_level += 1;
+                    for statement in else_block {
+                        self.generate_statement(statement, module, module_name, Scope::Private)?;
+                    }
+                    self.indent_level -= 1;
+                    break;
+                }
+            }
+        }
+
+        self.write_line("end");
         Ok(())
     }
 }

@@ -303,6 +303,7 @@ fn qualifies_exported_function_identifiers_used_as_values() {
                                 Expression::Literal(Literal::String("greet".to_string())),
                                 Expression::Identifier("greet".to_string()),
                             ],
+                            dispatch: factorio_ir::expression::MethodDispatch::Infer,
                         })],
                     },
                     doc: None,

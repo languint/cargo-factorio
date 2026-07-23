@@ -106,6 +106,7 @@ fn collect_iife() -> Expression {
                                 receiver: Box::new(Expression::Identifier("__out".to_string())),
                                 method: "push".to_string(),
                                 args: vec![Expression::Identifier("__iter_value".to_string())],
+                                dispatch: factorio_ir::expression::MethodDispatch::Infer,
                             }),
                         ],
                     },

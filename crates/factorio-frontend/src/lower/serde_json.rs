@@ -127,6 +127,7 @@ mod lower {
             )),
             method: method.to_string(),
             args: vec![arg],
+            dispatch: factorio_ir::expression::MethodDispatch::Infer,
         }
     }
 
@@ -134,13 +135,11 @@ mod lower {
         method: &str,
         args: Vec<factorio_ir::expression::Expression>,
     ) -> factorio_ir::expression::Expression {
-        factorio_ir::expression::Expression::MethodCall {
-            receiver: Box::new(factorio_ir::expression::Expression::Identifier(
-                "string".to_string(),
-            )),
-            method: method.to_string(),
+        factorio_ir::expression::Expression::method_call(
+            factorio_ir::expression::Expression::Identifier("string".to_string()),
+            method,
             args,
-        }
+        )
     }
 }
 

@@ -130,10 +130,15 @@ through to later arms. Struct patterns only destructure fields (no runtime type
 tag). Top-level `A | B => body` expands to nested arms so each alternative can
 bind differently; nested ors require identical bindings.
 
-Statement-position `match` becomes a temp plus nested `if`/`else`. Value-position
-`match` (including tail expressions) becomes an IIFE in debug builds; with
-`optimize_ir` (release default), `let x = match ...` / `return match ...` are
-expanded into statement `if`/`else` instead.
+Statement-position `match` becomes a temp plus an `if` / `elseif` / `else` chain.
+Guarded arms (`pat if cond =>`) test the discriminant once: guard failure falls
+through to later arms without re-checking a tag already proven true, and pattern
+miss skips later arms that require that same discriminant. Enum matches also bind
+`.tag` once before the `if`/`elseif` chain (so method `rawget(self, "tag")` is not
+repeated per arm), and same-discriminant fallthrough reuses payload bindings.
+Value-position `match` (including tail expressions) becomes an IIFE in debug
+builds; with `optimize_ir` (release default), `let x = match ...` /
+`return match ...` are expanded into statement `if` / `elseif` instead.
 
 ### `if let`, `Option`, and `Result`
 

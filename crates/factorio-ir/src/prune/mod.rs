@@ -145,6 +145,7 @@ mod tests {
                                 )),
                                 Expression::Identifier("greet".to_string()),
                             ],
+                            dispatch: crate::expression::MethodDispatch::Infer,
                         })],
                     },
                     doc: None,

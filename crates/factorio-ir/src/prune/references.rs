@@ -323,6 +323,7 @@ pub fn collect_references_from_expression(
             receiver,
             method,
             args,
+            ..
         } => collect_references_from_method_call(
             graph,
             module,

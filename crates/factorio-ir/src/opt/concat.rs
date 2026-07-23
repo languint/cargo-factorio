@@ -157,6 +157,10 @@ fn flatten_and_merge(parts: Vec<Expression>) -> Vec<Expression> {
 
     let mut merged = Vec::with_capacity(flat.len());
     for part in flat {
+        // Drop empty string operands (`"" .. x` -> `x`).
+        if matches!(&part, Expression::Literal(Literal::String(s)) if s.is_empty()) {
+            continue;
+        }
         match (merged.last_mut(), part) {
             (
                 Some(Expression::Literal(Literal::String(prev))),
@@ -166,6 +170,9 @@ fn flatten_and_merge(parts: Vec<Expression>) -> Vec<Expression> {
             }
             (_, part) => merged.push(part),
         }
+    }
+    if merged.is_empty() {
+        merged.push(Expression::Literal(Literal::String(String::new())));
     }
     merged
 }

@@ -16,6 +16,8 @@ fn optimize_module(module: &mut Module) {
     hoist::optimize_module(module);
     simplify::optimize_module(module);
     inline::optimize_module(module);
+    // Inlining can expose shapes simplify already knows (bool if->expr, etc.).
+    simplify::optimize_module(module);
     concat::optimize_module(module);
 }
 
@@ -479,15 +481,11 @@ mod tests {
                                 name: "__o".to_string(),
                                 ty: Type::Void,
                                 source_type: None,
-                                value: Expression::MethodCall {
-                                    receiver: Box::new(Expression::Identifier(
-                                        "storage".to_string(),
-                                    )),
-                                    method: "get".to_string(),
-                                    args: vec![Expression::Literal(Literal::String(
-                                        "boots".to_string(),
-                                    ))],
-                                },
+                                value: Expression::method_call(
+                                    Expression::Identifier("storage".to_string()),
+                                    "get",
+                                    vec![Expression::Literal(Literal::String("boots".to_string()))],
+                                ),
                             },
                             Statement::Conditional {
                                 condition: Expression::BinaryOp {
@@ -544,6 +542,216 @@ mod tests {
                     )
             ),
             "expected if n == nil then n = 0, got {body:?}"
+        );
+    }
+
+    #[test]
+    fn simplifies_result_unwrap_or() {
+        let mut module = module_with_fn(vec![
+            Statement::VariableDecl {
+                name: "n".to_string(),
+                ty: Type::Int,
+                source_type: None,
+                value: Expression::Literal(Literal::Nil),
+            },
+            Statement::Conditional {
+                condition: Expression::BinaryOp {
+                    lhs: Box::new(Expression::FieldAccess {
+                        base: Box::new(Expression::Identifier("r".to_string())),
+                        field: "err".to_string(),
+                    }),
+                    op: Operator::Eq,
+                    rhs: Box::new(Expression::Literal(Literal::Nil)),
+                },
+                then_block: vec![Statement::Assignment {
+                    target: Expression::Identifier("n".to_string()),
+                    value: Expression::FieldAccess {
+                        base: Box::new(Expression::Identifier("r".to_string())),
+                        field: "ok".to_string(),
+                    },
+                }],
+                else_block: vec![Statement::Assignment {
+                    target: Expression::Identifier("n".to_string()),
+                    value: Expression::Literal(Literal::Int(0)),
+                }],
+            },
+        ]);
+        optimize_modules(std::slice::from_mut(&mut module));
+        let body = fn_body(&module);
+        assert!(
+            matches!(
+                &body[0],
+                Statement::VariableDecl {
+                    name,
+                    value: Expression::FieldAccess { field, .. },
+                    ..
+                } if name == "n" && field == "ok"
+            ),
+            "expected local n = r.ok, got {body:?}"
+        );
+        assert!(
+            matches!(
+                &body[1],
+                Statement::Conditional {
+                    condition: Expression::BinaryOp {
+                        lhs,
+                        op: Operator::Ne,
+                        ..
+                    },
+                    then_block,
+                    else_block,
+                } if matches!(
+                    lhs.as_ref(),
+                    Expression::FieldAccess { field, .. } if field == "err"
+                ) && else_block.is_empty()
+                    && matches!(
+                        then_block.as_slice(),
+                        [Statement::Assignment {
+                            value: Expression::Literal(Literal::Int(0)),
+                            ..
+                        }]
+                    )
+            ),
+            "expected if r.err ~= nil then n = 0, got {body:?}"
+        );
+    }
+
+    #[test]
+    fn folds_not_not_and_negated_comparison() {
+        let mut module = module_with_fn(vec![Statement::Return(Some(Expression::Not(Box::new(
+            Expression::Not(Box::new(Expression::BinaryOp {
+                lhs: Box::new(Expression::Identifier("x".to_string())),
+                op: Operator::Eq,
+                rhs: Box::new(Expression::Literal(Literal::Nil)),
+            })),
+        ))))]);
+        optimize_modules(std::slice::from_mut(&mut module));
+        let body = fn_body(&module);
+        assert_eq!(
+            body,
+            &[Statement::Return(Some(Expression::BinaryOp {
+                lhs: Box::new(Expression::Identifier("x".to_string())),
+                op: Operator::Eq,
+                rhs: Box::new(Expression::Literal(Literal::Nil)),
+            }))]
+        );
+
+        let mut module = module_with_fn(vec![Statement::Conditional {
+            condition: Expression::Not(Box::new(Expression::BinaryOp {
+                lhs: Box::new(Expression::Identifier("x".to_string())),
+                op: Operator::Eq,
+                rhs: Box::new(Expression::Literal(Literal::Nil)),
+            })),
+            then_block: vec![Statement::Return(None)],
+            else_block: vec![],
+        }]);
+        optimize_modules(std::slice::from_mut(&mut module));
+        let body = fn_body(&module);
+        let Statement::Conditional { condition, .. } = &body[0] else {
+            panic!("{body:?}");
+        };
+        assert_eq!(
+            condition,
+            &Expression::BinaryOp {
+                lhs: Box::new(Expression::Identifier("x".to_string())),
+                op: Operator::Ne,
+                rhs: Box::new(Expression::Literal(Literal::Nil)),
+            }
+        );
+    }
+
+    #[test]
+    fn drops_empty_concat_parts() {
+        let mut module = module_with_fn(vec![Statement::Return(Some(Expression::FormatConcat {
+            parts: vec![
+                Expression::Literal(Literal::String(String::new())),
+                Expression::Identifier("x".to_string()),
+                Expression::Literal(Literal::String(String::new())),
+            ],
+        }))]);
+        optimize_modules(std::slice::from_mut(&mut module));
+        let body = fn_body(&module);
+        assert_eq!(
+            body,
+            &[Statement::Return(Some(Expression::Identifier(
+                "x".to_string()
+            )))]
+        );
+    }
+
+    #[test]
+    fn simplify_after_inline_folds_bool_closure() {
+        // `|b| if b then true else false` inlined, then folded to `b`.
+        let mut module = module_with_fn(vec![Statement::Return(Some(Expression::Call {
+            func: Box::new(Expression::Closure {
+                params: vec!["b".to_string()],
+                body: Block {
+                    statements: vec![Statement::Return(Some(Expression::If {
+                        condition: Box::new(Expression::Identifier("b".to_string())),
+                        then_expr: Box::new(Expression::Literal(Literal::Bool(true))),
+                        else_expr: Box::new(Expression::Literal(Literal::Bool(false))),
+                    }))],
+                },
+            }),
+            args: vec![Expression::Identifier("flag".to_string())],
+        }))]);
+        optimize_modules(std::slice::from_mut(&mut module));
+        let body = fn_body(&module);
+        assert_eq!(
+            body,
+            &[Statement::Return(Some(Expression::Identifier(
+                "flag".to_string()
+            )))],
+            "expected inline+simplify to yield `return flag`, got {body:?}"
+        );
+    }
+
+    #[test]
+    fn does_not_sink_impure_temp_into_conditional_body() {
+        let mut module = module_with_fn(vec![
+            Statement::VariableDecl {
+                name: "__t".to_string(),
+                ty: Type::Void,
+                source_type: None,
+                value: Expression::Call {
+                    func: Box::new(Expression::Identifier("side_effect".to_string())),
+                    args: vec![],
+                },
+            },
+            Statement::Conditional {
+                condition: Expression::Identifier("c".to_string()),
+                then_block: vec![Statement::Expr(Expression::Call {
+                    func: Box::new(Expression::Identifier("use".to_string())),
+                    args: vec![Expression::Identifier("__t".to_string())],
+                })],
+                else_block: vec![],
+            },
+        ]);
+        optimize_modules(std::slice::from_mut(&mut module));
+        let body = fn_body(&module);
+        assert!(
+            matches!(
+                &body[0],
+                Statement::VariableDecl {
+                    name,
+                    value: Expression::Call { func, .. },
+                    ..
+                } if name == "__t"
+                    && matches!(func.as_ref(), Expression::Identifier(f) if f == "side_effect")
+            ),
+            "impure temp must stay outside the branch, got {body:?}"
+        );
+        assert!(
+            matches!(
+                &body[1],
+                Statement::Conditional { then_block, .. }
+                    if matches!(
+                        then_block.as_slice(),
+                        [Statement::Expr(Expression::Call { args, .. })]
+                            if matches!(args.as_slice(), [Expression::Identifier(id)] if id == "__t")
+                    )
+            ),
+            "then-arm should still read __t, got {body:?}"
         );
     }
 }

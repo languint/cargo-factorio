@@ -101,10 +101,8 @@ fn arb_expr(depth: u32) -> BoxedStrategy<Expression> {
             ],
             proptest::collection::vec(nested.clone(), 0..2)
         )
-            .prop_map(|(receiver, method, args)| Expression::MethodCall {
-                receiver: Box::new(Expression::Identifier(receiver)),
-                method,
-                args,
+            .prop_map(|(receiver, method, args)| {
+                Expression::method_call(Expression::Identifier(receiver), method, args)
             }),
         (nested.clone(), arb_operator(), nested.clone()).prop_map(|(lhs, op, rhs)| {
             Expression::BinaryOp {
