@@ -62,9 +62,16 @@ fn generates_tagged_enum_tables_and_methods() {
 
     let output = must_ok(LuaGenerator::new().generate_module(&module));
     assert!(output.contains("local Msg = {}"));
+    assert!(
+        output.contains("local __mt_Msg = { __index = Msg }"),
+        "{output}"
+    );
     assert!(output.contains("Msg.Quit = { tag = \"Quit\" }"));
     assert!(output.contains("function Msg.quit()"));
-    assert!(output.contains("return setmetatable({ tag = \"Quit\" }, { __index = Msg })"));
+    assert!(
+        output.contains("return setmetatable({ tag = \"Quit\" }, __mt_Msg)"),
+        "{output}"
+    );
 }
 
 #[test]
@@ -152,7 +159,7 @@ fn from_into_attaches_target_enum_metatable() {
     assert!(
         output.contains(
             "return setmetatable({ tag = \"Frame\", _1 = self }, { __index = sharedWidget.Widget })"
-        ),
+        ) || output.contains("return setmetatable({ tag = \"Frame\", _1 = self }, __mt_Widget)"),
         "Frame:into must attach Widget metatable; got:\n{output}"
     );
 }

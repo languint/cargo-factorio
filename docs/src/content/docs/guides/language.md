@@ -131,7 +131,9 @@ tag). Top-level `A | B => body` expands to nested arms so each alternative can
 bind differently; nested ors require identical bindings.
 
 Statement-position `match` becomes a temp plus nested `if`/`else`. Value-position
-`match` (including tail expressions and `let x = match ...`) becomes an IIFE.
+`match` (including tail expressions) becomes an IIFE in debug builds; with
+`optimize_ir` (release default), `let x = match ...` / `return match ...` are
+expanded into statement `if`/`else` instead.
 
 ### `if let`, `Option`, and `Result`
 
@@ -186,7 +188,7 @@ value.
 | `&x`, `*x`, `x as T`, `(x)`         | Transparent                                                    |
 | `!` / `-`                           | `not` / unary minus                                            |
 | `+ - * / % == != < <= > >= && \|\|` |                                                                |
-| `if c { a } else { b }`             | Each arm must be a **single** expression; safe Lua `if`/`else` (IIFE) |
+| `if c { a } else { b }`             | Each arm must be a **single** expression; safe Lua `if`/`else` (IIFE mid-expression; statement form under `optimize_ir`) |
 | `\|x\| ...` / `\|x\| { ... }`           | -> Lua `function(x) ... end` (see [Closures](#closures))         |
 | `println!(...)`                     | -> `game.print(...)` with `..` concatenation                   |
 | `format!(...)`                      | -> string via `..` concatenation                               |

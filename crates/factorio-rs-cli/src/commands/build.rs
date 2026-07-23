@@ -6,7 +6,7 @@ use factorio_frontend::{
     eprint_diagnostic, eprint_frontend_error, lua_output_path,
     parse_discovered_module_with_options, resolve_project_locales,
 };
-use factorio_ir::{module::Module, prune::prune_modules};
+use factorio_ir::{module::Module, opt::optimize_modules, prune::prune_modules};
 
 use crate::{
     api_crate, assets, bindings,
@@ -141,6 +141,17 @@ fn build_with_progress(
         prune_modules(&mut modules);
         for ((_, module), pruned) in discovered_modules.iter_mut().zip(modules) {
             *module = pruned;
+        }
+    }
+
+    if profile.optimize_ir {
+        let mut modules = discovered_modules
+            .iter()
+            .map(|(_, module)| module.clone())
+            .collect::<Vec<_>>();
+        optimize_modules(&mut modules);
+        for ((_, module), optimized) in discovered_modules.iter_mut().zip(modules) {
+            *module = optimized;
         }
     }
 

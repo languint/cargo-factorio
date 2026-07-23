@@ -15,6 +15,10 @@ pub struct ProfileSettings {
     /// Remove unreachable functions and exports from generated Lua.
     #[serde(default)]
     pub prune_dead_code: Option<bool>,
+
+    /// Run IR expression optimizations
+    #[serde(default)]
+    pub optimize_ir: Option<bool>,
 }
 
 /// Fully resolved settings used by a single build.
@@ -23,6 +27,7 @@ pub struct ResolvedProfile {
     pub name: String,
     pub debug_level: Option<u8>,
     pub prune_dead_code: bool,
+    pub optimize_ir: bool,
 }
 
 impl ResolvedProfile {
@@ -31,6 +36,7 @@ impl ResolvedProfile {
             name: name.to_string(),
             debug_level: Some(1),
             prune_dead_code: false,
+            optimize_ir: false,
         }
     }
 
@@ -39,6 +45,7 @@ impl ResolvedProfile {
             name: name.to_string(),
             debug_level: None,
             prune_dead_code: true,
+            optimize_ir: true,
         }
     }
 }
@@ -64,6 +71,9 @@ pub fn resolve_profile(
         if let Some(prune) = overlay.prune_dead_code {
             resolved.prune_dead_code = prune;
         }
+        if let Some(optimize) = overlay.optimize_ir {
+            resolved.optimize_ir = optimize;
+        }
     }
 
     resolved
@@ -75,16 +85,18 @@ mod tests {
     use std::collections::BTreeMap;
 
     #[test]
-    fn debug_defaults_disable_pruning() {
+    fn debug_defaults_disable_pruning_and_optimize() {
         let settings = resolve_profile(&BTreeMap::new(), "debug");
         assert!(!settings.prune_dead_code);
+        assert!(!settings.optimize_ir);
         assert_eq!(settings.debug_level, Some(1));
     }
 
     #[test]
-    fn release_defaults_enable_pruning() {
+    fn release_defaults_enable_pruning_and_optimize() {
         let settings = resolve_profile(&BTreeMap::new(), "release");
         assert!(settings.prune_dead_code);
+        assert!(settings.optimize_ir);
         assert_eq!(settings.debug_level, None);
     }
 
@@ -96,12 +108,14 @@ mod tests {
             ProfileSettings {
                 debug_level: Some(2),
                 prune_dead_code: None,
+                optimize_ir: None,
             },
         );
 
         let settings = resolve_profile(&profiles, "debug");
         assert_eq!(settings.debug_level, Some(2));
         assert!(!settings.prune_dead_code);
+        assert!(!settings.optimize_ir);
     }
 
     #[test]
@@ -112,11 +126,13 @@ mod tests {
             ProfileSettings {
                 debug_level: None,
                 prune_dead_code: Some(true),
+                optimize_ir: Some(true),
             },
         );
 
         let settings = resolve_profile(&profiles, "debug");
         assert!(settings.prune_dead_code);
+        assert!(settings.optimize_ir);
         assert_eq!(settings.debug_level, Some(1));
     }
 }

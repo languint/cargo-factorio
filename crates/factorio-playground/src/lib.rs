@@ -6,7 +6,7 @@ use factorio_frontend::{
     ParseOptions, build_trait_catalog, discover_modules, parse_discovered_module_with_options,
     resolve_project_locales,
 };
-use factorio_ir::lint::LintConfig;
+use factorio_ir::{lint::LintConfig, opt::optimize_modules, prune::prune_modules};
 use wasm_bindgen::prelude::*;
 
 const MOD_NAME: &str = "playground";
@@ -41,7 +41,7 @@ pub struct TranspileFilesResult {
 #[must_use]
 pub fn transpile(source: &str, module_name: &str) -> TranspileResult {
     let files = serde_json::json!({ format!("{module_name}.rs"): source });
-    let result = transpile_files(&files.to_string());
+    let result = transpile_files(&files.to_string(), "debug");
     if !result.ok {
         return TranspileResult {
             ok: false,
@@ -66,13 +66,11 @@ pub fn transpile(source: &str, module_name: &str) -> TranspileResult {
 
 /// Lower a virtual multi-file crate into a Factorio mod file tree.
 ///
-/// `files_json` maps virtual paths under `src/` to Rust source. On success,
-/// `files_json` in the result includes `info.json`, `control.lua`, stage entry
-/// scripts, locale `.cfg` files, and module Lua under `lua/`.
+
 #[wasm_bindgen]
 #[must_use]
-pub fn transpile_files(files_json: &str) -> TranspileFilesResult {
-    match transpile_files_inner(files_json) {
+pub fn transpile_files(files_json: &str, profile: &str) -> TranspileFilesResult {
+    match transpile_files_inner(files_json, profile) {
         Ok(files) => match serde_json::to_string(&files) {
             Ok(files_json) => TranspileFilesResult {
                 ok: true,
@@ -93,7 +91,10 @@ pub fn transpile_files(files_json: &str) -> TranspileFilesResult {
     }
 }
 
-fn transpile_files_inner(files_json: &str) -> Result<BTreeMap<String, String>, String> {
+fn transpile_files_inner(
+    files_json: &str,
+    profile: &str,
+) -> Result<BTreeMap<String, String>, String> {
     let files: BTreeMap<String, String> =
         serde_json::from_str(files_json).map_err(|error| error.to_string())?;
     if files.is_empty() {
@@ -137,8 +138,17 @@ fn transpile_files_inner(files_json: &str) -> Result<BTreeMap<String, String>, S
 
     resolve_project_locales(&mut modules).map_err(|error| error.to_string())?;
 
-    emit_mod_tree(&modules, &EmitModOptions::playground(MOD_NAME))
-        .map_err(|error| error.to_string())
+    let is_debug = profile == "debug";
+    if !is_debug {
+        prune_modules(&mut modules);
+        optimize_modules(&mut modules);
+    }
+
+    let mut emit = EmitModOptions::playground(MOD_NAME);
+    emit.profile = if is_debug { "debug" } else { "release" };
+    emit.debug_level = if is_debug { Some(1) } else { None };
+
+    emit_mod_tree(&modules, &emit).map_err(|error| error.to_string())
 }
 
 #[cfg(test)]
@@ -146,6 +156,7 @@ mod tests {
     #![allow(clippy::expect_used, clippy::unwrap_used)]
 
     use super::transpile_files;
+    use std::collections::BTreeMap;
 
     fn fixture_files(entries: &[(&str, &str)]) -> serde_json::Value {
         serde_json::Value::Object(
@@ -171,7 +182,7 @@ pub fn on_singleplayer_init() {
 }
 "#,
         });
-        let result = transpile_files(&files.to_string());
+        let result = transpile_files(&files.to_string(), "debug");
         assert!(result.ok, "{:?}", result.message);
         let map: serde_json::Map<String, serde_json::Value> =
             serde_json::from_str(&result.files_json.expect("files")).expect("json");
@@ -183,6 +194,71 @@ pub fn on_singleplayer_init() {
             control.contains("script.on_event(defines.events.on_singleplayer_init"),
             "{control}"
         );
+    }
+
+    #[test]
+    fn transpile_files_release_runs_optimize() {
+        let files = serde_json::json!({
+                            "control/pick.rs": r"
+pub fn pick(c: bool) -> i32 {
+    let x = if c { 1 } else { 0 };
+    x
+}
+",
+                        });
+        let debug = transpile_files(&files.to_string(), "debug");
+        assert!(debug.ok, "{:?}", debug.message);
+        let release = transpile_files(&files.to_string(), "release");
+        assert!(release.ok, "{:?}", release.message);
+
+        let debug_map: BTreeMap<String, String> =
+            serde_json::from_str(&debug.files_json.expect("files")).expect("json");
+        let release_map: BTreeMap<String, String> =
+            serde_json::from_str(&release.files_json.expect("files")).expect("json");
+        let debug_lua = debug_map.get("lua/control/pick.lua").expect("debug lua");
+        let release_lua = release_map
+            .get("lua/control/pick.lua")
+            .expect("release lua");
+
+        assert!(debug_lua.contains("-- Profile: debug"), "{debug_lua}");
+        assert!(release_lua.contains("-- Profile: release"), "{release_lua}");
+        assert!(
+            !release_lua.contains("(function()"),
+            "release should hoist statement-context if:\n{release_lua}"
+        );
+    }
+
+    #[test]
+    fn transpile_files_release_simplifies_unwrap_or() {
+        let files = serde_json::json!({
+            "control/boot.rs": r#"
+#[factorio_rs::event(OnSingleplayerInit)]
+pub fn on_singleplayer_init() {
+    let n = storage.get::<u32>("boots").unwrap_or(0);
+    storage.set("boots", n + 1);
+    println!("boot count: {}", n + 1);
+}
+"#,
+        });
+        let release = transpile_files(&files.to_string(), "release");
+        assert!(release.ok, "{:?}", release.message);
+        let map: BTreeMap<String, String> =
+            serde_json::from_str(&release.files_json.expect("files")).expect("json");
+        let lua = map.get("lua/control/boot.lua").expect("lua");
+        assert!(
+            !lua.contains("local n = nil"),
+            "unwrap_or should not leave nil init:\n{lua}"
+        );
+        assert!(
+            !lua.contains("local __o"),
+            "bind-once temp should be folded away:\n{lua}"
+        );
+        assert!(
+            lua.contains("local n = storage[\"boots\"]")
+                || lua.contains("local n = storage['boots']"),
+            "{lua}"
+        );
+        assert!(lua.contains("if n == nil then"), "{lua}");
     }
 
     #[test]
@@ -256,7 +332,7 @@ locale! {
 "#,
             ),
         ]);
-        let result = transpile_files(&files.to_string());
+        let result = transpile_files(&files.to_string(), "debug");
         assert!(result.ok, "{:?}", result.message);
         let map: serde_json::Map<String, serde_json::Value> =
             serde_json::from_str(&result.files_json.expect("files")).expect("json");
@@ -277,7 +353,7 @@ locale! {
 
     #[test]
     fn transpile_files_rejects_empty() {
-        let result = transpile_files("{}");
+        let result = transpile_files("{}", "debug");
         assert!(!result.ok);
     }
 }

@@ -85,6 +85,7 @@ or use `item!` with a relative `icon` path. End-to-end: [Package graphics](../re
 | --- | --- |
 | `debug_level` | Lua debug comment level |
 | `prune_dead_code` | Whether to prune unreachable IR |
+| `optimize_ir` | Whether to run IR expression optimizations before codegen |
 
 See [Profiles](../guides/profiles/).
 
@@ -149,8 +150,10 @@ unwrap = "allow"
 [profiles.debug]
 debug_level = 2
 prune_dead_code = false
+optimize_ir = false
 
 [profiles.release]
 debug_level = 0
 prune_dead_code = true
+optimize_ir = true
 ```

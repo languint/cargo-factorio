@@ -90,9 +90,14 @@ fn nested_player_modules_generate_expected_lua() {
 
     let player_lua = must_ok(LuaGenerator::new().generate_module(&player_module));
     assert!(player_lua.contains("require(\"__mod__/lua/shared/player/health\")"));
-    assert!(player_lua.contains(
-        "setmetatable({ health = sharedPlayer.MyPlayer.DEFAULT_HEALTH }, { __index = sharedPlayer.MyPlayer })"
-    ));
+    assert!(
+        player_lua.contains(
+            "setmetatable({ health = sharedPlayer.MyPlayer.DEFAULT_HEALTH }, __mt_MyPlayer)"
+        ) || player_lua.contains(
+            "setmetatable({ health = sharedPlayer.MyPlayer.DEFAULT_HEALTH }, { __index = sharedPlayer.MyPlayer })"
+        ),
+        "{player_lua}"
+    );
 
     let health_lua = must_ok(LuaGenerator::new().generate_module(&health_module));
     assert!(health_lua.contains("local shared_player = require(\"__mod__/lua/shared/player\")"));

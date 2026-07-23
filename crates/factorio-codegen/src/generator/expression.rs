@@ -215,7 +215,7 @@ impl LuaGenerator {
     }
 
     fn generate_qualified_path(&self, segments: &[String]) -> String {
-        if let Some((struct_name, table_path)) = &self.struct_table_context
+        if let Some((struct_name, table_path, _)) = &self.struct_table_context
             && segments
                 .first()
                 .is_some_and(|segment| segment == struct_name)
@@ -491,17 +491,28 @@ impl LuaGenerator {
     }
 
     fn maybe_struct_metatable(&self, literal: String, struct_name: Option<&str>) -> String {
-        let Some((ctx_name, table_path)) = &self.struct_table_context else {
+        let Some((ctx_name, table_path, has_methods)) = &self.struct_table_context else {
             return literal;
         };
+        if !has_methods {
+            return literal;
+        }
         // Only `Self { ... }` / `Frame { ... }` inside `impl Frame` get the method
         // table - not unrelated structs like `LuaGuiElementAddParams { ... }`.
         let applies = struct_name.is_none_or(|name| name == ctx_name);
         if applies {
-            format!("setmetatable({literal}, {{ __index = {table_path} }})")
+            let mt = self.metatable_expr(ctx_name, table_path);
+            format!("setmetatable({literal}, {mt})")
         } else {
             literal
         }
+    }
+
+    fn metatable_expr(&self, type_name: &str, table_path: &str) -> String {
+        self.shared_metatable_locals
+            .get(type_name)
+            .cloned()
+            .unwrap_or_else(|| format!("{{ __index = {table_path} }}"))
     }
 
     /// Array of `{ key, value }` structs -> `{ [key] = value, ... }`.
@@ -541,14 +552,15 @@ impl LuaGenerator {
         );
         let literal = format!("{{ {} }}", parts.join(", "));
         if let Some(table_path) = self.enum_method_table_path(enum_name) {
-            format!("setmetatable({literal}, {{ __index = {table_path} }})")
+            let mt = self.metatable_expr(enum_name, &table_path);
+            format!("setmetatable({literal}, {mt})")
         } else {
             literal
         }
     }
 
     fn enum_method_table_path(&self, enum_name: &str) -> Option<String> {
-        let Some((ctx_name, table_path)) = &self.struct_table_context else {
+        let Some((ctx_name, table_path, _)) = &self.struct_table_context else {
             return None;
         };
         if ctx_name == enum_name {

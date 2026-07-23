@@ -129,6 +129,13 @@ IR → Lua coverage lives in `crates/factorio-codegen/tests/`:
 - Property tests in `proptest_emit.rs` fuzz well-formed IR (parseability) and
   compare small integer arithmetic to `mlua` (Lua 5.2).
 
+### IR optimizations (`factorio-ir::opt`)
+
+Release profiles run `optimize_ir` after prune: hoist statement-context if/IIFEs,
+inline trivial closures, flatten `FormatConcat`. Prefer fewer Lua `CLOSURE` /
+`CALL` / `NEWTABLE` ops; when tuning a hot helper, `luac -l` (Lua 5.2) on the
+emitted file is a useful before/after check.
+
 ## Pull requests
 
 1. Branch from `main`.

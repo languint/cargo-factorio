@@ -40,7 +40,12 @@ impl LuaGenerator {
             }
 
             for method in &struct_decl.methods {
-                self.generate_table_method(method, &struct_decl.name, &table_path)?;
+                self.generate_table_method(
+                    method,
+                    &struct_decl.name,
+                    &table_path,
+                    !struct_decl.methods.is_empty(),
+                )?;
             }
 
             return Ok(());
@@ -74,13 +79,18 @@ impl LuaGenerator {
 
         self.write_line(&format!("{prefix}{table_path} = {{}}"));
 
+        let has_methods = !struct_decl.methods.is_empty();
+        if has_methods {
+            self.emit_shared_metatable_local(&struct_decl.name, &table_path);
+        }
+
         for (name, value) in &struct_decl.constants {
             let value = self.generate_expression(value);
             self.write_line(&format!("{table_path}.{name} = {value}"));
         }
 
         for method in &struct_decl.methods {
-            self.generate_table_method(method, &struct_decl.name, &table_path)?;
+            self.generate_table_method(method, &struct_decl.name, &table_path, has_methods)?;
         }
 
         Ok(())
@@ -118,6 +128,11 @@ impl LuaGenerator {
         self.write_doc_comments(enum_decl.doc.as_deref());
         self.write_line(&format!("{prefix}{table_path} = {{}}"));
 
+        let has_methods = !enum_decl.methods.is_empty();
+        if has_methods {
+            self.emit_shared_metatable_local(&enum_decl.name, &table_path);
+        }
+
         for variant in &enum_decl.variants {
             if matches!(variant.fields, EnumVariantFields::Unit) {
                 let value = self.generate_expression(&Expression::EnumLiteral {
@@ -133,9 +148,22 @@ impl LuaGenerator {
             self.write_line(&format!("{table_path}.{name} = {value}"));
         }
         for method in &enum_decl.methods {
-            self.generate_table_method(method, &enum_decl.name, &table_path)?;
+            self.generate_table_method(method, &enum_decl.name, &table_path, has_methods)?;
         }
         Ok(())
+    }
+
+    /// Emit a once-per-type `{ __index = table }` local used by struct/enum literals.
+    fn emit_shared_metatable_local(&mut self, type_name: &str, table_path: &str) {
+        if self.shared_metatable_locals.contains_key(type_name) {
+            return;
+        }
+        let local_name = format!("__mt_{type_name}");
+        self.write_line(&format!(
+            "local {local_name} = {{ __index = {table_path} }}"
+        ));
+        self.shared_metatable_locals
+            .insert(type_name.to_string(), local_name);
     }
 
     /// Generate a method found on a `struct`
@@ -144,6 +172,7 @@ impl LuaGenerator {
         func: &Function,
         struct_name: &str,
         table_path: &str,
+        has_methods: bool,
     ) -> LuaGeneratorResult<()> {
         let function_uses_self = func
             .params
@@ -185,7 +214,8 @@ impl LuaGenerator {
             func.name
         ));
 
-        self.struct_table_context = Some((struct_name.to_string(), table_path.to_string()));
+        self.struct_table_context =
+            Some((struct_name.to_string(), table_path.to_string(), has_methods));
         self.indent_level += 1;
         self.generate_block(&func.body, None)?;
         self.indent_level -= 1;

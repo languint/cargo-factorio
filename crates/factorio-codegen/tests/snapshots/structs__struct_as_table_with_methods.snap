@@ -6,6 +6,7 @@ expression: normalized
 -- Module: `player`
 local player = {}
 player.MyPlayer = {}
+local __mt_MyPlayer = { __index = player.MyPlayer }
 function player.MyPlayer:get_health()
 	return rawget(self, "health")
 end

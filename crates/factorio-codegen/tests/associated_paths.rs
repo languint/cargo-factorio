@@ -71,9 +71,16 @@ fn rewrites_associated_paths_inside_struct_methods() {
 
     let output = must_ok(LuaGenerator::new().generate_module(&module));
 
-    assert!(output.contains(
-        "return setmetatable({ health = player.MyPlayer.DEFAULT_HEALTH }, { __index = player.MyPlayer })"
-    ));
+    assert!(
+        output.contains("local __mt_MyPlayer = { __index = player.MyPlayer }"),
+        "{output}"
+    );
+    assert!(
+        output.contains(
+            "return setmetatable({ health = player.MyPlayer.DEFAULT_HEALTH }, __mt_MyPlayer)"
+        ),
+        "{output}"
+    );
 }
 
 #[test]

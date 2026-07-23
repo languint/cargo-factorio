@@ -45,7 +45,7 @@ export default defineConfig({
         baseUrl: "https://github.com/languint/factorio-rs/edit/main/docs/",
       },
       components: {
-        SocialIcons: "./src/components/SocialIcons.astro",
+        // SocialIcons: "./src/components/SocialIcons.astro",
         PageTitle: "./src/components/PageTitle.astro",
         Footer: "./src/components/Footer.astro",
       },

@@ -1,6 +1,6 @@
 ---
 title: Profiles
-description: Configure transpile profiles for debug comments and dead-code pruning.
+description: Configure transpile profiles for debug comments, pruning, and IR optimization.
 ---
 
 Profiles in `Factorio.toml` control **transpile** behaviour. They are not Cargo
@@ -14,15 +14,31 @@ Under `[profiles.<name>]`:
 | --- | --- |
 | `debug_level` | Lua comment verbosity (`0` = headers only; `1+` adds more inline comments) |
 | `prune_dead_code` | Remove unreachable IR before codegen |
+| `optimize_ir` | Rewrite IR for cheaper / more readable Lua (IIFE hoist, closure inline, ...) |
 
 ## Defaults
 
-| Profile name | Default `debug_level` | Default `prune_dead_code` |
-| --- | --- | --- |
-| `debug` | `1` | `false` |
-| anything else (including `release`) | unset (no debug-comment mode) unless TOML sets it | `true` |
+| Profile name | Default `debug_level` | Default `prune_dead_code` | Default `optimize_ir` |
+| --- | --- | --- | --- |
+| `debug` | `1` | `false` | `false` |
+| anything else (including `release`) | unset (no debug-comment mode) unless TOML sets it | `true` | `true` |
 
 Init templates and examples usually set release to `debug_level = 0` explicitly.
+
+## What `optimize_ir` does
+
+After optional pruning, release builds run IR passes that:
+
+- Expand statement-context `if` expressions and empty IIFEs into real `if`/`else`
+  (keeps IIFEs only in mid-expression positions so falsey `Option` arms stay correct)
+- Inline trivial single-use closures (e.g. `|n| n + 1` in `.map`)
+- Flatten nested string concatenations from `format!` / asserts
+
+Codegen also shares `{ __index = Type }` metatable locals for types with methods.
+
+These reduce Lua 5.2 `CLOSURE` / `CALL` / `NEWTABLE` traffic versus naive IIFE
+emission. When investigating a hot helper, `luac -l` (Lua 5.2) on the emitted
+chunk is a useful before/after check; Factorio’s opcode list matches stock 5.2.
 
 ## CLI defaults
 

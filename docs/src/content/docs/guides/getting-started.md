@@ -48,10 +48,12 @@ factorio_version = "2.0"
 [profiles.debug]
 debug_level = 1
 prune_dead_code = false
+optimize_ir = false
 
 [profiles.release]
 debug_level = 0
 prune_dead_code = true
+optimize_ir = true
 ```
 
 :::note

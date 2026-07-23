@@ -38,11 +38,19 @@ fn emit(expr: &Expression) -> String {
 fn mul_binds_tighter_than_add() {
     // a + b * c  and  a * b + c
     assert_eq!(
-        emit(&bin(id("a"), Operator::Add, bin(id("b"), Operator::Mul, id("c")))),
+        emit(&bin(
+            id("a"),
+            Operator::Add,
+            bin(id("b"), Operator::Mul, id("c"))
+        )),
         "a + b * c"
     );
     assert_eq!(
-        emit(&bin(bin(id("a"), Operator::Mul, id("b")), Operator::Add, id("c"))),
+        emit(&bin(
+            bin(id("a"), Operator::Mul, id("b")),
+            Operator::Add,
+            id("c")
+        )),
         "a * b + c"
     );
 }
@@ -50,11 +58,19 @@ fn mul_binds_tighter_than_add() {
 #[test]
 fn and_binds_tighter_than_or() {
     assert_eq!(
-        emit(&bin(id("a"), Operator::Or, bin(id("b"), Operator::And, id("c")))),
+        emit(&bin(
+            id("a"),
+            Operator::Or,
+            bin(id("b"), Operator::And, id("c"))
+        )),
         "a or b and c"
     );
     assert_eq!(
-        emit(&bin(bin(id("a"), Operator::And, id("b")), Operator::Or, id("c"))),
+        emit(&bin(
+            bin(id("a"), Operator::And, id("b")),
+            Operator::Or,
+            id("c")
+        )),
         "a and b or c"
     );
 }
@@ -103,10 +119,7 @@ fn same_precedence_is_left_associative_with_rhs_parens() {
 
 #[test]
 fn unary_neg_from_zero_minus() {
-    assert_eq!(
-        emit(&bin(lit_int(0), Operator::Sub, id("x"))),
-        "-x"
-    );
+    assert_eq!(emit(&bin(lit_int(0), Operator::Sub, id("x"))), "-x");
     assert_eq!(
         emit(&bin(
             lit_int(0),
@@ -154,16 +167,8 @@ fn operator_matrix_emits_and_parses() {
     ];
     for &outer in &ops {
         for &inner in &ops {
-            let left_inner = bin(
-                bin(id("a"), inner, id("b")),
-                outer,
-                id("c"),
-            );
-            let right_inner = bin(
-                id("a"),
-                outer,
-                bin(id("b"), inner, id("c")),
-            );
+            let left_inner = bin(bin(id("a"), inner, id("b")), outer, id("c"));
+            let right_inner = bin(id("a"), outer, bin(id("b"), inner, id("c")));
             let _ = emit(&left_inner);
             let _ = emit(&right_inner);
         }

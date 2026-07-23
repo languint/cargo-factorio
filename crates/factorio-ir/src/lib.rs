@@ -8,6 +8,7 @@ pub mod literal;
 pub mod locale;
 pub mod module;
 pub mod operator;
+pub mod opt;
 pub mod prune;
 pub mod scope;
 pub mod span;

@@ -101,18 +101,21 @@ let entity = surface
     .ok_or("failed to place entity")?;
 ```
 
-Becomes roughly:
+Becomes roughly (release / `optimize_ir`, statement context):
 
 ```lua
 local __o = surface.create_entity(params)
+local __tmp
 if __o ~= nil then
-	-- { ok = __o }
+	__tmp = { ok = __o }
 else
-	-- { err = "failed to place entity" }
+	__tmp = { err = "failed to place entity" }
 end
 -- then `?` may early-return the Err table
 ```
 
+Mid-expression uses still lower through a safe IIFE so falsey then-arms
+(e.g. `Some(false)`) are not lost to Lua `and`/`or`.
 ### `.unwrap()` and `.expect()`
 
 These **do not** check for nil. They strip to the receiver and emit lints

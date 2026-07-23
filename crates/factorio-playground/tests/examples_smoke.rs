@@ -5,7 +5,7 @@
 )]
 
 fn ok(label: &str, files: &serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
-    let result = factorio_playground::transpile_files(&files.to_string());
+    let result = factorio_playground::transpile_files(&files.to_string(), "debug");
     assert!(result.ok, "{label}: {:?}", result.message);
     serde_json::from_str(result.files_json.as_ref().expect("files")).expect("json")
 }

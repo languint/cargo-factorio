@@ -18,7 +18,8 @@ pub struct LuaGenerator {
     output: String,
     indent_level: usize,
     /// Rewrites `StructName.associated` paths while generating struct methods.
-    struct_table_context: Option<(String, String)>,
+    /// `(type_name, table_path, has_methods)`.
+    struct_table_context: Option<(String, String, bool)>,
     debug_level: Option<u8>,
     mod_name: String,
     /// Depth of nested `for` / `while` loops, used for `::__continue_N::` labels.
@@ -34,6 +35,8 @@ pub struct LuaGenerator {
     module_type_names: std::collections::HashSet<String>,
     /// Locals forward-declared before vtables so closures capture upvalues.
     forward_declared_locals: std::collections::HashSet<String>,
+    /// Shared `{ __index = Type }` locals keyed by type name (`Point` -> `__mt_Point`).
+    shared_metatable_locals: std::collections::HashMap<String, String>,
 }
 
 impl Default for LuaGenerator {
@@ -63,6 +66,7 @@ impl LuaGenerator {
             current_module_table: None,
             module_type_names: std::collections::HashSet::new(),
             forward_declared_locals: std::collections::HashSet::new(),
+            shared_metatable_locals: std::collections::HashMap::new(),
         }
     }
 
@@ -81,6 +85,7 @@ impl LuaGenerator {
             current_module_table: None,
             module_type_names: std::collections::HashSet::new(),
             forward_declared_locals: std::collections::HashSet::new(),
+            shared_metatable_locals: std::collections::HashMap::new(),
         }
     }
 
@@ -99,6 +104,7 @@ impl LuaGenerator {
             current_module_table: None,
             module_type_names: std::collections::HashSet::new(),
             forward_declared_locals: std::collections::HashSet::new(),
+            shared_metatable_locals: std::collections::HashMap::new(),
         }
     }
 
@@ -136,6 +142,7 @@ impl LuaGenerator {
             current_module_table: self.current_module_table.clone(),
             module_type_names: self.module_type_names.clone(),
             forward_declared_locals: self.forward_declared_locals.clone(),
+            shared_metatable_locals: self.shared_metatable_locals.clone(),
         }
     }
 
@@ -400,7 +407,10 @@ impl LuaGenerator {
         }
     }
 
-    fn forward_declare_private_functions(&mut self, statements: &[factorio_ir::statement::Statement]) {
+    fn forward_declare_private_functions(
+        &mut self,
+        statements: &[factorio_ir::statement::Statement],
+    ) {
         let mut names = std::collections::BTreeSet::new();
         for statement in statements {
             if let Statement::FunctionDecl(function) = statement {

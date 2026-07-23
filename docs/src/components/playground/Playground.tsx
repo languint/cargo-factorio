@@ -22,7 +22,10 @@ import {
 } from "./examples";
 import "./playground.css";
 
-type TranspileFilesFn = (filesJson: string) => {
+type TranspileFilesFn = (
+  filesJson: string,
+  profile: string,
+) => {
   ok: boolean;
   files_json?: string;
   message?: string;
@@ -93,6 +96,7 @@ function menuItemsFor(
 export default function Playground() {
   const initial = defaultExample();
   const [exampleId, setExampleId] = useState(initial.id);
+  const [profile, setProfile] = useState<"debug" | "release">("debug");
   const [files, setFiles] = useState<PlaygroundFileMap>({ ...initial.files });
   const [activeRust, setActiveRust] = useState(
     initial.activeFile ?? sortedPaths(initial.files)[0] ?? "",
@@ -141,53 +145,56 @@ export default function Playground() {
   const activeRustRef = useRef(activeRust);
   activeRustRef.current = activeRust;
 
-  const run = useCallback((nextFiles: PlaygroundFileMap) => {
-    const transpileFiles = transpileRef.current;
-    if (!transpileFiles) {
-      return;
-    }
-    const result = transpileFiles(JSON.stringify(nextFiles));
-    try {
-      if (result.ok && result.files_json) {
-        const parsed = JSON.parse(result.files_json) as PlaygroundFileMap;
-        setLuaFiles(parsed);
-        setError(null);
-        setActiveLua((current) => {
-          if (current && parsed[current]) {
-            return current;
-          }
-          if (parsed["control.lua"]) {
-            return "control.lua";
-          }
-          const preferred = rustPathToLua(activeRustRef.current);
-          if (parsed[preferred]) {
-            return preferred;
-          }
-          const roots = ["data.lua", "settings.lua", "info.json"];
-          for (const root of roots) {
-            if (parsed[root]) {
-              return root;
-            }
-          }
-          return sortedPaths(parsed)[0] ?? "";
-        });
-      } else {
-        setLuaFiles({});
-        setActiveLua("");
-        setError(result.message ?? "Transpile failed");
+  const run = useCallback(
+    (nextFiles: PlaygroundFileMap, nextProfile: "debug" | "release") => {
+      const transpileFiles = transpileRef.current;
+      if (!transpileFiles) {
+        return;
       }
-    } finally {
-      result.free();
-    }
-  }, []);
+      const result = transpileFiles(JSON.stringify(nextFiles), nextProfile);
+      try {
+        if (result.ok && result.files_json) {
+          const parsed = JSON.parse(result.files_json) as PlaygroundFileMap;
+          setLuaFiles(parsed);
+          setError(null);
+          setActiveLua((current) => {
+            if (current && parsed[current]) {
+              return current;
+            }
+            if (parsed["control.lua"]) {
+              return "control.lua";
+            }
+            const preferred = rustPathToLua(activeRustRef.current);
+            if (parsed[preferred]) {
+              return preferred;
+            }
+            const roots = ["data.lua", "settings.lua", "info.json"];
+            for (const root of roots) {
+              if (parsed[root]) {
+                return root;
+              }
+            }
+            return sortedPaths(parsed)[0] ?? "";
+          });
+        } else {
+          setLuaFiles({});
+          setActiveLua("");
+          setError(result.message ?? "Transpile failed");
+        }
+      } finally {
+        result.free();
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (status !== "ready") {
       return;
     }
-    const handle = window.setTimeout(() => run(files), 250);
+    const handle = window.setTimeout(() => run(files, profile), 250);
     return () => window.clearTimeout(handle);
-  }, [files, status, run]);
+  }, [files, profile, status, run]);
 
   useEffect(() => {
     if (!dragging) {
@@ -434,9 +441,23 @@ export default function Playground() {
             ))}
           </select>
         </label>
+        <label className="fr-playground__field">
+          <span>Profile</span>
+          <select
+            value={profile}
+            onChange={(event) =>
+              setProfile(event.target.value === "release" ? "release" : "debug")
+            }
+            title="Release runs optimizations"
+          >
+            <option value="debug">debug</option>
+            <option value="release">release</option>
+          </select>
+        </label>
         <span className="fr-playground__status" data-status={status}>
           {status === "loading" && "Loading WASM..."}
-          {status === "ready" && "Live transpile"}
+          {status === "ready" &&
+            (profile === "release" ? "Live transpile (opt)" : "Live transpile")}
           {status === "failed" && "WASM missing"}
         </span>
       </div>
