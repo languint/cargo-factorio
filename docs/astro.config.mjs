@@ -7,13 +7,11 @@ import starlightSidebarTopics from "starlight-sidebar-topics";
 import { coreSidebar } from "./src/sidebars/core.mjs";
 import { guiSidebar } from "./src/sidebars/gui.mjs";
 
-const site = "https://languint.github.io";
-const base = "/factorio-rs";
+const site = "https://factorio-rs.dev";
 
 // https://astro.build/config
 export default defineConfig({
   site,
-  base,
   integrations: [
     react(),
     // Registered before starlight so Starlight skips its default sitemap().

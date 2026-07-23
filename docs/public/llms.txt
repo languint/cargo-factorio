@@ -2,35 +2,35 @@
 
 > Write Factorio mods in Rust. factorio-rs transpiles a Factorio-oriented Rust subset to loadable Lua mods with typed API stubs, events, settings, locale, and transpile-time safety lints.
 
-Docs: https://languint.github.io/factorio-rs/
+Docs: https://factorio-rs.dev/
 GitHub: https://github.com/languint/factorio-rs
 crates.io: https://crates.io/crates/factorio-rs
 
 ## Start here
 
-- [Introduction](https://languint.github.io/factorio-rs/intro/): What factorio-rs is and how it fits Factorio modding
-- [Installation](https://languint.github.io/factorio-rs/installation/): Install the CLI and SDK
-- [Getting started](https://languint.github.io/factorio-rs/guides/getting-started/): init, build, and load a mod
-- [First hour](https://languint.github.io/factorio-rs/recipes/first-hour/): First print and in-game test
-- [Playground](https://languint.github.io/factorio-rs/playground/): Live browser transpile preview
+- [Introduction](https://factorio-rs.dev/intro/): What factorio-rs is and how it fits Factorio modding
+- [Installation](https://factorio-rs.dev/installation/): Install the CLI and SDK
+- [Getting started](https://factorio-rs.dev/guides/getting-started/): init, build, and load a mod
+- [First hour](https://factorio-rs.dev/recipes/first-hour/): First print and in-game test
+- [Playground](https://factorio-rs.dev/playground/): Live browser transpile preview
 
 ## Guides
 
-- [Supported Rust](https://languint.github.io/factorio-rs/guides/language/)
-- [Stages](https://languint.github.io/factorio-rs/guides/stages/)
-- [Events and filters](https://languint.github.io/factorio-rs/guides/events/)
-- [Testing](https://languint.github.io/factorio-rs/guides/testing/)
-- [Lints](https://languint.github.io/factorio-rs/guides/lints/)
-- [Sharing code between mods](https://languint.github.io/factorio-rs/guides/dependencies/)
-- [Prototypes](https://languint.github.io/factorio-rs/guides/prototypes/)
+- [Supported Rust](https://factorio-rs.dev/guides/language/)
+- [Stages](https://factorio-rs.dev/guides/stages/)
+- [Events and filters](https://factorio-rs.dev/guides/events/)
+- [Testing](https://factorio-rs.dev/guides/testing/)
+- [Lints](https://factorio-rs.dev/guides/lints/)
+- [Sharing code between mods](https://factorio-rs.dev/guides/dependencies/)
+- [Prototypes](https://factorio-rs.dev/guides/prototypes/)
 
 ## Recipes and reference
 
-- [Recipes](https://languint.github.io/factorio-rs/recipes/)
-- [CLI](https://languint.github.io/factorio-rs/reference/cli/)
-- [Factorio.toml](https://languint.github.io/factorio-rs/reference/factorio-toml/)
-- [Macros and attributes](https://languint.github.io/factorio-rs/reference/macros/)
+- [Recipes](https://factorio-rs.dev/recipes/)
+- [CLI](https://factorio-rs.dev/reference/cli/)
+- [Factorio.toml](https://factorio-rs.dev/reference/factorio-toml/)
+- [Macros and attributes](https://factorio-rs.dev/reference/macros/)
 
 ## Ecosystem
 
-- [factorio-rs-gui](https://languint.github.io/factorio-rs/ecosystem/factorio-rs-gui/): Reactive GUI helpers for factorio-rs mods
+- [factorio-rs-gui](https://factorio-rs.dev/ecosystem/factorio-rs-gui/): Reactive GUI helpers for factorio-rs mods

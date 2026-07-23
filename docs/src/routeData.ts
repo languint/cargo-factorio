@@ -1,8 +1,7 @@
 import { defineRouteMiddleware } from "@astrojs/starlight/route-data";
 
-const DOCS_ORIGIN = "https://languint.github.io";
-const DOCS_BASE = "/factorio-rs";
-const OG_IMAGE = `${DOCS_ORIGIN}${DOCS_BASE}/og/social-v2.png`;
+const DOCS_ORIGIN = "https://factorio-rs.dev";
+const OG_IMAGE = `${DOCS_ORIGIN}/og/social-v2.png`;
 const GITHUB_URL = "https://github.com/languint/factorio-rs";
 
 export const onRequest = defineRouteMiddleware((context) => {
@@ -16,7 +15,7 @@ export const onRequest = defineRouteMiddleware((context) => {
   const isHome =
     entry.id === "index" ||
     entry.id === "" ||
-    context.url.pathname.replace(/\/$/, "") === DOCS_BASE;
+    context.url.pathname.replace(/\/$/, "") === "";
 
   // Avoid "factorio-rs | factorio-rs" on the splash page.
   if (isHome) {
@@ -77,7 +76,7 @@ export const onRequest = defineRouteMiddleware((context) => {
           {
             "@type": "WebSite",
             name: siteTitle,
-            url: `${DOCS_ORIGIN}${DOCS_BASE}/`,
+            url: `${DOCS_ORIGIN}/`,
             description,
             publisher: {
               "@type": "Organization",
@@ -90,7 +89,7 @@ export const onRequest = defineRouteMiddleware((context) => {
             name: "factorio-rs",
             description:
               "Rust SDK for Factorio modding that transpiles Rust to loadable Lua mods.",
-            url: `${DOCS_ORIGIN}${DOCS_BASE}/`,
+            url: `${DOCS_ORIGIN}/`,
             codeRepository: GITHUB_URL,
             programmingLanguage: ["Rust", "Lua"],
             runtimePlatform: "Factorio",
@@ -107,7 +106,7 @@ export const onRequest = defineRouteMiddleware((context) => {
         isPartOf: {
           "@type": "WebSite",
           name: siteTitle,
-          url: `${DOCS_ORIGIN}${DOCS_BASE}/`,
+          url: `${DOCS_ORIGIN}/`,
         },
         author: {
           "@type": "Organization",

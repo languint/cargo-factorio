@@ -4,7 +4,7 @@ Reactive, builder-style GUI helpers for [factorio-rs](https://crates.io/crates/f
 
 | | |
 | --- | --- |
-| Docs | <https://languint.github.io/factorio-rs/ecosystem/factorio-rs-gui/> |
+| Docs | <https://factorio-rs.dev/ecosystem/factorio-rs-gui/> |
 | crates.io | [`factorio-rs-gui`](https://crates.io/crates/factorio-rs-gui) |
 | Factorio mod | [`factorio-rs-gui`](https://mods.factorio.com/mod/factorio-rs-gui) |
 

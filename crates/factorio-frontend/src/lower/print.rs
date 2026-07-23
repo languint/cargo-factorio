@@ -741,11 +741,10 @@ pub fn infer_debug_type_key(
             let else_key = infer_debug_type_key(else_expr, ctx)?;
             (then_key == else_key).then_some(then_key)
         }
-        factorio_ir::expression::Expression::Call { func, args }
-            if args.is_empty()
-                && let factorio_ir::expression::Expression::Closure { body, .. } =
-                    func.as_ref() =>
-        {
+        factorio_ir::expression::Expression::Call { func, args } if args.is_empty() => {
+            let factorio_ir::expression::Expression::Closure { body, .. } = func.as_ref() else {
+                return None;
+            };
             body.statements.iter().rev().find_map(|statement| {
                 if let factorio_ir::statement::Statement::Return(Some(value)) = statement {
                     infer_debug_type_key(value, ctx)

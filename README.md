@@ -5,7 +5,7 @@
     <p>
       <a href="https://crates.io/crates/factorio-rs"><img alt="crates.io" src="https://img.shields.io/crates/v/factorio-rs.svg"></a>
       <a href="https://crates.io/crates/factorio-rs-cli"><img alt="factorio-rs-cli" src="https://img.shields.io/crates/v/factorio-rs-cli.svg"></a>
-      <a href="https://languint.github.io/factorio-rs/"><img alt="docs" src="https://img.shields.io/badge/docs-online-blue"></a>
+      <a href="https://factorio-rs.dev/"><img alt="docs" src="https://img.shields.io/badge/docs-online-blue"></a>
       <img alt="MSRV" src="https://img.shields.io/badge/MSRV-1.88-blue">
       <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-green"></a>
     </p>
@@ -53,7 +53,7 @@ factorio-rs build
 have a Factorio install; use `factorio-rs test` to run in-game `#[test]`s.
 For edit-reload loops, install [Bacon](https://dystroy.org/bacon/) and use
 `factorio-rs init --bacon` / `bacon -j factorio-reload` (see
-[Hot reload with Bacon](https://languint.github.io/factorio-rs/recipes/hot-reload-bacon/)).
+[Hot reload with Bacon](https://factorio-rs.dev/recipes/hot-reload-bacon/)).
 
 ## Pipeline
 
@@ -65,14 +65,14 @@ For edit-reload loops, install [Bacon](https://dystroy.org/bacon/) and use
 
 ## Docs
 
-- **Book:** https://languint.github.io/factorio-rs/
-- **Start:** [Getting started](https://languint.github.io/factorio-rs/guides/getting-started/) -
-  [Playground](https://languint.github.io/factorio-rs/playground/) -
-  [First hour](https://languint.github.io/factorio-rs/recipes/first-hour/)
-- **Recipes / language:** [Testing](https://languint.github.io/factorio-rs/guides/testing/) -
-  [Dependencies](https://languint.github.io/factorio-rs/guides/dependencies/) -
-  [Supported Rust](https://languint.github.io/factorio-rs/guides/language/) -
-  [Lints](https://languint.github.io/factorio-rs/guides/lints/)
+- **Book:** https://factorio-rs.dev/
+- **Start:** [Getting started](https://factorio-rs.dev/guides/getting-started/) -
+  [Playground](https://factorio-rs.dev/playground/) -
+  [First hour](https://factorio-rs.dev/recipes/first-hour/)
+- **Recipes / language:** [Testing](https://factorio-rs.dev/guides/testing/) -
+  [Dependencies](https://factorio-rs.dev/guides/dependencies/) -
+  [Supported Rust](https://factorio-rs.dev/guides/language/) -
+  [Lints](https://factorio-rs.dev/guides/lints/)
 - **crates.io:** [factorio-rs](https://crates.io/crates/factorio-rs) -
   [factorio-rs-cli](https://crates.io/crates/factorio-rs-cli) -
   [factorio-rs-gui](https://crates.io/crates/factorio-rs-gui)

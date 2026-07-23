@@ -7,8 +7,8 @@ edition = "2024"
 rust-version = "1.88"
 license = "MIT"
 repository = "https://github.com/languint/factorio-rs"
-homepage = "https://languint.github.io/factorio-rs/"
-documentation = "https://languint.github.io/factorio-rs/"
+homepage = "https://factorio-rs.dev/"
+documentation = "https://factorio-rs.dev/"
 
 [workspace.dependencies]
 factorio-rs = { version = "0.3.2", path = "../crates/factorio-rs" }

@@ -364,7 +364,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Standard Lua libraries, `storage`, and `serpent` support.
 - Debug / `{:?}` printing guided by Factorio type data.
 - Function parameters in more call sites; locale example crate.
-- Docs guide: [Option and Result](https://languint.github.io/factorio-rs/guides/option-and-result/).
+- Docs guide: [Option and Result](https://factorio-rs.dev/guides/option-and-result/).
 
 ### Fixed
 

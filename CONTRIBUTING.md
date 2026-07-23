@@ -6,9 +6,9 @@ or bug reports.
 
 ## Before you start
 
-1. Read the [docs](https://languint.github.io/factorio-rs/) - especially
-   [Supported Rust](https://languint.github.io/factorio-rs/guides/language/) and
-   [Lints](https://languint.github.io/factorio-rs/guides/lints/).
+1. Read the [docs](https://factorio-rs.dev/) - especially
+   [Supported Rust](https://factorio-rs.dev/guides/language/) and
+   [Lints](https://factorio-rs.dev/guides/lints/).
 2. Search [existing issues](https://github.com/languint/factorio-rs/issues) before
    opening a new one.
 
@@ -21,7 +21,7 @@ Requirements:
 
 - **Rust 1.88+** (edition 2024; MSRV is `1.88` - let-chains in `if` / `while`)
 - Optional: Factorio (for `factorio-rs test`) - see
-  [Testing](https://languint.github.io/factorio-rs/guides/testing/)
+  [Testing](https://factorio-rs.dev/guides/testing/)
 - Optional: Node/pnpm for the docs site under `docs/`
 
 Clone and verify:
