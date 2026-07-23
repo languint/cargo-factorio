@@ -1,0 +1,43 @@
+//! Data-stage prototype proc macros.
+
+mod assembling_machine;
+mod autoplace_control;
+pub mod common;
+mod container;
+pub mod define;
+mod fluid;
+mod furnace;
+pub mod helpers;
+mod inserter;
+mod item;
+mod item_group;
+mod item_subgroup;
+mod lab;
+mod mining_drill;
+mod module;
+pub mod names;
+mod recipe;
+mod recipe_category;
+mod resource;
+mod technology;
+mod tile;
+mod transport_belt;
+
+pub use assembling_machine::assembling_machine;
+pub use autoplace_control::autoplace_control;
+pub use container::container;
+pub use fluid::fluid;
+pub use furnace::furnace;
+pub use inserter::inserter;
+pub use item::item;
+pub use item_group::item_group;
+pub use item_subgroup::item_subgroup;
+pub use lab::lab;
+pub use mining_drill::mining_drill;
+pub use module::module_proto;
+pub use recipe::recipe;
+pub use recipe_category::recipe_category;
+pub use resource::resource;
+pub use technology::technology;
+pub use tile::tile;
+pub use transport_belt::transport_belt;

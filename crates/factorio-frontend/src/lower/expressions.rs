@@ -806,7 +806,8 @@ fn lower_method_call(
         });
     }
 
-    let dispatch = classify_method_dispatch(&call.receiver, &receiver, &method_name, args.len(), ctx);
+    let dispatch =
+        classify_method_dispatch(&call.receiver, &receiver, &method_name, args.len(), ctx);
     Ok(factorio_ir::expression::Expression::method_call_with(
         receiver,
         method_name,
@@ -916,9 +917,9 @@ fn ir_suggests_user_receiver(
             ir_suggests_user_receiver(receiver, ctx)
         }
         factorio_ir::expression::Expression::Call { func, .. } => match func.as_ref() {
-            factorio_ir::expression::Expression::QualifiedPath { segments } => segments
-                .first()
-                .is_some_and(|s| ctx.is_user_struct(s)),
+            factorio_ir::expression::Expression::QualifiedPath { segments } => {
+                segments.first().is_some_and(|s| ctx.is_user_struct(s))
+            }
             _ => false,
         },
         _ => false,

@@ -83,7 +83,7 @@ fn builder_setters_use_colon_on_method_chains() {
                 }),
                 method: "child".to_string(),
                 args: vec![Expression::Identifier("rows".to_string())],
-                    dispatch: factorio_ir::expression::MethodDispatch::Infer,
+                dispatch: factorio_ir::expression::MethodDispatch::Infer,
             })],
         },
         imports: vec![],

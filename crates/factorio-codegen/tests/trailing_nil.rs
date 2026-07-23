@@ -113,7 +113,7 @@ fn attribute_setter_lowers_to_property_assignment() {
         }),
         method: "set_width".to_string(),
         args: vec![Expression::Literal(Literal::Int(32))],
-            dispatch: factorio_ir::expression::MethodDispatch::Infer,
+        dispatch: factorio_ir::expression::MethodDispatch::Infer,
     };
     assert_eq!(
         LuaGenerator::new().generate_expression(&style),

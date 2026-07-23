@@ -1,0 +1,40 @@
+use super::define::define_proto;
+
+define_proto! {
+    fn: assembling_machine,
+    ty: AssemblingMachine,
+    names: "AssemblingMachines",
+    register: "register_assembling_machines",
+    fields: {
+        name: str,
+        icon: req_icon,
+        crafting_speed: f64,
+        crafting_categories: str_list,
+        energy_usage: str,
+        energy_type: str = "electric",
+        usage_priority: opt_str,
+        icon_size: opt_i64,
+        flags: opt_flags,
+        max_health: opt_f64,
+        module_slots: opt_i64,
+        subgroup: opt_str,
+        order: opt_str,
+    },
+    emit: {
+        name,
+        icon,
+        crafting_speed,
+        crafting_categories,
+        energy_usage,
+        energy_source: energy(energy_type, usage_priority),
+        icon_size,
+        flags,
+        minable: none,
+        max_health,
+        collision_box: none,
+        selection_box: none,
+        module_slots,
+        subgroup,
+        order,
+    }
+}
